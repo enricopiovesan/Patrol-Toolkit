@@ -4,4 +4,4 @@
 0.2.x = OSM ingestion and normalization (see `0.2.0.md`)  
 0.3.x = Full pack build with boundary-aware QA gates (see `0.3.0.md`)  
 0.4.x = Config-driven single-resort pipeline (see `0.4.0.md`)  
-1.0.0 = Stable multi-resort extraction pipeline
+1.0.0 = Stable multi-resort extraction pipeline (see `1.0.0.md`)
