@@ -17,7 +17,10 @@ export type IngestOsmOptions = {
   resortId?: string;
   resortName?: string;
   boundaryRelationId?: number;
+  bbox?: BoundingBox;
 };
+
+export type BoundingBox = [minLon: number, minLat: number, maxLon: number, maxLat: number];
 
 const SUPPORTED_AERIALWAYS = new Set([
   "chair_lift",
@@ -45,7 +48,8 @@ export async function ingestOsmToFile(options: IngestOsmOptions): Promise<Normal
     inputPath: basename(options.inputPath),
     resortId: options.resortId,
     resortName: options.resortName,
-    boundaryRelationId: options.boundaryRelationId
+    boundaryRelationId: options.boundaryRelationId,
+    bbox: options.bbox
   });
   assertNormalizedResortSource(normalized);
 
@@ -61,6 +65,7 @@ export function normalizeOsmDocument(
     resortId?: string;
     resortName?: string;
     boundaryRelationId?: number;
+    bbox?: BoundingBox;
   }
 ): NormalizedResortSource {
   const warnings: string[] = [];
@@ -78,17 +83,27 @@ export function normalizeOsmDocument(
     }
   }
 
-  const runs = Array.from(waysById.values())
-    .filter(isRunWay)
+  const runWays = Array.from(waysById.values()).filter(isRunWay);
+  const runs = runWays
+    .filter((way) => shouldIncludeWay(way, nodesById, options.bbox))
     .map((way) => toRun(way, nodesById, warnings))
     .filter((run): run is NormalizedRun => run !== null)
     .sort((left, right) => left.sourceWayId - right.sourceWayId);
 
-  const lifts = Array.from(waysById.values())
-    .filter(isLiftWay)
+  const liftWays = Array.from(waysById.values()).filter(isLiftWay);
+  const lifts = liftWays
+    .filter((way) => shouldIncludeWay(way, nodesById, options.bbox))
     .map((way) => toLift(way, nodesById, warnings))
     .filter((lift): lift is NormalizedLift => lift !== null)
     .sort((left, right) => left.sourceWayId - right.sourceWayId);
+
+  if (options.bbox) {
+    const skippedRuns = runWays.length - runs.length;
+    const skippedLifts = liftWays.length - lifts.length;
+    warnings.push(
+      `Applied bbox filter [${options.bbox.join(",")}]: kept runs=${runs.length}, lifts=${lifts.length}, skipped runs=${skippedRuns}, skipped lifts=${skippedLifts}.`
+    );
+  }
 
   const boundary = findBoundary({
     waysById,
@@ -278,6 +293,20 @@ function toCoordinates(nodeIds: number[], nodesById: Map<number, OSMNode>): LngL
     coordinates.push([node.lon, node.lat]);
   }
   return coordinates;
+}
+
+function shouldIncludeWay(way: OSMWay, nodesById: Map<number, OSMNode>, bbox?: BoundingBox): boolean {
+  if (!bbox) {
+    return true;
+  }
+
+  const coordinates = toCoordinates(way.nodes, nodesById);
+  return coordinates.some((point) => isPointInBbox(point, bbox));
+}
+
+function isPointInBbox(point: LngLat, bbox: BoundingBox): boolean {
+  const [minLon, minLat, maxLon, maxLat] = bbox;
+  return point[0] >= minLon && point[0] <= maxLon && point[1] >= minLat && point[1] <= maxLat;
 }
 
 function findBoundary(args: {

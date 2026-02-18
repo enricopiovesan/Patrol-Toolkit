@@ -66,7 +66,8 @@ export async function runExtractResortPipeline(
       outputPath: normalizedPath,
       resortId: config.resort.id,
       resortName: config.resort.name,
-      boundaryRelationId: config.resort.boundaryRelationId
+      boundaryRelationId: config.resort.boundaryRelationId,
+      bbox: config.source.area?.bbox
     });
     await logger.write("info", "resort_ingest_completed", {
       resortId: normalized.resort.id,

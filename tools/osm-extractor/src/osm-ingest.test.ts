@@ -117,6 +117,20 @@ describe("normalizeOsmDocument", () => {
     expect(right).toEqual(left);
   });
 
+  it("filters runs and lifts by configured bbox", () => {
+    const result = normalizeOsmDocument(demoDocument, {
+      sourceHash: "bbox-hash",
+      inputPath: "bbox.osm.json",
+      boundaryRelationId: 900,
+      bbox: [6.99, 44.99, 7.01, 45.01]
+    });
+
+    expect(result.runs).toHaveLength(1);
+    expect(result.runs[0]?.id).toBe("run-way-100");
+    expect(result.lifts).toHaveLength(0);
+    expect(result.warnings.some((warning) => warning.includes("Applied bbox filter"))).toBe(true);
+  });
+
   it("writes normalized data to output file through ingestOsmToFile", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "osm-ingest-"));
     const inputPath = join(workspace, "input.osm.json");
