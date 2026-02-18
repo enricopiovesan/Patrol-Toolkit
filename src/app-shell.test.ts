@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest";
-import type { AppShell } from "./app-shell";
-import "./app-shell";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./map/map-view", () => ({}));
 
 describe("AppShell", () => {
   afterEach(() => {
@@ -8,7 +8,9 @@ describe("AppShell", () => {
   });
 
   it("renders the patrol toolkit heading", async () => {
-    const element = document.createElement("app-shell") as AppShell;
+    const { AppShell } = await import("./app-shell");
+
+    const element = new AppShell();
     document.body.appendChild(element);
 
     await element.updateComplete;
