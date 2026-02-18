@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createAuditLogger, noopAuditLogger } from "./audit-log.js";
 import { runExtractFleetPipeline } from "./fleet-run.js";
 import { ingestOsmToFile } from "./osm-ingest.js";
 import { buildPackToFile } from "./pack-build.js";
@@ -86,11 +87,13 @@ async function main(): Promise<void> {
 
   if (command === "extract-resort") {
     const configPath = readFlag(args, "--config");
+    const logFile = readFlag(args, "--log-file");
     if (!configPath) {
       throw new Error("Missing required --config <path> argument.");
     }
 
-    const result = await runExtractResortPipeline(configPath);
+    const logger = logFile ? await createAuditLogger(logFile) : noopAuditLogger;
+    const result = await runExtractResortPipeline(configPath, { logger });
     console.log(
       `EXTRACTED resort=${result.resortId} runs=${result.runCount} lifts=${result.liftCount} boundaryGate=${result.boundaryGate} pack=${result.packPath}`
     );
@@ -99,11 +102,13 @@ async function main(): Promise<void> {
 
   if (command === "extract-fleet") {
     const configPath = readFlag(args, "--config");
+    const logFile = readFlag(args, "--log-file");
     if (!configPath) {
       throw new Error("Missing required --config <path> argument.");
     }
 
-    const result = await runExtractFleetPipeline(configPath);
+    const logger = logFile ? await createAuditLogger(logFile) : noopAuditLogger;
+    const result = await runExtractFleetPipeline(configPath, { logger });
     console.log(
       `FLEET_EXTRACTED resorts=${result.manifest.fleetSize} success=${result.manifest.successCount} failed=${result.manifest.failureCount} manifest=${result.manifestPath}`
     );
@@ -171,7 +176,7 @@ function hasFlag(args: string[], flag: string): boolean {
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path>\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json>\n  extract-fleet --config <fleet-config.json>`
+    `ptk-extractor commands:\n\n  validate-pack --input <path>\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>]`
   );
 }
 

@@ -19,3 +19,7 @@ Output: warning/error when entities are outside boundary.
 ## UC5 - Fleet Extraction
 Input: fleet config referencing multiple resort configs.
 Output: per-resort artifacts plus fleet manifest with success/failure accounting.
+
+## UC6 - Audit Trail Export
+Input: extraction command with `--log-file`.
+Output: JSONL audit trail with stage events and errors for operations troubleshooting.
