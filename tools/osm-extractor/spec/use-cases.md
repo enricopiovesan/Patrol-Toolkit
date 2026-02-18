@@ -15,3 +15,7 @@ Output: counts (runs/lifts/towers), schema version, resort id/name.
 ## UC4 - Boundary Gate
 Input: extracted geometries + resort boundary.
 Output: warning/error when entities are outside boundary.
+
+## UC5 - Fleet Extraction
+Input: fleet config referencing multiple resort configs.
+Output: per-resort artifacts plus fleet manifest with success/failure accounting.

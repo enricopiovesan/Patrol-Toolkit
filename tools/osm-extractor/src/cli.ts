@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { runExtractFleetPipeline } from "./fleet-run.js";
 import { ingestOsmToFile } from "./osm-ingest.js";
 import { buildPackToFile } from "./pack-build.js";
 import { readPack, summarizePack, validatePack } from "./pack-validate.js";
@@ -17,7 +18,8 @@ async function main(): Promise<void> {
     command !== "summarize-pack" &&
     command !== "ingest-osm" &&
     command !== "build-pack" &&
-    command !== "extract-resort"
+    command !== "extract-resort" &&
+    command !== "extract-fleet"
   ) {
     throw new Error(`Unknown command '${command}'.`);
   }
@@ -95,6 +97,19 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "extract-fleet") {
+    const configPath = readFlag(args, "--config");
+    if (!configPath) {
+      throw new Error("Missing required --config <path> argument.");
+    }
+
+    const result = await runExtractFleetPipeline(configPath);
+    console.log(
+      `FLEET_EXTRACTED resorts=${result.manifest.fleetSize} success=${result.manifest.successCount} failed=${result.manifest.failureCount} manifest=${result.manifestPath}`
+    );
+    return;
+  }
+
   const input = readFlag(args, "--input");
   if (!input) {
     throw new Error("Missing required --input <path> argument.");
@@ -156,7 +171,7 @@ function hasFlag(args: string[], flag: string): boolean {
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path>\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json>`
+    `ptk-extractor commands:\n\n  validate-pack --input <path>\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json>\n  extract-fleet --config <fleet-config.json>`
   );
 }
 
