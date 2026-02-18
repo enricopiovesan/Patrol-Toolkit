@@ -6,7 +6,7 @@ Output: validated `pack.json` and extraction report.
 
 ## UC2 - Validate Existing Pack Artifact
 Input: `pack.json` path.
-Output: pass/fail with machine-readable error list.
+Output: pass/fail with machine-readable error list including entity references when available.
 
 ## UC3 - Summarize Pack for Review
 Input: `pack.json` path.
