@@ -1,0 +1,313 @@
+import "fake-indexeddb/auto";
+import { readFileSync } from "node:fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import validPack from "../resort-pack/fixtures/valid-pack.json";
+
+vi.mock("../map/map-view", () => ({}));
+
+describe("v0.0.1 acceptance", () => {
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    document.body.innerHTML = "";
+    await waitForTick();
+    await deleteDatabase("patrol-toolkit");
+  });
+
+  it("works offline by serving cached app shell for navigation", async () => {
+    const listeners = new Map<string, (event: unknown) => void>();
+    const stores = new Map<string, Map<string, Response>>();
+    const caches = createMockCaches(stores);
+    const fetchMock = vi.fn(async () => {
+      throw new Error("offline");
+    });
+
+    const cleanup = loadServiceWorker(listeners, caches, fetchMock);
+
+    const installListener = listeners.get("install");
+    if (!installListener) {
+      cleanup();
+      throw new Error("Install listener not registered.");
+    }
+
+    const installPromise = createWaitUntilPromise(installListener);
+    await installPromise;
+
+    const fetchListener = listeners.get("fetch");
+    if (!fetchListener) {
+      cleanup();
+      throw new Error("Fetch listener not registered.");
+    }
+
+    const response = await createRespondWithPromise(
+      fetchListener,
+      {
+        url: "https://patrol.local/incident/123",
+        method: "GET",
+        mode: "navigate"
+      } as Request
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("cached:/index.html");
+
+    cleanup();
+  });
+
+  it("generates phrase under 2 seconds with run and tower context and copies it", async () => {
+    const shell = await createReadyShell();
+
+    const startedAt = performance.now();
+    await (shell as unknown as { generatePhrase: () => Promise<void> }).generatePhrase();
+    const elapsedMs = performance.now() - startedAt;
+
+    const phrase = readPhrase(shell);
+    expect(elapsedMs).toBeLessThan(2000);
+    expect(phrase).toContain("Easy Street");
+    expect(phrase).toContain("tower 2");
+
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    });
+
+    await (shell as unknown as { copyPhrase: () => Promise<void> }).copyPhrase();
+
+    expect(writeText).toHaveBeenCalledOnce();
+    expect(writeText).toHaveBeenCalledWith(phrase);
+  });
+
+  it("omits tower context when nearest tower is outside configured threshold", async () => {
+    const shell = await createReadyShell();
+    await setActivePackThreshold(shell, 10);
+
+    await (shell as unknown as { generatePhrase: () => Promise<void> }).generatePhrase();
+    const phrase = readPhrase(shell);
+
+    expect(phrase).toContain("Easy Street");
+    expect(phrase).not.toContain("tower");
+  });
+});
+
+async function createReadyShell(): Promise<HTMLElement> {
+  const { AppShell } = await import("../app-shell");
+  const shell = new AppShell();
+  document.body.appendChild(shell);
+
+  await waitForCondition(
+    () => (shell as unknown as { repository: unknown | null }).repository !== null
+  );
+
+  const file = {
+    text: async () => JSON.stringify(validPack)
+  };
+
+  await (shell as unknown as {
+    importPack: (event: { currentTarget: { files: unknown[]; value: string } }) => Promise<void>;
+  }).importPack({
+    currentTarget: {
+      files: [file],
+      value: ""
+    }
+  });
+
+  (shell as unknown as {
+    handlePositionUpdate: (event: CustomEvent<{ coordinates: [number, number]; accuracy: number }>) => void;
+  }).handlePositionUpdate(
+    new CustomEvent("position-update", {
+      detail: {
+        coordinates: [-106.9502, 39.1928],
+        accuracy: 8
+      }
+    })
+  );
+
+  return shell;
+}
+
+async function setActivePackThreshold(shell: HTMLElement, thresholdMeters: number): Promise<void> {
+  const repository = (shell as unknown as { repository: {
+    getActivePack: () => Promise<{ thresholds: { liftProximityMeters: number } } | null>;
+    savePack: (pack: unknown) => Promise<void>;
+  } | null }).repository;
+
+  if (!repository) {
+    throw new Error("Repository unavailable.");
+  }
+
+  const activePack = await repository.getActivePack();
+  if (!activePack) {
+    throw new Error("Active pack unavailable.");
+  }
+
+  const updatedPack = structuredClone(activePack);
+  updatedPack.thresholds.liftProximityMeters = thresholdMeters;
+  await repository.savePack(updatedPack);
+
+  (shell as unknown as { activePack: unknown }).activePack = updatedPack;
+}
+
+function readPhrase(shell: HTMLElement): string {
+  const phrase = shell.shadowRoot?.querySelector(".phrase-card")?.textContent;
+  return (phrase ?? "").replace(/\s+/gu, " ").trim();
+}
+
+async function waitForCondition(assertion: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (assertion()) {
+      return;
+    }
+
+    await waitForTick();
+  }
+
+  throw new Error("Condition not met in allotted time.");
+}
+
+function waitForTick(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 5);
+  });
+}
+
+function deleteDatabase(name: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(name);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error("Failed to delete test database."));
+    request.onblocked = () => resolve();
+  });
+}
+
+type ListenerMap = Map<string, (event: unknown) => void>;
+
+type MockCache = {
+  addAll: (requests: string[]) => Promise<void>;
+  match: (request: Request | string) => Promise<Response | undefined>;
+  put: (request: Request | string, response: Response) => Promise<void>;
+  keys: () => Promise<Request[]>;
+  delete: (request: Request | string) => Promise<boolean>;
+};
+
+type MockCaches = {
+  open: (name: string) => Promise<MockCache>;
+  keys: () => Promise<string[]>;
+  delete: (name: string) => Promise<boolean>;
+};
+
+function loadServiceWorker(
+  listeners: ListenerMap,
+  caches: MockCaches,
+  fetchMock: typeof fetch
+): () => void {
+  const originalSelf = (globalThis as { self?: unknown }).self;
+  const originalCaches = (globalThis as { caches?: unknown }).caches;
+  const originalFetch = (globalThis as { fetch?: unknown }).fetch;
+
+  const selfMock = {
+    location: new URL("https://patrol.local"),
+    addEventListener: (type: string, handler: (event: unknown) => void) => {
+      listeners.set(type, handler);
+    },
+    skipWaiting: vi.fn(),
+    clients: {
+      claim: vi.fn()
+    }
+  };
+
+  (globalThis as { self: unknown }).self = selfMock;
+  (globalThis as { caches: unknown }).caches = caches;
+  (globalThis as { fetch: unknown }).fetch = fetchMock;
+
+  const code = readFileSync("public/service-worker.js", "utf8");
+  new Function(code)();
+
+  return () => {
+    (globalThis as { self?: unknown }).self = originalSelf;
+    (globalThis as { caches?: unknown }).caches = originalCaches;
+    (globalThis as { fetch?: unknown }).fetch = originalFetch;
+  };
+}
+
+function createMockCaches(stores: Map<string, Map<string, Response>>): MockCaches {
+  return {
+    async open(name: string) {
+      if (!stores.has(name)) {
+        stores.set(name, new Map());
+      }
+
+      const store = stores.get(name);
+      if (!store) {
+        throw new Error("Missing cache store");
+      }
+
+      return {
+        async addAll(requests: string[]) {
+          for (const request of requests) {
+            store.set(toAbsoluteUrl(request), new Response(`cached:${request}`, { status: 200 }));
+          }
+        },
+        async match(request: Request | string) {
+          const key = typeof request === "string" ? toAbsoluteUrl(request) : request.url;
+          return store.get(key);
+        },
+        async put(request: Request | string, response: Response) {
+          const key = typeof request === "string" ? toAbsoluteUrl(request) : request.url;
+          store.set(key, response);
+        },
+        async keys() {
+          return [...store.keys()].map((url) => new Request(url));
+        },
+        async delete(request: Request | string) {
+          const key = typeof request === "string" ? toAbsoluteUrl(request) : request.url;
+          return store.delete(key);
+        }
+      };
+    },
+    async keys() {
+      return [...stores.keys()];
+    },
+    async delete(name: string) {
+      return stores.delete(name);
+    }
+  };
+}
+
+function createWaitUntilPromise(listener: (event: unknown) => void): Promise<void> {
+  let pending: Promise<unknown> | undefined;
+  listener({
+    waitUntil: (promise: Promise<unknown>) => {
+      pending = promise;
+    }
+  });
+
+  const promise = pending;
+  if (!promise) {
+    throw new Error("waitUntil was not called.");
+  }
+
+  return promise.then(() => undefined);
+}
+
+function createRespondWithPromise(
+  fetchListener: (event: unknown) => void,
+  request: Request
+): Promise<Response> {
+  let responsePromise: Promise<Response> | null = null;
+  fetchListener({
+    request,
+    respondWith: (promise: Promise<Response>) => {
+      responsePromise = promise;
+    }
+  });
+
+  if (!responsePromise) {
+    throw new Error("Service worker did not call respondWith.");
+  }
+
+  return responsePromise;
+}
+
+function toAbsoluteUrl(path: string): string {
+  return new URL(path, "https://patrol.local").toString();
+}
