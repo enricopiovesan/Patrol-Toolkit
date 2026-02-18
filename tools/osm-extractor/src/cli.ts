@@ -63,6 +63,7 @@ async function main(): Promise<void> {
     const stylePath = readFlag(args, "--style-path");
     const liftProximityMeters = readNumberFlag(args, "--lift-proximity-meters");
     const allowOutsideBoundary = hasFlag(args, "--allow-outside-boundary");
+    const generatedAt = readFlag(args, "--generated-at") ?? undefined;
 
     if (!input || !output || !report || !timezone || !pmtilesPath || !stylePath) {
       throw new Error(
@@ -78,7 +79,8 @@ async function main(): Promise<void> {
       pmtilesPath,
       stylePath,
       liftProximityMeters,
-      allowOutsideBoundary
+      allowOutsideBoundary,
+      generatedAt
     });
 
     console.log(
@@ -90,12 +92,13 @@ async function main(): Promise<void> {
   if (command === "extract-resort") {
     const configPath = readFlag(args, "--config");
     const logFile = readFlag(args, "--log-file");
+    const generatedAt = readFlag(args, "--generated-at") ?? undefined;
     if (!configPath) {
       throw new Error("Missing required --config <path> argument.");
     }
 
     const logger = logFile ? await createAuditLogger(logFile) : noopAuditLogger;
-    const result = await runExtractResortPipeline(configPath, { logger });
+    const result = await runExtractResortPipeline(configPath, { logger, generatedAt });
     console.log(
       `EXTRACTED resort=${result.resortId} runs=${result.runCount} lifts=${result.liftCount} boundaryGate=${result.boundaryGate} pack=${result.packPath} provenance=${result.provenancePath}`
     );
@@ -105,12 +108,13 @@ async function main(): Promise<void> {
   if (command === "extract-fleet") {
     const configPath = readFlag(args, "--config");
     const logFile = readFlag(args, "--log-file");
+    const generatedAt = readFlag(args, "--generated-at") ?? undefined;
     if (!configPath) {
       throw new Error("Missing required --config <path> argument.");
     }
 
     const logger = logFile ? await createAuditLogger(logFile) : noopAuditLogger;
-    const result = await runExtractFleetPipeline(configPath, { logger });
+    const result = await runExtractFleetPipeline(configPath, { logger, generatedAt });
     console.log(
       `FLEET_EXTRACTED resorts=${result.manifest.fleetSize} success=${result.manifest.successCount} failed=${result.manifest.failureCount} manifest=${result.manifestPath} provenance=${result.provenancePath}`
     );
@@ -233,7 +237,7 @@ function readBboxFlag(args: string[], flag: string): [number, number, number, nu
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>]`
   );
 }
 

@@ -6,6 +6,7 @@ import { ingestOsmToFile } from "./osm-ingest.js";
 import { readExtractResortConfig } from "./pipeline-config.js";
 import { readPack, validatePack } from "./pack-validate.js";
 import { sha256File, writeJsonFile } from "./provenance.js";
+import { resolveGeneratedAt } from "./timestamp.js";
 
 export type RunExtractResortPipelineResult = {
   normalizedPath: string;
@@ -21,6 +22,7 @@ export type RunExtractResortPipelineResult = {
     packSha256: string;
     reportSha256: string;
   };
+  generatedAt: string;
 };
 
 export async function runExtractResortPipeline(
@@ -28,6 +30,7 @@ export async function runExtractResortPipeline(
   options?: {
     logger?: AuditLogger;
     fleetResortId?: string;
+    generatedAt?: string;
   }
 ): Promise<RunExtractResortPipelineResult> {
   const logger = options?.logger ?? noopAuditLogger;
@@ -89,7 +92,8 @@ export async function runExtractResortPipeline(
       pmtilesPath: config.basemap.pmtilesPath,
       stylePath: config.basemap.stylePath,
       liftProximityMeters: config.thresholds?.liftProximityMeters,
-      allowOutsideBoundary: config.qa?.allowOutsideBoundary
+      allowOutsideBoundary: config.qa?.allowOutsideBoundary,
+      generatedAt: options?.generatedAt ?? config.determinism?.generatedAt
     });
     await logger.write("info", "resort_pack_build_completed", {
       resortId: normalized.resort.id,
@@ -109,6 +113,11 @@ export async function runExtractResortPipeline(
       throw new Error(`Pipeline generated invalid pack:\n${validation.errors.join("\n")}`);
     }
 
+    const generatedAt = resolveGeneratedAt({
+      override: options?.generatedAt ?? config.determinism?.generatedAt,
+      sourceTimestamp: normalized.source.osmBaseTimestamp
+    });
+
     const result = {
       normalizedPath,
       packPath,
@@ -122,12 +131,13 @@ export async function runExtractResortPipeline(
         normalizedSha256: await sha256File(normalizedPath),
         packSha256: await sha256File(packPath),
         reportSha256: await sha256File(reportPath)
-      }
+      },
+      generatedAt
     };
 
     await writeJsonFile(provenancePath, {
       schemaVersion: "1.2.0",
-      generatedAt: new Date().toISOString(),
+      generatedAt: result.generatedAt,
       configPath,
       resort: {
         id: result.resortId,

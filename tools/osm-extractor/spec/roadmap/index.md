@@ -9,4 +9,5 @@
 1.2.x = Deterministic provenance artifacts for resort and fleet outputs (see `1.2.0.md`)
 1.3.x = Machine-readable pack validation with entity references (see `1.3.0.md`)
 1.4.x = Area-config bbox filtering for scoped resort extraction (see `1.4.0.md`)
-1.5.x = Machine-readable pack summary output for review automation (see `1.5.0.md`)
+1.5.x = Deterministic timestamp controls for reproducible outputs (see `1.5.0.md`)
+1.6.x = Machine-readable pack summary output for review automation (see `1.6.0.md`)

@@ -10,6 +10,7 @@ import type {
 } from "./osm-normalized-types.js";
 import type { ResortPack } from "./pack-types.js";
 import { validatePack } from "./pack-validate.js";
+import { resolveGeneratedAt } from "./timestamp.js";
 
 export type BuildPackOptions = {
   inputPath: string;
@@ -20,6 +21,7 @@ export type BuildPackOptions = {
   stylePath: string;
   liftProximityMeters?: number;
   allowOutsideBoundary?: boolean;
+  generatedAt?: string;
 };
 
 type BoundaryIssue = {
@@ -56,7 +58,8 @@ export async function buildPackToFile(options: BuildPackOptions): Promise<{ pack
     pmtilesPath: options.pmtilesPath,
     stylePath: options.stylePath,
     liftProximityMeters: options.liftProximityMeters,
-    allowOutsideBoundary: options.allowOutsideBoundary
+    allowOutsideBoundary: options.allowOutsideBoundary,
+    generatedAt: options.generatedAt
   });
 
   await writeFile(options.outputPath, `${JSON.stringify(pack, null, 2)}\n`, "utf8");
@@ -73,6 +76,7 @@ export function buildPackFromNormalized(
     stylePath: string;
     liftProximityMeters?: number;
     allowOutsideBoundary?: boolean;
+    generatedAt?: string;
   }
 ): { pack: ResortPack; report: BuildPackReport } {
   const warnings = [...source.warnings];
@@ -115,7 +119,10 @@ export function buildPackFromNormalized(
 
   const report: BuildPackReport = {
     schemaVersion: "0.3.0",
-    generatedAt: new Date().toISOString(),
+    generatedAt: resolveGeneratedAt({
+      override: options.generatedAt,
+      sourceTimestamp: source.source.osmBaseTimestamp
+    }),
     sourceInput: options.inputPath,
     resortId: source.resort.id,
     counts: {

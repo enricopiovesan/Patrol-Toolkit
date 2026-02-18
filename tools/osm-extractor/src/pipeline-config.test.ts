@@ -17,7 +17,8 @@ describe("readExtractResortConfig", () => {
           resort: { timezone: "Europe/Rome", id: "demo-resort" },
           source: { osmInputPath: "./demo.osm.json", area: { bbox: [6.99, 44.99, 7.01, 45.01] } },
           output: { directory: "./out" },
-          basemap: { pmtilesPath: "packs/demo/base.pmtiles", stylePath: "packs/demo/style.json" }
+          basemap: { pmtilesPath: "packs/demo/base.pmtiles", stylePath: "packs/demo/style.json" },
+          determinism: { generatedAt: "2026-01-01T00:00:00.000Z" }
         }),
         "utf8"
       );
@@ -27,6 +28,7 @@ describe("readExtractResortConfig", () => {
       expect(config.resort.id).toBe("demo-resort");
       expect(config.output.directory).toBe("./out");
       expect(config.source.area?.bbox).toEqual([6.99, 44.99, 7.01, 45.01]);
+      expect(config.determinism?.generatedAt).toBe("2026-01-01T00:00:00.000Z");
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
@@ -44,7 +46,8 @@ describe("readExtractResortConfig", () => {
           resort: { timezone: "" },
           source: { area: { bbox: [7, 45, 8] } },
           output: { directory: "./out" },
-          basemap: { pmtilesPath: "packs/demo/base.pmtiles", stylePath: "packs/demo/style.json" }
+          basemap: { pmtilesPath: "packs/demo/base.pmtiles", stylePath: "packs/demo/style.json" },
+          determinism: { generatedAt: "" }
         }),
         "utf8"
       );

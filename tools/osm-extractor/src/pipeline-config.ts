@@ -32,6 +32,9 @@ export type ExtractResortConfig = {
   qa?: {
     allowOutsideBoundary?: boolean;
   };
+  determinism?: {
+    generatedAt?: string;
+  };
 };
 
 const configSchema = {
@@ -106,6 +109,13 @@ const configSchema = {
       additionalProperties: false,
       properties: {
         allowOutsideBoundary: { type: "boolean" }
+      }
+    },
+    determinism: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        generatedAt: { type: "string", minLength: 1 }
       }
     }
   }

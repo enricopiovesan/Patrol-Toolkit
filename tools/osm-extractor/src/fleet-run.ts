@@ -4,6 +4,7 @@ import { type AuditLogger, noopAuditLogger } from "./audit-log.js";
 import { readExtractFleetConfig } from "./fleet-config.js";
 import { runExtractResortPipeline } from "./pipeline-run.js";
 import { sha256File, writeJsonFile } from "./provenance.js";
+import { resolveGeneratedAt } from "./timestamp.js";
 
 export type FleetManifestEntry =
   | {
@@ -22,6 +23,7 @@ export type FleetManifestEntry =
         packSha256: string;
         reportSha256: string;
       };
+      generatedAt: string;
     }
   | {
       id: string;
@@ -43,6 +45,7 @@ export async function runExtractFleetPipeline(
   configPath: string,
   options?: {
     logger?: AuditLogger;
+    generatedAt?: string;
   }
 ): Promise<{ manifestPath: string; provenancePath: string; manifest: FleetManifest }> {
   const logger = options?.logger ?? noopAuditLogger;
@@ -70,7 +73,8 @@ export async function runExtractFleetPipeline(
     try {
       const result = await runExtractResortPipeline(resortConfigPath, {
         logger,
-        fleetResortId: resort.id
+        fleetResortId: resort.id,
+        generatedAt: options?.generatedAt ?? config.options?.generatedAt
       });
       entries.push({
         id: resort.id,
@@ -83,7 +87,8 @@ export async function runExtractFleetPipeline(
         runCount: result.runCount,
         liftCount: result.liftCount,
         boundaryGate: result.boundaryGate,
-        checksums: result.checksums
+        checksums: result.checksums,
+        generatedAt: result.generatedAt
       });
       await logger.write("info", "fleet_resort_completed", {
         fleetResortId: resort.id,
@@ -114,9 +119,14 @@ export async function runExtractFleetPipeline(
 
   const successCount = entries.filter((entry) => entry.status === "success").length;
   const failureCount = entries.length - successCount;
+  const sourceTimestamp = entries.find((entry) => entry.status === "success")?.generatedAt ?? null;
+  const generatedAt = resolveGeneratedAt({
+    override: options?.generatedAt ?? config.options?.generatedAt,
+    sourceTimestamp
+  });
   const manifest: FleetManifest = {
     schemaVersion: "1.0.0",
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     fleetSize: config.resorts.length,
     successCount,
     failureCount,
@@ -127,7 +137,7 @@ export async function runExtractFleetPipeline(
   const manifestSha256 = await sha256File(manifestPath);
   await writeJsonFile(provenancePath, {
     schemaVersion: "1.2.0",
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     configPath,
     manifest: {
       path: manifestPath,
