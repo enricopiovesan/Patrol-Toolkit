@@ -9,6 +9,11 @@ const LOCATION_ACCURACY_LAYER = "current-location-accuracy";
 const LOCATION_DOT_LAYER = "current-location-dot";
 const DEFAULT_CENTER: [number, number] = [7.2, 45.1];
 
+export type PositionUpdateDetail = {
+  coordinates: [number, number];
+  accuracy: number;
+};
+
 const BASE_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   name: "Patrol Toolkit Base",
@@ -137,6 +142,7 @@ export class MapView extends LitElement {
       onPosition: (position) => {
         this.status = `GPS lock ±${Math.round(position.accuracy)}m`;
         this.lastPosition = position;
+        this.dispatchPositionUpdate(position);
         this.updateLocationSource(position);
 
         if (this.followGps && this.map) {
@@ -256,6 +262,19 @@ export class MapView extends LitElement {
     }
 
     source.setData(this.buildLocationFeature(position));
+  }
+
+  private dispatchPositionUpdate(position: GeoPosition): void {
+    this.dispatchEvent(
+      new CustomEvent<PositionUpdateDetail>("position-update", {
+        detail: {
+          coordinates: [position.longitude, position.latitude],
+          accuracy: position.accuracy
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 
   private buildLocationFeature(position: GeoPosition): GeoJSON.Feature<GeoJSON.Point> {
