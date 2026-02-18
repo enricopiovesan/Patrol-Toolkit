@@ -185,6 +185,7 @@ Field validation and release resources:
 - [v0.0.1 patrol feedback template](docs/field-trial/v0.0.1-feedback-template.md)
 - [v0.0.1 release notes and tagging procedure](docs/releases/v0.0.1.md)
 - [tools workspace docs](tools/README.md)
+- [OSM extractor get started](tools/osm-extractor/GET_STARTED.md)
 - [OSM extractor CLI docs](tools/osm-extractor/README.md)
 - [OSM extractor troubleshooting](tools/osm-extractor/docs/troubleshooting.md)
 - [OSM extraction playbook](tools/osm-extractor/docs/data-extraction-playbook.md)
