@@ -31,6 +31,7 @@ Provide operator-grade documentation so a new maintainer can run, validate, trou
 ### PR d4 - Data Extraction Playbook Integration
 - Connect extractor docs with OSM data sourcing workflow.
 - Add repeatable handoff checklist from extracted artifacts to app import.
+- Status: implemented in `tools/osm-extractor/docs/data-extraction-playbook.md` and `tools/osm-extractor/docs/checklists/resort-handoff.md`.
 
 ## Shared Standards
 

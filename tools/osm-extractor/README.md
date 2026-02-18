@@ -308,6 +308,18 @@ Known stable error codes:
   - boundary/config/schema failure diagnostics,
   - CI parsing and gating examples.
 
+## Data Extraction Playbook
+
+- End-to-end extraction workflow and handoff process:
+  - `tools/osm-extractor/docs/data-extraction-playbook.md`
+- App import readiness checklist:
+  - `tools/osm-extractor/docs/checklists/resort-handoff.md`
+- Includes:
+  - working directory layout,
+  - single-resort and fleet execution flow,
+  - mandatory validation gates,
+  - app-side pack import verification steps.
+
 ## Links
 
 - Extractor spec vision: `tools/osm-extractor/spec/vision.md`
@@ -315,3 +327,5 @@ Known stable error codes:
 - Extractor use cases: `tools/osm-extractor/spec/use-cases.md`
 - Extractor roadmap index: `tools/osm-extractor/spec/roadmap/index.md`
 - Extractor troubleshooting: `tools/osm-extractor/docs/troubleshooting.md`
+- Extractor data playbook: `tools/osm-extractor/docs/data-extraction-playbook.md`
+- Extractor handoff checklist: `tools/osm-extractor/docs/checklists/resort-handoff.md`

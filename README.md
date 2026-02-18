@@ -187,6 +187,8 @@ Field validation and release resources:
 - [tools workspace docs](tools/README.md)
 - [OSM extractor CLI docs](tools/osm-extractor/README.md)
 - [OSM extractor troubleshooting](tools/osm-extractor/docs/troubleshooting.md)
+- [OSM extraction playbook](tools/osm-extractor/docs/data-extraction-playbook.md)
+- [Resort handoff checklist](tools/osm-extractor/docs/checklists/resort-handoff.md)
 
 ---
 
