@@ -9,6 +9,7 @@
 - Actionable validation messages with entity references.
 - Runs in CI without interactive prompts.
 - Output includes provenance metadata (source and timestamp).
+- If network-backed acquisition is used, requests must be rate-limit-safe (throttle, retry, and failure visibility).
 
 ## P2
 - Processing logs suitable for audit and troubleshooting.
