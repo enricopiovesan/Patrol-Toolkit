@@ -1,0 +1,24 @@
+{
+  "name": "Patrol Toolkit",
+  "short_name": "Patrol Toolkit",
+  "description": "Offline-first patrol location intelligence toolkit.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#eef3f6",
+  "theme_color": "#0f4c5c",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

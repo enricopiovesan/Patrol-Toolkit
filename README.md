@@ -157,7 +157,30 @@ Focused on field validation within real patrol operations.
 
 ---
 
+## Local Development
+
+Run locally:
+
+```bash
+npm install
+npm run dev
+```
+
+Quality gate:
+
+```bash
+npm run check
+```
+
+Offline shell verification:
+
+1. Build and preview with `npm run build && npm run preview`.
+2. Open the app once online to allow service worker install and asset caching.
+3. Disable network in browser devtools and reload.
+4. Confirm the app shell still loads.
+
+---
+
 ## License
 
-License to be determined.  
-Project currently maintained as a private community-focused initiative.
+MIT.
