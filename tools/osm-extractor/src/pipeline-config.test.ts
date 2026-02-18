@@ -15,7 +15,7 @@ describe("readExtractResortConfig", () => {
         JSON.stringify({
           schemaVersion: "0.4.0",
           resort: { timezone: "Europe/Rome", id: "demo-resort" },
-          source: { osmInputPath: "./demo.osm.json" },
+          source: { osmInputPath: "./demo.osm.json", area: { bbox: [6.99, 44.99, 7.01, 45.01] } },
           output: { directory: "./out" },
           basemap: { pmtilesPath: "packs/demo/base.pmtiles", stylePath: "packs/demo/style.json" }
         }),
@@ -26,6 +26,7 @@ describe("readExtractResortConfig", () => {
       expect(config.schemaVersion).toBe("0.4.0");
       expect(config.resort.id).toBe("demo-resort");
       expect(config.output.directory).toBe("./out");
+      expect(config.source.area?.bbox).toEqual([6.99, 44.99, 7.01, 45.01]);
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
@@ -41,7 +42,7 @@ describe("readExtractResortConfig", () => {
         JSON.stringify({
           schemaVersion: "0.4.0",
           resort: { timezone: "" },
-          source: {},
+          source: { area: { bbox: [7, 45, 8] } },
           output: { directory: "./out" },
           basemap: { pmtilesPath: "packs/demo/base.pmtiles", stylePath: "packs/demo/style.json" }
         }),
@@ -54,4 +55,3 @@ describe("readExtractResortConfig", () => {
     }
   });
 });
-

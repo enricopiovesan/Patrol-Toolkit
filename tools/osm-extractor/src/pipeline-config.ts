@@ -11,6 +11,9 @@ export type ExtractResortConfig = {
   };
   source: {
     osmInputPath: string;
+    area?: {
+      bbox: [number, number, number, number];
+    };
   };
   output: {
     directory: string;
@@ -53,7 +56,21 @@ const configSchema = {
       additionalProperties: false,
       required: ["osmInputPath"],
       properties: {
-        osmInputPath: { type: "string", minLength: 1 }
+        osmInputPath: { type: "string", minLength: 1 },
+        area: {
+          type: "object",
+          additionalProperties: false,
+          required: ["bbox"],
+          properties: {
+            bbox: {
+              type: "array",
+              minItems: 4,
+              maxItems: 4,
+              prefixItems: [{ type: "number" }, { type: "number" }, { type: "number" }, { type: "number" }],
+              items: false
+            }
+          }
+        }
       }
     },
     output: {

@@ -35,13 +35,15 @@ async function main(): Promise<void> {
     const resortId = readFlag(args, "--resort-id") ?? undefined;
     const resortName = readFlag(args, "--resort-name") ?? undefined;
     const boundaryRelationId = readIntegerFlag(args, "--boundary-relation-id");
+    const bbox = readBboxFlag(args, "--bbox");
 
     const result = await ingestOsmToFile({
       inputPath: input,
       outputPath: output,
       resortId,
       resortName,
-      boundaryRelationId
+      boundaryRelationId,
+      bbox
     });
 
     console.log(
@@ -197,9 +199,31 @@ function hasFlag(args: string[], flag: string): boolean {
   return args.includes(flag);
 }
 
+function readBboxFlag(args: string[], flag: string): [number, number, number, number] | undefined {
+  const value = readFlag(args, flag);
+  if (value === null) {
+    return undefined;
+  }
+
+  const parts = value.split(",").map((part) => Number(part.trim()));
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) {
+    throw new Error(`Flag ${flag} expects four comma-separated numbers: minLon,minLat,maxLon,maxLat`);
+  }
+
+  const [minLon, minLat, maxLon, maxLat] = parts;
+  if (!Number.isFinite(minLon) || !Number.isFinite(minLat) || !Number.isFinite(maxLon) || !Number.isFinite(maxLat)) {
+    throw new Error(`Flag ${flag} expects four numeric values.`);
+  }
+  if (minLon > maxLon || minLat > maxLat) {
+    throw new Error(`Flag ${flag} expects min values <= max values.`);
+  }
+
+  return [minLon, minLat, maxLon, maxLat];
+}
+
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>]`
   );
 }
 

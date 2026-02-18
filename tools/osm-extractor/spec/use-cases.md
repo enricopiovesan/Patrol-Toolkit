@@ -3,6 +3,7 @@
 ## UC1 - Generate Pack for One Resort
 Input: resort query/area config + output folder.
 Output: validated `pack.json` and extraction report.
+Note: area config can scope extraction to a bbox before pack generation.
 
 ## UC2 - Validate Existing Pack Artifact
 Input: `pack.json` path.
