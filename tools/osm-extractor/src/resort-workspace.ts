@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { Ajv2020, type ErrorObject } from "ajv/dist/2020.js";
 
 export type ResortWorkspaceLayerStatus = "pending" | "running" | "complete" | "failed";
@@ -111,6 +112,12 @@ export async function readResortWorkspace(path: string): Promise<ResortWorkspace
   const parsed = JSON.parse(raw) as unknown;
   assertResortWorkspace(parsed);
   return parsed;
+}
+
+export async function writeResortWorkspace(path: string, workspace: ResortWorkspace): Promise<void> {
+  assertResortWorkspace(workspace);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(workspace, null, 2)}\n`, "utf8");
 }
 
 export function assertResortWorkspace(value: unknown): asserts value is ResortWorkspace {
