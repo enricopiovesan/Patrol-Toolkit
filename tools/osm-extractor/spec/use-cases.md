@@ -40,3 +40,7 @@ Output: structured JSON result for CI automation (counts, status, and artifact p
 ## UC10 - Machine-readable Ingest/Build Result
 Input: `ingest-osm` or `build-pack` command with `--json`.
 Output: structured JSON command result for automation pipelines and machine parsing.
+
+## UC11 - Machine-readable CLI Failure Contract
+Input: any CLI command executed with `--json` that fails due to invalid input, flags, or runtime validation.
+Output: structured JSON error payload with command, stable code, message, and optional details for CI automation handling.
