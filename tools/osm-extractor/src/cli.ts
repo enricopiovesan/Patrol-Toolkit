@@ -2,6 +2,7 @@
 import { ingestOsmToFile } from "./osm-ingest.js";
 import { buildPackToFile } from "./pack-build.js";
 import { readPack, summarizePack, validatePack } from "./pack-validate.js";
+import { runExtractResortPipeline } from "./pipeline-run.js";
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
@@ -15,7 +16,8 @@ async function main(): Promise<void> {
     command !== "validate-pack" &&
     command !== "summarize-pack" &&
     command !== "ingest-osm" &&
-    command !== "build-pack"
+    command !== "build-pack" &&
+    command !== "extract-resort"
   ) {
     throw new Error(`Unknown command '${command}'.`);
   }
@@ -76,6 +78,19 @@ async function main(): Promise<void> {
 
     console.log(
       `PACK_BUILT resort=${result.pack.resort.id} runs=${result.pack.runs.length} lifts=${result.pack.lifts.length} boundaryGate=${result.report.boundaryGate.status}`
+    );
+    return;
+  }
+
+  if (command === "extract-resort") {
+    const configPath = readFlag(args, "--config");
+    if (!configPath) {
+      throw new Error("Missing required --config <path> argument.");
+    }
+
+    const result = await runExtractResortPipeline(configPath);
+    console.log(
+      `EXTRACTED resort=${result.resortId} runs=${result.runCount} lifts=${result.liftCount} boundaryGate=${result.boundaryGate} pack=${result.packPath}`
     );
     return;
   }
@@ -141,7 +156,7 @@ function hasFlag(args: string[], flag: string): boolean {
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path>\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path>\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json>`
   );
 }
 
