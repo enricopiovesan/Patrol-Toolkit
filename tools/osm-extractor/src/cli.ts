@@ -119,15 +119,38 @@ async function main(): Promise<void> {
   if (!input) {
     throw new Error("Missing required --input <path> argument.");
   }
+  const outputJson = hasFlag(args, "--json");
 
   const data = await readPack(input);
   const result = validatePack(data);
 
   if (!result.ok) {
+    if (outputJson && command === "validate-pack") {
+      throw new Error(
+        JSON.stringify(
+          {
+            ok: false,
+            issues: result.issues
+          },
+          null,
+          2
+        )
+      );
+    }
     throw new Error(`Invalid Resort Pack:\n${result.errors.join("\n")}`);
   }
 
   if (command === "validate-pack") {
+    if (outputJson) {
+      console.log(
+        JSON.stringify({
+          ok: true,
+          resort: result.value.resort.id,
+          schemaVersion: result.value.schemaVersion
+        })
+      );
+      return;
+    }
     console.log("VALID");
     return;
   }
@@ -176,7 +199,7 @@ function hasFlag(args: string[], flag: string): boolean {
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path>\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>]`
   );
 }
 
