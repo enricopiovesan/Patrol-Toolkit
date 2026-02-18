@@ -184,6 +184,9 @@ Field validation and release resources:
 - [v0.0.1 field trial runbook](docs/field-trial/v0.0.1-runbook.md)
 - [v0.0.1 patrol feedback template](docs/field-trial/v0.0.1-feedback-template.md)
 - [v0.0.1 release notes and tagging procedure](docs/releases/v0.0.1.md)
+- [tools workspace docs](tools/README.md)
+- [OSM extractor CLI docs](tools/osm-extractor/README.md)
+- [OSM extractor troubleshooting](tools/osm-extractor/docs/troubleshooting.md)
 
 ---
 
