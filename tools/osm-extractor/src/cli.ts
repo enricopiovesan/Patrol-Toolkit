@@ -9,6 +9,7 @@ import { buildPackToFile } from "./pack-build.js";
 import { readPack, summarizePack, summarizePackData, validatePack } from "./pack-validate.js";
 import { runExtractResortPipeline } from "./pipeline-run.js";
 import { searchResortCandidates } from "./resort-search.js";
+import { selectResortToWorkspace } from "./resort-select.js";
 
 type CliErrorJson = {
   ok: false;
@@ -46,6 +47,7 @@ async function main(): Promise<void> {
     command !== "ingest-osm" &&
     command !== "build-pack" &&
     command !== "resort-search" &&
+    command !== "resort-select" &&
     command !== "extract-resort" &&
     command !== "extract-fleet"
   ) {
@@ -56,6 +58,7 @@ async function main(): Promise<void> {
         "ingest-osm",
         "build-pack",
         "resort-search",
+        "resort-select",
         "extract-resort",
         "extract-fleet"
       ]
@@ -250,6 +253,79 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "resort-select") {
+    const workspacePath = readFlag(args, "--workspace");
+    const name = readFlag(args, "--name");
+    const country = readFlag(args, "--country");
+    const index = readIntegerFlag(args, "--index");
+    const limit = readIntegerFlag(args, "--limit") ?? 5;
+    const selectedAt = readFlag(args, "--selected-at") ?? undefined;
+    if (!workspacePath || !name || !country || index === undefined) {
+      throw new CliCommandError(
+        "MISSING_REQUIRED_FLAGS",
+        "Missing required --workspace <path> --name <value> --country <value> and --index <n> arguments.",
+        {
+          command: "resort-select",
+          required: ["--workspace", "--name", "--country", "--index"]
+        }
+      );
+    }
+    if (index < 1) {
+      throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --index expects an integer >= 1.", {
+        flag: "--index",
+        expected: "integer>=1",
+        value: String(index)
+      });
+    }
+    if (limit < 1) {
+      throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --limit expects an integer >= 1.", {
+        flag: "--limit",
+        expected: "integer>=1",
+        value: String(limit)
+      });
+    }
+
+    let result;
+    try {
+      result = await selectResortToWorkspace({
+        workspacePath,
+        name,
+        country,
+        index,
+        limit,
+        selectedAt
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CliCommandError("SELECTION_FAILED", message, {
+        command: "resort-select",
+        index,
+        limit
+      });
+    }
+
+    if (outputJson) {
+      console.log(
+        JSON.stringify({
+          ok: true,
+          selection: {
+            workspacePath: result.workspacePath,
+            selectedIndex: result.selectedIndex,
+            candidateCount: result.candidateCount,
+            selected: result.selected
+          }
+        })
+      );
+      return;
+    }
+
+    const [lon, lat] = result.selected.center;
+    console.log(
+      `RESORT_SELECTED index=${result.selectedIndex}/${result.candidateCount} workspace=${result.workspacePath} ${result.selected.displayName} [${result.selected.osmType}/${result.selected.osmId}] @ ${lat.toFixed(5)},${lon.toFixed(5)}`
+    );
+    return;
+  }
+
   const input = readFlag(args, "--input");
   if (!input) {
     throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --input <path> argument.", {
@@ -409,7 +485,7 @@ export function formatCliError(error: unknown, command: string | null): CliError
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
   );
 }
 
