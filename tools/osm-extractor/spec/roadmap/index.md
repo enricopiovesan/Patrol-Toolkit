@@ -13,3 +13,4 @@
 1.6.x = Machine-readable pack summary output for review automation (see `1.6.0.md`)
 1.7.x = Machine-readable extraction result output for automation (see `1.7.0.md`)
 1.8.x = Machine-readable ingest/build result output for CLI parity (see `1.8.0.md`)
+1.9.x = Machine-readable CLI error envelopes for automation-safe failures (see `1.9.0.md`)

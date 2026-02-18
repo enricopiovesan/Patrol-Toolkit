@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { createAuditLogger, noopAuditLogger } from "./audit-log.js";
 import { runExtractFleetPipeline } from "./fleet-run.js";
 import { toBuildPackJson, toExtractFleetJson, toExtractResortJson, toIngestOsmJson } from "./extraction-result.js";
@@ -6,6 +8,27 @@ import { ingestOsmToFile } from "./osm-ingest.js";
 import { buildPackToFile } from "./pack-build.js";
 import { readPack, summarizePack, summarizePackData, validatePack } from "./pack-validate.js";
 import { runExtractResortPipeline } from "./pipeline-run.js";
+
+type CliErrorJson = {
+  ok: false;
+  error: {
+    command: string | null;
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+};
+
+export class CliCommandError extends Error {
+  readonly code: string;
+  readonly details?: unknown;
+
+  constructor(code: string, message: string, details?: unknown) {
+    super(message);
+    this.code = code;
+    this.details = details;
+  }
+}
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
@@ -24,14 +47,19 @@ async function main(): Promise<void> {
     command !== "extract-resort" &&
     command !== "extract-fleet"
   ) {
-    throw new Error(`Unknown command '${command}'.`);
+    throw new CliCommandError("UNKNOWN_COMMAND", `Unknown command '${command}'.`, {
+      allowed: ["validate-pack", "summarize-pack", "ingest-osm", "build-pack", "extract-resort", "extract-fleet"]
+    });
   }
 
   if (command === "ingest-osm") {
     const input = readFlag(args, "--input");
     const output = readFlag(args, "--output");
     if (!input || !output) {
-      throw new Error("Missing required --input <path> and --output <path> arguments.");
+      throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --input <path> and --output <path> arguments.", {
+        command: "ingest-osm",
+        required: ["--input", "--output"]
+      });
     }
 
     const resortId = readFlag(args, "--resort-id") ?? undefined;
@@ -73,8 +101,13 @@ async function main(): Promise<void> {
     const generatedAt = readFlag(args, "--generated-at") ?? undefined;
 
     if (!input || !output || !report || !timezone || !pmtilesPath || !stylePath) {
-      throw new Error(
-        "Missing required flags. build-pack needs --input --output --report --timezone --pmtiles-path --style-path."
+      throw new CliCommandError(
+        "MISSING_REQUIRED_FLAGS",
+        "Missing required flags. build-pack needs --input --output --report --timezone --pmtiles-path --style-path.",
+        {
+          command: "build-pack",
+          required: ["--input", "--output", "--report", "--timezone", "--pmtiles-path", "--style-path"]
+        }
       );
     }
 
@@ -115,7 +148,10 @@ async function main(): Promise<void> {
     const logFile = readFlag(args, "--log-file");
     const generatedAt = readFlag(args, "--generated-at") ?? undefined;
     if (!configPath) {
-      throw new Error("Missing required --config <path> argument.");
+      throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --config <path> argument.", {
+        command: "extract-resort",
+        required: ["--config"]
+      });
     }
 
     const logger = logFile ? await createAuditLogger(logFile) : noopAuditLogger;
@@ -135,7 +171,10 @@ async function main(): Promise<void> {
     const logFile = readFlag(args, "--log-file");
     const generatedAt = readFlag(args, "--generated-at") ?? undefined;
     if (!configPath) {
-      throw new Error("Missing required --config <path> argument.");
+      throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --config <path> argument.", {
+        command: "extract-fleet",
+        required: ["--config"]
+      });
     }
 
     const logger = logFile ? await createAuditLogger(logFile) : noopAuditLogger;
@@ -160,7 +199,10 @@ async function main(): Promise<void> {
 
   const input = readFlag(args, "--input");
   if (!input) {
-    throw new Error("Missing required --input <path> argument.");
+    throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --input <path> argument.", {
+      command,
+      required: ["--input"]
+    });
   }
 
   const data = await readPack(input);
@@ -168,16 +210,9 @@ async function main(): Promise<void> {
 
   if (!result.ok) {
     if (outputJson && command === "validate-pack") {
-      throw new Error(
-        JSON.stringify(
-          {
-            ok: false,
-            issues: result.issues
-          },
-          null,
-          2
-        )
-      );
+      throw new CliCommandError("PACK_VALIDATION_FAILED", "Pack validation failed.", {
+        issues: result.issues
+      });
     }
     throw new Error(`Invalid Resort Pack:\n${result.errors.join("\n")}`);
   }
@@ -227,7 +262,11 @@ function readIntegerFlag(args: string[], flag: string): number | undefined {
 
   const parsed = Number(value);
   if (!Number.isInteger(parsed)) {
-    throw new Error(`Flag ${flag} expects an integer value.`);
+    throw new CliCommandError("INVALID_FLAG_VALUE", `Flag ${flag} expects an integer value.`, {
+      flag,
+      expected: "integer",
+      value
+    });
   }
   return parsed;
 }
@@ -240,7 +279,11 @@ function readNumberFlag(args: string[], flag: string): number | undefined {
 
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
-    throw new Error(`Flag ${flag} expects a numeric value.`);
+    throw new CliCommandError("INVALID_FLAG_VALUE", `Flag ${flag} expects a numeric value.`, {
+      flag,
+      expected: "number",
+      value
+    });
   }
   return parsed;
 }
@@ -257,18 +300,58 @@ function readBboxFlag(args: string[], flag: string): [number, number, number, nu
 
   const parts = value.split(",").map((part) => Number(part.trim()));
   if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) {
-    throw new Error(`Flag ${flag} expects four comma-separated numbers: minLon,minLat,maxLon,maxLat`);
+    throw new CliCommandError(
+      "INVALID_FLAG_VALUE",
+      `Flag ${flag} expects four comma-separated numbers: minLon,minLat,maxLon,maxLat`,
+      {
+        flag,
+        expected: "bbox(minLon,minLat,maxLon,maxLat)",
+        value
+      }
+    );
   }
 
   const [minLon, minLat, maxLon, maxLat] = parts;
   if (!Number.isFinite(minLon) || !Number.isFinite(minLat) || !Number.isFinite(maxLon) || !Number.isFinite(maxLat)) {
-    throw new Error(`Flag ${flag} expects four numeric values.`);
+    throw new CliCommandError("INVALID_FLAG_VALUE", `Flag ${flag} expects four numeric values.`, {
+      flag,
+      expected: "four-numbers",
+      value
+    });
   }
   if (minLon > maxLon || minLat > maxLat) {
-    throw new Error(`Flag ${flag} expects min values <= max values.`);
+    throw new CliCommandError("INVALID_FLAG_VALUE", `Flag ${flag} expects min values <= max values.`, {
+      flag,
+      expected: "min<=max",
+      value
+    });
   }
 
   return [minLon, minLat, maxLon, maxLat];
+}
+
+export function formatCliError(error: unknown, command: string | null): CliErrorJson {
+  if (error instanceof CliCommandError) {
+    return {
+      ok: false,
+      error: {
+        command,
+        code: error.code,
+        message: error.message,
+        details: error.details
+      }
+    };
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    ok: false,
+    error: {
+      command,
+      code: "COMMAND_FAILED",
+      message
+    }
+  };
 }
 
 function printHelp(): void {
@@ -277,8 +360,32 @@ function printHelp(): void {
   );
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
-  process.exit(1);
-});
+export function isCliEntryPointUrl(args: { importMetaUrl: string; entryPath: string | undefined }): boolean {
+  if (!args.entryPath) {
+    return false;
+  }
+  return args.importMetaUrl === pathToFileURL(resolve(args.entryPath)).href;
+}
+
+function isCliEntryPoint(): boolean {
+  return isCliEntryPointUrl({
+    importMetaUrl: import.meta.url,
+    entryPath: process.argv[1]
+  });
+}
+
+if (isCliEntryPoint()) {
+  main().catch((error: unknown) => {
+    const [command, ...args] = process.argv.slice(2);
+    const outputJson = hasFlag(args, "--json");
+    if (outputJson) {
+      console.error(JSON.stringify(formatCliError(error, command ?? null)));
+      process.exit(1);
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message);
+    process.exit(1);
+  });
+}
