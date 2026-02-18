@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0.0",
+  "resort": {
+    "id": "",
+    "name": "Broken Resort"
+  },
+  "basemap": {
+    "stylePath": "packs/broken/style.json"
+  },
+  "thresholds": {
+    "liftProximityMeters": -20
+  },
+  "lifts": [],
+  "runs": [
+    {
+      "id": "run-1",
+      "name": "Broken Run",
+      "difficulty": "red",
+      "polygon": {
+        "type": "Polygon",
+        "coordinates": []
+      },
+      "centerline": {
+        "type": "LineString",
+        "coordinates": [[-106.9, 91]]
+      }
+    }
+  ]
+}

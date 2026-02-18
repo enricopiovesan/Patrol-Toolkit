@@ -15,6 +15,7 @@
   "license": "MIT",
   "description": "Offline-first patrol location intelligence toolkit",
   "dependencies": {
+    "ajv": "^8.18.0",
     "lit": "^3.3.2",
     "maplibre-gl": "^5.18.0"
   },
