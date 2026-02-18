@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { createAuditLogger } from "./audit-log.js";
 import { runExtractFleetPipeline } from "./fleet-run.js";
 
 function buildDemoOsm(): Record<string, unknown> {
@@ -144,6 +145,53 @@ describe("runExtractFleetPipeline", () => {
         failureCount: number;
       };
       expect(manifest.failureCount).toBe(1);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("writes fleet-level audit events when logger is provided", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "fleet-run-logs-"));
+    const resortsDir = join(workspace, "resorts");
+    const osmPath = join(workspace, "ok.osm.json");
+    const resortConfig = join(resortsDir, "ok.json");
+    const fleetConfigPath = join(workspace, "fleet-config.json");
+    const logPath = join(workspace, "logs", "fleet-audit.jsonl");
+
+    try {
+      await mkdir(resortsDir, { recursive: true });
+      await writeFile(osmPath, JSON.stringify(buildDemoOsm()), "utf8");
+      await writeFile(
+        resortConfig,
+        JSON.stringify({
+          schemaVersion: "0.4.0",
+          resort: { id: "ok-resort", timezone: "Europe/Rome", boundaryRelationId: 900 },
+          source: { osmInputPath: "../ok.osm.json" },
+          output: { directory: "../out/ok" },
+          basemap: { pmtilesPath: "packs/ok/base.pmtiles", stylePath: "packs/ok/style.json" }
+        }),
+        "utf8"
+      );
+      await writeFile(
+        fleetConfigPath,
+        JSON.stringify({
+          schemaVersion: "1.0.0",
+          output: { manifestPath: "./out/fleet-manifest.json" },
+          resorts: [{ id: "ok-resort", configPath: "./resorts/ok.json" }]
+        }),
+        "utf8"
+      );
+
+      const logger = await createAuditLogger(logPath);
+      await runExtractFleetPipeline(fleetConfigPath, { logger });
+
+      const lines = (await readFile(logPath, "utf8"))
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line) as { event: string });
+      expect(lines.some((entry) => entry.event === "fleet_pipeline_started")).toBe(true);
+      expect(lines.some((entry) => entry.event === "fleet_manifest_written")).toBe(true);
+      expect(lines.some((entry) => entry.event === "fleet_pipeline_completed")).toBe(true);
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
