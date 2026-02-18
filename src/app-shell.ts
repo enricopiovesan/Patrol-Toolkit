@@ -1,8 +1,10 @@
 import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import "./map/map-view";
+import { composeRadioPhrase } from "./radio/phrase";
 import { loadResortPackFromJson } from "./resort-pack/loader";
 import { ResortPackRepository, type ResortPackListItem } from "./resort-pack/repository";
+import type { LngLat, ResortPack } from "./resort-pack/types";
 
 @customElement("app-shell")
 export class AppShell extends LitElement {
@@ -87,6 +89,58 @@ export class AppShell extends LitElement {
     .status-line strong {
       color: #0f172a;
     }
+
+    .radio-panel {
+      margin-top: 0.25rem;
+      border: 1px solid #dbe3ea;
+      border-radius: 12px;
+      padding: 0.9rem;
+      display: grid;
+      gap: 0.65rem;
+      background: #f8fafc;
+    }
+
+    .radio-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.6rem;
+    }
+
+    .radio-actions button {
+      min-height: 48px;
+      border-radius: 10px;
+      border: 1px solid #0f4c5c;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .radio-actions button.primary {
+      background: #0f4c5c;
+      color: #f8fafc;
+    }
+
+    .radio-actions button.secondary {
+      background: #ffffff;
+      color: #0f4c5c;
+    }
+
+    .phrase-card {
+      min-height: 48px;
+      border-radius: 10px;
+      border: 1px dashed #94a3b8;
+      background: #ffffff;
+      padding: 0.65rem 0.75rem;
+      display: grid;
+      align-items: center;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .phrase-hint {
+      font-size: 0.85rem;
+      color: #475569;
+    }
   `;
 
   private repository: ResortPackRepository | null = null;
@@ -105,6 +159,18 @@ export class AppShell extends LitElement {
 
   @state()
   private accessor hasStorage = true;
+
+  @state()
+  private accessor latestPosition: { coordinates: LngLat; accuracy: number } | null = null;
+
+  @state()
+  private accessor activePack: ResortPack | null = null;
+
+  @state()
+  private accessor generatedPhrase = "";
+
+  @state()
+  private accessor phraseStatus = "Waiting for GPS and active pack.";
 
   protected override async firstUpdated(): Promise<void> {
     try {
@@ -147,6 +213,7 @@ export class AppShell extends LitElement {
       : activePackId ?? fallbackSelection;
 
     const activePack = packs.find((pack) => pack.id === activePackId);
+    this.activePack = await this.repository.getActivePack();
     this.statusMessage = activePack
       ? `Active pack: ${activePack.name}`
       : "No active pack selected.";
@@ -218,6 +285,56 @@ export class AppShell extends LitElement {
     this.selectedPackId = select.value || null;
   }
 
+  private handlePositionUpdate(event: CustomEvent<{ coordinates: LngLat; accuracy: number }>): void {
+    this.latestPosition = event.detail;
+    this.phraseStatus = `GPS ready (±${Math.round(event.detail.accuracy)}m).`;
+  }
+
+  private async generatePhrase(): Promise<void> {
+    if (!this.repository) {
+      this.phraseStatus = "Phrase generation unavailable: storage not ready.";
+      return;
+    }
+
+    const activePack = this.activePack ?? (await this.repository.getActivePack());
+    if (!activePack) {
+      this.phraseStatus = "Set an active Resort Pack before generating phrase.";
+      return;
+    }
+
+    if (!this.latestPosition) {
+      this.phraseStatus = "Waiting for GPS position.";
+      return;
+    }
+
+    this.activePack = activePack;
+    const outcome = composeRadioPhrase(this.latestPosition.coordinates, activePack);
+    this.generatedPhrase = outcome.phrase;
+    this.phraseStatus = "Phrase generated.";
+  }
+
+  private async copyPhrase(): Promise<void> {
+    if (!this.generatedPhrase) {
+      this.phraseStatus = "Generate a phrase before copying.";
+      return;
+    }
+
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(this.generatedPhrase);
+        this.phraseStatus = "Phrase copied to clipboard.";
+        return;
+      } catch {
+        // Fallback below.
+      }
+    }
+
+    const copied = copyViaExecCommand(this.generatedPhrase);
+    this.phraseStatus = copied
+      ? "Phrase copied to clipboard."
+      : "Clipboard unavailable on this device/browser.";
+  }
+
   render() {
     return html`
       <main class="layout">
@@ -252,9 +369,42 @@ export class AppShell extends LitElement {
             </div>
             <div class="status-line"><strong>Status:</strong> ${this.statusMessage}</div>
           </section>
+          <section class="radio-panel" aria-label="Radio phrase generator">
+            <div class="radio-actions">
+              <button class="primary" @click=${this.generatePhrase}>Generate Phrase</button>
+              <button class="secondary" @click=${this.copyPhrase}>Copy Phrase</button>
+            </div>
+            <div class="phrase-card">${this.generatedPhrase || "No phrase generated yet."}</div>
+            <div class="phrase-hint">${this.phraseStatus}</div>
+          </section>
         </section>
-        <map-view></map-view>
+        <map-view @position-update=${this.handlePositionUpdate}></map-view>
       </main>
     `;
   }
+}
+
+function copyViaExecCommand(text: string): boolean {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  textarea.style.pointerEvents = "none";
+  textarea.style.left = "-9999px";
+
+  document.body.appendChild(textarea);
+  textarea.select();
+  textarea.setSelectionRange(0, text.length);
+
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+
+  return copied;
 }
