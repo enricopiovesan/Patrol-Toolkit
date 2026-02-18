@@ -1,16 +1,4 @@
-
-#  ██████╗  █████╗ ████████╗██████╗  ██████╗ ██╗         
-#  ██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗██╔═══██╗██║         
-#  ██████╔╝███████║   ██║   ██████╔╝██║   ██║██║         
-#  ██╔═══╝ ██╔══██║   ██║   ██╔══██╗██║   ██║██║         
-#  ██║     ██║  ██║   ██║   ██║  ██║╚██████╔╝███████╗    
-#  ╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝    
-#
-#                P A T R O L   T O O L K I T
-#
-#  Offline-first spatial intelligence for mountain patrol operations
-
-
+                                
 # Patrol Toolkit
 
 **Patrol Toolkit** is an offline-first, data-driven web platform designed to support mountain patrol operations in complex alpine environments.
