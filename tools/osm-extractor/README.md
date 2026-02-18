@@ -2,6 +2,9 @@
 
 `osm-extractor` is an offline-capable CLI that transforms local OpenStreetMap JSON into deterministic Patrol Toolkit artifacts.
 
+Quick start:
+- `tools/osm-extractor/GET_STARTED.md`
+
 ## What It Produces
 
 - Single-resort artifacts:

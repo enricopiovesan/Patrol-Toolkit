@@ -5,6 +5,7 @@ This folder contains build and data tooling used by Patrol Toolkit.
 ## Current Tools
 
 - `osm-extractor`: offline CLI that converts local OSM JSON into Patrol Toolkit resort/fleet artifacts.
+  - simple quick start: `tools/osm-extractor/GET_STARTED.md`
 
 ## Documentation Plan
 
