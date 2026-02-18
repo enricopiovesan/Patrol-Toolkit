@@ -44,3 +44,19 @@ Output: structured JSON command result for automation pipelines and machine pars
 ## UC11 - Machine-readable CLI Failure Contract
 Input: any CLI command executed with `--json` that fails due to invalid input, flags, or runtime validation.
 Output: structured JSON error payload with command, stable code, message, and optional details for CI automation handling.
+
+## UC12 - Resort Discovery By Name And Country
+Input: resort name + country filters.
+Output: ranked resort candidates with stable identifiers and location metadata for operator selection.
+
+## UC13 - Boundary-First Resort Setup
+Input: selected resort candidate.
+Output: validated boundary selection persisted before lifts/runs synchronization is allowed.
+
+## UC14 - Layer-Specific Sync
+Input: selected resort workspace + one layer (`boundary`, `lifts`, or `runs`).
+Output: independent, repeatable layer fetch/sync with status tracking and resumable behavior.
+
+## UC15 - Incremental Resort Refresh After OSM Edits
+Input: existing resort workspace + changed OSM upstream data.
+Output: partial refresh of affected layers (for example runs-only) without rebuilding unaffected layers.
