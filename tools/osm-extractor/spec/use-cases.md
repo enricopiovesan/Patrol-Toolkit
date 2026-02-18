@@ -32,3 +32,7 @@ Output: provenance artifact with source metadata and checksums of generated outp
 ## UC8 - Reproducible Build Replay
 Input: same source data, same config, same tool version, optional fixed `generatedAt`.
 Output: deterministic report/manifest/provenance timestamps for reproducible CI artifacts.
+
+## UC9 - Machine-readable Extraction Result
+Input: `extract-resort` or `extract-fleet` command with `--json`.
+Output: structured JSON result for CI automation (counts, status, and artifact paths).
