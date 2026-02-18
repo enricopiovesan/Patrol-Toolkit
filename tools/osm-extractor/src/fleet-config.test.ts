@@ -14,7 +14,7 @@ describe("readExtractFleetConfig", () => {
         configPath,
         JSON.stringify({
           schemaVersion: "1.0.0",
-          output: { manifestPath: "./out/manifest.json" },
+          output: { manifestPath: "./out/manifest.json", provenancePath: "./out/fleet-provenance.json" },
           resorts: [{ id: "demo", configPath: "./resorts/demo.json" }]
         }),
         "utf8"
@@ -23,6 +23,7 @@ describe("readExtractFleetConfig", () => {
       const config = await readExtractFleetConfig(configPath);
       expect(config.schemaVersion).toBe("1.0.0");
       expect(config.resorts[0]?.id).toBe("demo");
+      expect(config.output.provenancePath).toBe("./out/fleet-provenance.json");
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }

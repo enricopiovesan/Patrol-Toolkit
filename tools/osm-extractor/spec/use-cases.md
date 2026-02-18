@@ -23,3 +23,7 @@ Output: per-resort artifacts plus fleet manifest with success/failure accounting
 ## UC6 - Audit Trail Export
 Input: extraction command with `--log-file`.
 Output: JSONL audit trail with stage events and errors for operations troubleshooting.
+
+## UC7 - Provenance Export
+Input: successful resort or fleet extraction run.
+Output: provenance artifact with source metadata and checksums of generated outputs.

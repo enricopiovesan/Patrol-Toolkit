@@ -86,9 +86,12 @@ describe("runExtractFleetPipeline", () => {
       expect(result.manifest.fleetSize).toBe(2);
       expect(result.manifest.successCount).toBe(2);
       expect(result.manifest.failureCount).toBe(0);
+      expect(result.provenancePath.endsWith("fleet-provenance.json")).toBe(true);
 
       const manifest = JSON.parse(await readFile(result.manifestPath, "utf8")) as Record<string, unknown>;
+      const provenance = JSON.parse(await readFile(result.provenancePath, "utf8")) as Record<string, unknown>;
       expect(manifest.schemaVersion).toBe("1.0.0");
+      expect(provenance.schemaVersion).toBe("1.2.0");
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
@@ -191,6 +194,7 @@ describe("runExtractFleetPipeline", () => {
         .map((line) => JSON.parse(line) as { event: string });
       expect(lines.some((entry) => entry.event === "fleet_pipeline_started")).toBe(true);
       expect(lines.some((entry) => entry.event === "fleet_manifest_written")).toBe(true);
+      expect(lines.some((entry) => entry.event === "fleet_provenance_written")).toBe(true);
       expect(lines.some((entry) => entry.event === "fleet_pipeline_completed")).toBe(true);
     } finally {
       await rm(workspace, { recursive: true, force: true });

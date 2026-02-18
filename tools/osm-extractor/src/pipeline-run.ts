@@ -5,15 +5,22 @@ import { buildPackToFile } from "./pack-build.js";
 import { ingestOsmToFile } from "./osm-ingest.js";
 import { readExtractResortConfig } from "./pipeline-config.js";
 import { readPack, validatePack } from "./pack-validate.js";
+import { sha256File, writeJsonFile } from "./provenance.js";
 
 export type RunExtractResortPipelineResult = {
   normalizedPath: string;
   packPath: string;
   reportPath: string;
+  provenancePath: string;
   resortId: string;
   runCount: number;
   liftCount: number;
   boundaryGate: "passed" | "failed" | "skipped";
+  checksums: {
+    normalizedSha256: string;
+    packSha256: string;
+    reportSha256: string;
+  };
 };
 
 export async function runExtractResortPipeline(
@@ -41,10 +48,12 @@ export async function runExtractResortPipeline(
     const normalizedFile = config.output.normalizedFile ?? "normalized-source.json";
     const packFile = config.output.packFile ?? "pack.json";
     const reportFile = config.output.reportFile ?? "extraction-report.json";
+    const provenanceFile = config.output.provenanceFile ?? "provenance.json";
 
     const normalizedPath = join(outputDirectory, normalizedFile);
     const packPath = join(outputDirectory, packFile);
     const reportPath = join(outputDirectory, reportFile);
+    const provenancePath = join(outputDirectory, provenanceFile);
 
     const osmInputPath = resolve(configDir, config.source.osmInputPath);
     await logger.write("info", "resort_ingest_started", {
@@ -103,18 +112,54 @@ export async function runExtractResortPipeline(
       normalizedPath,
       packPath,
       reportPath,
+      provenancePath,
       resortId: normalized.resort.id,
       runCount: buildResult.pack.runs.length,
       liftCount: buildResult.pack.lifts.length,
-      boundaryGate: buildResult.report.boundaryGate.status
+      boundaryGate: buildResult.report.boundaryGate.status,
+      checksums: {
+        normalizedSha256: await sha256File(normalizedPath),
+        packSha256: await sha256File(packPath),
+        reportSha256: await sha256File(reportPath)
+      }
     };
+
+    await writeJsonFile(provenancePath, {
+      schemaVersion: "1.2.0",
+      generatedAt: new Date().toISOString(),
+      configPath,
+      resort: {
+        id: result.resortId,
+        name: buildResult.pack.resort.name,
+        timezone: buildResult.pack.resort.timezone
+      },
+      source: {
+        format: normalized.source.format,
+        inputPath: normalized.source.inputPath,
+        osmBaseTimestamp: normalized.source.osmBaseTimestamp,
+        sourceSha256: normalized.source.sha256
+      },
+      artifacts: {
+        normalizedPath,
+        normalizedSha256: result.checksums.normalizedSha256,
+        packPath,
+        packSha256: result.checksums.packSha256,
+        reportPath,
+        reportSha256: result.checksums.reportSha256
+      }
+    });
+    await logger.write("info", "resort_provenance_written", {
+      resortId: result.resortId,
+      provenancePath
+    });
 
     await logger.write("info", "resort_pipeline_completed", {
       resortId: result.resortId,
       configPath,
       runCount: result.runCount,
       liftCount: result.liftCount,
-      boundaryGate: result.boundaryGate
+      boundaryGate: result.boundaryGate,
+      provenancePath: result.provenancePath
     });
 
     return result;

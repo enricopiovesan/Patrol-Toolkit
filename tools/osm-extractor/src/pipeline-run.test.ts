@@ -71,11 +71,15 @@ describe("runExtractResortPipeline", () => {
       expect(result.runCount).toBe(1);
       expect(result.liftCount).toBe(1);
       expect(result.boundaryGate).toBe("passed");
+      expect(result.checksums.packSha256.length).toBe(64);
+      expect(result.provenancePath.endsWith("provenance.json")).toBe(true);
 
       const pack = JSON.parse(await readFile(result.packPath, "utf8")) as Record<string, unknown>;
       const report = JSON.parse(await readFile(result.reportPath, "utf8")) as Record<string, unknown>;
+      const provenance = JSON.parse(await readFile(result.provenancePath, "utf8")) as Record<string, unknown>;
       expect(pack.schemaVersion).toBe("1.0.0");
       expect(report.schemaVersion).toBe("0.3.0");
+      expect(provenance.schemaVersion).toBe("1.2.0");
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
@@ -133,6 +137,7 @@ describe("runExtractResortPipeline", () => {
         .split("\n")
         .map((line) => JSON.parse(line) as { event: string });
       expect(lines.some((entry) => entry.event === "resort_pipeline_started")).toBe(true);
+      expect(lines.some((entry) => entry.event === "resort_provenance_written")).toBe(true);
       expect(lines.some((entry) => entry.event === "resort_pipeline_completed")).toBe(true);
     } finally {
       await rm(workspace, { recursive: true, force: true });
