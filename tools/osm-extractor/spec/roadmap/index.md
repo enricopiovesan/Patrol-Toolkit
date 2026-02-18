@@ -11,3 +11,4 @@
 1.4.x = Area-config bbox filtering for scoped resort extraction (see `1.4.0.md`)
 1.5.x = Deterministic timestamp controls for reproducible outputs (see `1.5.0.md`)
 1.6.x = Machine-readable pack summary output for review automation (see `1.6.0.md`)
+1.7.x = Machine-readable extraction result output for automation (see `1.7.0.md`)

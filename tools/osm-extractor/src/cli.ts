@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createAuditLogger, noopAuditLogger } from "./audit-log.js";
 import { runExtractFleetPipeline } from "./fleet-run.js";
+import { toExtractFleetJson, toExtractResortJson } from "./extraction-result.js";
 import { ingestOsmToFile } from "./osm-ingest.js";
 import { buildPackToFile } from "./pack-build.js";
 import { readPack, summarizePack, summarizePackData, validatePack } from "./pack-validate.js";
@@ -8,6 +9,7 @@ import { runExtractResortPipeline } from "./pipeline-run.js";
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
+  const outputJson = hasFlag(args, "--json");
 
   if (!command || command === "help" || command === "--help") {
     printHelp();
@@ -99,6 +101,10 @@ async function main(): Promise<void> {
 
     const logger = logFile ? await createAuditLogger(logFile) : noopAuditLogger;
     const result = await runExtractResortPipeline(configPath, { logger, generatedAt });
+    if (outputJson) {
+      console.log(JSON.stringify(toExtractResortJson(result)));
+      return;
+    }
     console.log(
       `EXTRACTED resort=${result.resortId} runs=${result.runCount} lifts=${result.liftCount} boundaryGate=${result.boundaryGate} pack=${result.packPath} provenance=${result.provenancePath}`
     );
@@ -115,6 +121,18 @@ async function main(): Promise<void> {
 
     const logger = logFile ? await createAuditLogger(logFile) : noopAuditLogger;
     const result = await runExtractFleetPipeline(configPath, { logger, generatedAt });
+    if (outputJson) {
+      console.log(
+        JSON.stringify(
+          toExtractFleetJson({
+            manifest: result.manifest,
+            manifestPath: result.manifestPath,
+            provenancePath: result.provenancePath
+          })
+        )
+      );
+      return;
+    }
     console.log(
       `FLEET_EXTRACTED resorts=${result.manifest.fleetSize} success=${result.manifest.successCount} failed=${result.manifest.failureCount} manifest=${result.manifestPath} provenance=${result.provenancePath}`
     );
@@ -125,7 +143,6 @@ async function main(): Promise<void> {
   if (!input) {
     throw new Error("Missing required --input <path> argument.");
   }
-  const outputJson = hasFlag(args, "--json");
 
   const data = await readPack(input);
   const result = validatePack(data);
@@ -237,7 +254,7 @@ function readBboxFlag(args: string[], flag: string): [number, number, number, nu
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
   );
 }
 
