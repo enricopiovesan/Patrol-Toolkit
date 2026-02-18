@@ -3,7 +3,7 @@ import { createAuditLogger, noopAuditLogger } from "./audit-log.js";
 import { runExtractFleetPipeline } from "./fleet-run.js";
 import { ingestOsmToFile } from "./osm-ingest.js";
 import { buildPackToFile } from "./pack-build.js";
-import { readPack, summarizePack, validatePack } from "./pack-validate.js";
+import { readPack, summarizePack, summarizePackData, validatePack } from "./pack-validate.js";
 import { runExtractResortPipeline } from "./pipeline-run.js";
 
 async function main(): Promise<void> {
@@ -157,6 +157,16 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "summarize-pack" && outputJson) {
+    console.log(
+      JSON.stringify({
+        ok: true,
+        summary: summarizePackData(result.value)
+      })
+    );
+    return;
+  }
+
   console.log(summarizePack(result.value));
 }
 
@@ -223,7 +233,7 @@ function readBboxFlag(args: string[], flag: string): [number, number, number, nu
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>]`
   );
 }
 

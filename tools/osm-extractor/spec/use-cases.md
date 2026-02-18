@@ -11,7 +11,7 @@ Output: pass/fail with machine-readable error list including entity references w
 
 ## UC3 - Summarize Pack for Review
 Input: `pack.json` path.
-Output: counts (runs/lifts/towers), schema version, resort id/name.
+Output: counts (runs/lifts/towers), schema version, resort id/name (text or machine-readable JSON mode).
 
 ## UC4 - Boundary Gate
 Input: extracted geometries + resort boundary.

@@ -13,6 +13,17 @@ export type PackValidationIssue = {
   entityRef?: string;
 };
 
+export type PackSummary = {
+  resortId: string;
+  resortName: string;
+  schemaVersion: string;
+  counts: {
+    runs: number;
+    lifts: number;
+    towers: number;
+  };
+};
+
 export async function readPack(path: string): Promise<unknown> {
   const raw = await readFile(path, "utf8");
   return JSON.parse(raw) as unknown;
@@ -33,14 +44,28 @@ export function validatePack(
 }
 
 export function summarizePack(pack: ResortPack): string {
-  const towerCount = pack.lifts.reduce((total, lift) => total + lift.towers.length, 0);
+  const summary = summarizePackData(pack);
   return [
-    `resort=${pack.resort.name}`,
-    `runs=${pack.runs.length}`,
-    `lifts=${pack.lifts.length}`,
-    `towers=${towerCount}`,
-    `schema=${pack.schemaVersion}`
+    `resort=${summary.resortName}`,
+    `runs=${summary.counts.runs}`,
+    `lifts=${summary.counts.lifts}`,
+    `towers=${summary.counts.towers}`,
+    `schema=${summary.schemaVersion}`
   ].join(" ");
+}
+
+export function summarizePackData(pack: ResortPack): PackSummary {
+  const towerCount = pack.lifts.reduce((total, lift) => total + lift.towers.length, 0);
+  return {
+    resortId: pack.resort.id,
+    resortName: pack.resort.name,
+    schemaVersion: pack.schemaVersion,
+    counts: {
+      runs: pack.runs.length,
+      lifts: pack.lifts.length,
+      towers: towerCount
+    }
+  };
 }
 
 function toIssue(error: ErrorObject, input: unknown): PackValidationIssue {
