@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { summarizePack, validatePack } from "../src/pack-validate.js";
+import { summarizePack, summarizePackData, validatePack } from "../src/pack-validate.js";
 
 const validFixturePath = resolve(process.cwd(), "../../src/resort-pack/fixtures/valid-pack.json");
 const invalidFixturePath = resolve(process.cwd(), "../../src/resort-pack/fixtures/invalid-pack.json");
@@ -20,6 +20,16 @@ describe("pack validation", () => {
     }
 
     expect(summarizePack(result.value)).toContain("resort=Demo Resort");
+    expect(summarizePackData(result.value)).toEqual({
+      resortId: "demo-resort",
+      resortName: "Demo Resort",
+      schemaVersion: "1.0.0",
+      counts: {
+        runs: 1,
+        lifts: 1,
+        towers: 2
+      }
+    });
   });
 
   it("rejects invalid resort packs", () => {
