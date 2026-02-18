@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ingestOsmToFile } from "./osm-ingest.js";
+import { buildPackToFile } from "./pack-build.js";
 import { readPack, summarizePack, validatePack } from "./pack-validate.js";
 
 async function main(): Promise<void> {
@@ -10,7 +11,12 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (command !== "validate-pack" && command !== "summarize-pack" && command !== "ingest-osm") {
+  if (
+    command !== "validate-pack" &&
+    command !== "summarize-pack" &&
+    command !== "ingest-osm" &&
+    command !== "build-pack"
+  ) {
     throw new Error(`Unknown command '${command}'.`);
   }
 
@@ -37,6 +43,39 @@ async function main(): Promise<void> {
       `INGESTED resort=${result.resort.id} lifts=${result.lifts.length} runs=${result.runs.length} boundary=${
         result.boundary ? "yes" : "no"
       } warnings=${result.warnings.length}`
+    );
+    return;
+  }
+
+  if (command === "build-pack") {
+    const input = readFlag(args, "--input");
+    const output = readFlag(args, "--output");
+    const report = readFlag(args, "--report");
+    const timezone = readFlag(args, "--timezone");
+    const pmtilesPath = readFlag(args, "--pmtiles-path");
+    const stylePath = readFlag(args, "--style-path");
+    const liftProximityMeters = readNumberFlag(args, "--lift-proximity-meters");
+    const allowOutsideBoundary = hasFlag(args, "--allow-outside-boundary");
+
+    if (!input || !output || !report || !timezone || !pmtilesPath || !stylePath) {
+      throw new Error(
+        "Missing required flags. build-pack needs --input --output --report --timezone --pmtiles-path --style-path."
+      );
+    }
+
+    const result = await buildPackToFile({
+      inputPath: input,
+      outputPath: output,
+      reportPath: report,
+      timezone,
+      pmtilesPath,
+      stylePath,
+      liftProximityMeters,
+      allowOutsideBoundary
+    });
+
+    console.log(
+      `PACK_BUILT resort=${result.pack.resort.id} runs=${result.pack.runs.length} lifts=${result.pack.lifts.length} boundaryGate=${result.report.boundaryGate.status}`
     );
     return;
   }
@@ -83,9 +122,26 @@ function readIntegerFlag(args: string[], flag: string): number | undefined {
   return parsed;
 }
 
+function readNumberFlag(args: string[], flag: string): number | undefined {
+  const value = readFlag(args, flag);
+  if (value === null) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Flag ${flag} expects a numeric value.`);
+  }
+  return parsed;
+}
+
+function hasFlag(args: string[], flag: string): boolean {
+  return args.includes(flag);
+}
+
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path>\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path>\n  summarize-pack --input <path>\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary]`
   );
 }
 
