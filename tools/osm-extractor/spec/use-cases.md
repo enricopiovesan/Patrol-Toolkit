@@ -36,3 +36,7 @@ Output: deterministic report/manifest/provenance timestamps for reproducible CI 
 ## UC9 - Machine-readable Extraction Result
 Input: `extract-resort` or `extract-fleet` command with `--json`.
 Output: structured JSON result for CI automation (counts, status, and artifact paths).
+
+## UC10 - Machine-readable Ingest/Build Result
+Input: `ingest-osm` or `build-pack` command with `--json`.
+Output: structured JSON command result for automation pipelines and machine parsing.

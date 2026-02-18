@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createAuditLogger, noopAuditLogger } from "./audit-log.js";
 import { runExtractFleetPipeline } from "./fleet-run.js";
-import { toExtractFleetJson, toExtractResortJson } from "./extraction-result.js";
+import { toBuildPackJson, toExtractFleetJson, toExtractResortJson, toIngestOsmJson } from "./extraction-result.js";
 import { ingestOsmToFile } from "./osm-ingest.js";
 import { buildPackToFile } from "./pack-build.js";
 import { readPack, summarizePack, summarizePackData, validatePack } from "./pack-validate.js";
@@ -48,6 +48,11 @@ async function main(): Promise<void> {
       bbox
     });
 
+    if (outputJson) {
+      console.log(JSON.stringify(toIngestOsmJson(result)));
+      return;
+    }
+
     console.log(
       `INGESTED resort=${result.resort.id} lifts=${result.lifts.length} runs=${result.runs.length} boundary=${
         result.boundary ? "yes" : "no"
@@ -84,6 +89,20 @@ async function main(): Promise<void> {
       allowOutsideBoundary,
       generatedAt
     });
+
+    if (outputJson) {
+      console.log(
+        JSON.stringify(
+          toBuildPackJson({
+            pack: result.pack,
+            report: result.report,
+            packPath: output,
+            reportPath: report
+          })
+        )
+      );
+      return;
+    }
 
     console.log(
       `PACK_BUILT resort=${result.pack.resort.id} runs=${result.pack.runs.length} lifts=${result.pack.lifts.length} boundaryGate=${result.report.boundaryGate.status}`
@@ -254,7 +273,7 @@ function readBboxFlag(args: string[], flag: string): [number, number, number, nu
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
   );
 }
 
