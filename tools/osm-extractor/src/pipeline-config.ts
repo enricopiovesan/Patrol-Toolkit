@@ -17,6 +17,7 @@ export type ExtractResortConfig = {
     normalizedFile?: string;
     packFile?: string;
     reportFile?: string;
+    provenanceFile?: string;
   };
   basemap: {
     pmtilesPath: string;
@@ -63,7 +64,8 @@ const configSchema = {
         directory: { type: "string", minLength: 1 },
         normalizedFile: { type: "string", minLength: 1 },
         packFile: { type: "string", minLength: 1 },
-        reportFile: { type: "string", minLength: 1 }
+        reportFile: { type: "string", minLength: 1 },
+        provenanceFile: { type: "string", minLength: 1 }
       }
     },
     basemap: {
@@ -111,4 +113,3 @@ function formatErrors(errors: ErrorObject[] | null | undefined): string {
   }
   return errors.map((error) => `${error.instancePath || "#"}: ${error.message ?? "invalid"}`).join("\n");
 }
-

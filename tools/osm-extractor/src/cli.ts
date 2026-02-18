@@ -95,7 +95,7 @@ async function main(): Promise<void> {
     const logger = logFile ? await createAuditLogger(logFile) : noopAuditLogger;
     const result = await runExtractResortPipeline(configPath, { logger });
     console.log(
-      `EXTRACTED resort=${result.resortId} runs=${result.runCount} lifts=${result.liftCount} boundaryGate=${result.boundaryGate} pack=${result.packPath}`
+      `EXTRACTED resort=${result.resortId} runs=${result.runCount} lifts=${result.liftCount} boundaryGate=${result.boundaryGate} pack=${result.packPath} provenance=${result.provenancePath}`
     );
     return;
   }
@@ -110,7 +110,7 @@ async function main(): Promise<void> {
     const logger = logFile ? await createAuditLogger(logFile) : noopAuditLogger;
     const result = await runExtractFleetPipeline(configPath, { logger });
     console.log(
-      `FLEET_EXTRACTED resorts=${result.manifest.fleetSize} success=${result.manifest.successCount} failed=${result.manifest.failureCount} manifest=${result.manifestPath}`
+      `FLEET_EXTRACTED resorts=${result.manifest.fleetSize} success=${result.manifest.successCount} failed=${result.manifest.failureCount} manifest=${result.manifestPath} provenance=${result.provenancePath}`
     );
     return;
   }

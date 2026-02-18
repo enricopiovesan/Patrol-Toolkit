@@ -6,3 +6,4 @@
 0.4.x = Config-driven single-resort pipeline (see `0.4.0.md`)  
 1.0.0 = Stable multi-resort extraction pipeline (see `1.0.0.md`)
 1.1.x = Structured audit logs for operations and troubleshooting (see `1.1.0.md`)
+1.2.x = Deterministic provenance artifacts for resort and fleet outputs (see `1.2.0.md`)

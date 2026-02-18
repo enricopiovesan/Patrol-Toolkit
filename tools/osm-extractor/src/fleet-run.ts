@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { type AuditLogger, noopAuditLogger } from "./audit-log.js";
 import { readExtractFleetConfig } from "./fleet-config.js";
 import { runExtractResortPipeline } from "./pipeline-run.js";
+import { sha256File, writeJsonFile } from "./provenance.js";
 
 export type FleetManifestEntry =
   | {
@@ -12,9 +13,15 @@ export type FleetManifestEntry =
       packPath: string;
       reportPath: string;
       normalizedPath: string;
+      provenancePath: string;
       runCount: number;
       liftCount: number;
       boundaryGate: "passed" | "failed" | "skipped";
+      checksums: {
+        normalizedSha256: string;
+        packSha256: string;
+        reportSha256: string;
+      };
     }
   | {
       id: string;
@@ -37,7 +44,7 @@ export async function runExtractFleetPipeline(
   options?: {
     logger?: AuditLogger;
   }
-): Promise<{ manifestPath: string; manifest: FleetManifest }> {
+): Promise<{ manifestPath: string; provenancePath: string; manifest: FleetManifest }> {
   const logger = options?.logger ?? noopAuditLogger;
 
   await logger.write("info", "fleet_pipeline_started", {
@@ -47,7 +54,9 @@ export async function runExtractFleetPipeline(
   const config = await readExtractFleetConfig(configPath);
   const configDir = dirname(configPath);
   const manifestPath = resolve(configDir, config.output.manifestPath);
+  const provenancePath = resolve(configDir, config.output.provenancePath ?? "./fleet-provenance.json");
   await mkdir(dirname(manifestPath), { recursive: true });
+  await mkdir(dirname(provenancePath), { recursive: true });
 
   const continueOnError = config.options?.continueOnError ?? false;
   const entries: FleetManifestEntry[] = [];
@@ -70,9 +79,11 @@ export async function runExtractFleetPipeline(
         packPath: result.packPath,
         reportPath: result.reportPath,
         normalizedPath: result.normalizedPath,
+        provenancePath: result.provenancePath,
         runCount: result.runCount,
         liftCount: result.liftCount,
-        boundaryGate: result.boundaryGate
+        boundaryGate: result.boundaryGate,
+        checksums: result.checksums
       });
       await logger.write("info", "fleet_resort_completed", {
         fleetResortId: resort.id,
@@ -113,11 +124,47 @@ export async function runExtractFleetPipeline(
   };
 
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  const manifestSha256 = await sha256File(manifestPath);
+  await writeJsonFile(provenancePath, {
+    schemaVersion: "1.2.0",
+    generatedAt: new Date().toISOString(),
+    configPath,
+    manifest: {
+      path: manifestPath,
+      sha256: manifestSha256
+    },
+    resorts: entries.map((entry) =>
+      entry.status === "success"
+        ? {
+            id: entry.id,
+            status: entry.status,
+            configPath: entry.configPath,
+            provenancePath: entry.provenancePath,
+            artifacts: {
+              packPath: entry.packPath,
+              packSha256: entry.checksums.packSha256,
+              reportPath: entry.reportPath,
+              reportSha256: entry.checksums.reportSha256,
+              normalizedPath: entry.normalizedPath,
+              normalizedSha256: entry.checksums.normalizedSha256
+            }
+          }
+        : {
+            id: entry.id,
+            status: entry.status,
+            configPath: entry.configPath,
+            error: entry.error
+          }
+    )
+  });
   await logger.write("info", "fleet_manifest_written", {
     manifestPath,
     fleetSize: manifest.fleetSize,
     successCount: manifest.successCount,
     failureCount: manifest.failureCount
+  });
+  await logger.write("info", "fleet_provenance_written", {
+    provenancePath
   });
 
   if (failureCount > 0 && !continueOnError) {
@@ -129,9 +176,10 @@ export async function runExtractFleetPipeline(
 
   await logger.write("info", "fleet_pipeline_completed", {
     manifestPath,
+    provenancePath,
     successCount: manifest.successCount,
     failureCount: manifest.failureCount
   });
 
-  return { manifestPath, manifest };
+  return { manifestPath, provenancePath, manifest };
 }

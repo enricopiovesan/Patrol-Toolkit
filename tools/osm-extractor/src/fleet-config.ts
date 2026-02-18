@@ -5,6 +5,7 @@ export type ExtractFleetConfig = {
   schemaVersion: "1.0.0";
   output: {
     manifestPath: string;
+    provenancePath?: string;
   };
   options?: {
     continueOnError?: boolean;
@@ -26,7 +27,8 @@ const fleetConfigSchema = {
       additionalProperties: false,
       required: ["manifestPath"],
       properties: {
-        manifestPath: { type: "string", minLength: 1 }
+        manifestPath: { type: "string", minLength: 1 },
+        provenancePath: { type: "string", minLength: 1 }
       }
     },
     options: {
