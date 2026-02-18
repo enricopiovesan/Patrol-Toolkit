@@ -28,3 +28,7 @@ Output: JSONL audit trail with stage events and errors for operations troublesho
 ## UC7 - Provenance Export
 Input: successful resort or fleet extraction run.
 Output: provenance artifact with source metadata and checksums of generated outputs.
+
+## UC8 - Reproducible Build Replay
+Input: same source data, same config, same tool version, optional fixed `generatedAt`.
+Output: deterministic report/manifest/provenance timestamps for reproducible CI artifacts.

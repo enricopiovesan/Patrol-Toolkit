@@ -74,6 +74,7 @@ describe("runExtractFleetPipeline", () => {
         JSON.stringify({
           schemaVersion: "1.0.0",
           output: { manifestPath: "./out/fleet-manifest.json" },
+          options: { generatedAt: "2026-02-18T12:00:00.000Z" },
           resorts: [
             { id: "resort-a", configPath: "./resorts/a.json" },
             { id: "resort-b", configPath: "./resorts/b.json" }
@@ -92,6 +93,8 @@ describe("runExtractFleetPipeline", () => {
       const provenance = JSON.parse(await readFile(result.provenancePath, "utf8")) as Record<string, unknown>;
       expect(manifest.schemaVersion).toBe("1.0.0");
       expect(provenance.schemaVersion).toBe("1.2.0");
+      expect(manifest.generatedAt).toBe("2026-02-18T12:00:00.000Z");
+      expect(provenance.generatedAt).toBe("2026-02-18T12:00:00.000Z");
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }

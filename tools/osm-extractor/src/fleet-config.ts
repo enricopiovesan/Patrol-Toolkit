@@ -9,6 +9,7 @@ export type ExtractFleetConfig = {
   };
   options?: {
     continueOnError?: boolean;
+    generatedAt?: string;
   };
   resorts: Array<{
     id: string;
@@ -35,7 +36,8 @@ const fleetConfigSchema = {
       type: "object",
       additionalProperties: false,
       properties: {
-        continueOnError: { type: "boolean" }
+        continueOnError: { type: "boolean" },
+        generatedAt: { type: "string", minLength: 1 }
       }
     },
     resorts: {

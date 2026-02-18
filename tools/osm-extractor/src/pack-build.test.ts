@@ -80,6 +80,7 @@ describe("buildPackFromNormalized", () => {
     expect(result.pack.runs[0]?.polygon.coordinates[0].length).toBeGreaterThanOrEqual(4);
     expect(result.report.boundaryGate.status).toBe("passed");
     expect(result.report.boundaryGate.issues).toEqual([]);
+    expect(result.report.generatedAt).toBe("2026-02-18T10:00:00.000Z");
   });
 
   it("fails boundary gate when a run is outside the boundary", () => {
@@ -126,5 +127,30 @@ describe("buildPackFromNormalized", () => {
     expect(result.report.boundaryGate.status).toBe("failed");
     expect(result.report.boundaryGate.issues[0]?.entityType).toBe("lift");
   });
-});
 
+  it("allows explicit generatedAt override for deterministic reporting", () => {
+    const normalized = createNormalizedFixture();
+    const result = buildPackFromNormalized(normalized, {
+      inputPath: "normalized.json",
+      timezone: "Europe/Rome",
+      pmtilesPath: "packs/demo/base.pmtiles",
+      stylePath: "packs/demo/style.json",
+      generatedAt: "2026-03-01T00:00:00.000Z"
+    });
+
+    expect(result.report.generatedAt).toBe("2026-03-01T00:00:00.000Z");
+  });
+
+  it("fails fast on invalid generatedAt override", () => {
+    const normalized = createNormalizedFixture();
+    expect(() =>
+      buildPackFromNormalized(normalized, {
+        inputPath: "normalized.json",
+        timezone: "Europe/Rome",
+        pmtilesPath: "packs/demo/base.pmtiles",
+        stylePath: "packs/demo/style.json",
+        generatedAt: "not-a-date"
+      })
+    ).toThrow(/Invalid generatedAt timestamp/);
+  });
+});

@@ -61,6 +61,9 @@ describe("runExtractResortPipeline", () => {
           basemap: {
             pmtilesPath: "packs/demo/base.pmtiles",
             stylePath: "packs/demo/style.json"
+          },
+          determinism: {
+            generatedAt: "2026-02-18T10:00:00.000Z"
           }
         }),
         "utf8"
@@ -77,9 +80,12 @@ describe("runExtractResortPipeline", () => {
       const pack = JSON.parse(await readFile(result.packPath, "utf8")) as Record<string, unknown>;
       const report = JSON.parse(await readFile(result.reportPath, "utf8")) as Record<string, unknown>;
       const provenance = JSON.parse(await readFile(result.provenancePath, "utf8")) as Record<string, unknown>;
+      expect(result.generatedAt).toBe("2026-02-18T10:00:00.000Z");
       expect(pack.schemaVersion).toBe("1.0.0");
       expect(report.schemaVersion).toBe("0.3.0");
       expect(provenance.schemaVersion).toBe("1.2.0");
+      expect(report.generatedAt).toBe("2026-02-18T10:00:00.000Z");
+      expect(provenance.generatedAt).toBe("2026-02-18T10:00:00.000Z");
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
