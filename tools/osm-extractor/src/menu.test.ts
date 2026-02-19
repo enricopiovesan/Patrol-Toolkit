@@ -1024,6 +1024,95 @@ describe("menu interactive flows", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("publishes immediately after basemap generation when version is already validated", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-basemap-publish-"));
+    const publicRoot = join(root, "public");
+    const resortKey = "CA_Golden_Kicking_Horse";
+    const versionPath = join(root, resortKey, "v1");
+    const workspacePath = join(versionPath, "resort.json");
+    const statusPath = join(versionPath, "status.json");
+    const rl = createFakeReadline(["1", "1", "9", "10", "3"]);
+    try {
+      await mkdir(versionPath, { recursive: true });
+      await writeFile(
+        workspacePath,
+        JSON.stringify(
+          {
+            schemaVersion: "2.0.0",
+            resort: {
+              query: { name: "Kicking Horse", country: "CA" }
+            },
+            layers: {
+              boundary: { status: "complete", artifactPath: "boundary.geojson", featureCount: 1 },
+              runs: { status: "complete", artifactPath: "runs.geojson", featureCount: 72 },
+              lifts: { status: "complete", artifactPath: "lifts.geojson", featureCount: 7 }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(
+        statusPath,
+        JSON.stringify(
+          {
+            schemaVersion: "1.0.0",
+            resortKey,
+            version: "v1",
+            createdAt: "2026-02-19T16:31:09.346Z",
+            query: { name: "Kicking Horse", countryCode: "CA", town: "Golden" },
+            readiness: { overall: "ready", issues: [] },
+            manualValidation: {
+              validated: true,
+              layers: {
+                boundary: { validated: true },
+                runs: { validated: true },
+                lifts: { validated: true }
+              }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(join(versionPath, "boundary.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(versionPath, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(versionPath, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        appPublicRoot: publicRoot,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((entry) => ({
+            candidate: entry,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Kicking Horse", country: "CA", limit: 5 },
+          candidates: []
+        })
+      });
+
+      const catalogRaw = await readFile(join(publicRoot, "resort-packs", "index.json"), "utf8");
+      const catalog = JSON.parse(catalogRaw) as {
+        resorts: Array<{ resortId: string; versions: Array<{ approved: boolean; packUrl: string }> }>;
+      };
+      expect(catalog.resorts[0]?.resortId).toBe(resortKey);
+      expect(catalog.resorts[0]?.versions[0]?.approved).toBe(true);
+      expect(catalog.resorts[0]?.versions[0]?.packUrl).toBe(`/packs/${resortKey}.latest.validated.json`);
+
+      const publishedPmtiles = await readFile(join(publicRoot, "packs", resortKey, "base.pmtiles"));
+      const publishedStyle = await readFile(join(publicRoot, "packs", resortKey, "style.json"), "utf8");
+      expect(publishedPmtiles.length).toBeGreaterThan(0);
+      expect(JSON.parse(publishedStyle)).toMatchObject({ version: 8 });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 function createFakeReadline(answers: string[]): { question: (query: string) => Promise<string>; close: () => void; prompts: string[] } {

@@ -1162,6 +1162,26 @@ async function runKnownResortMenu(args: {
         } else {
           console.log(`Basemap assets already present under ${join(dirname(workspacePath), "basemap")}.`);
         }
+
+        const currentStatus = await readStatusShape(statusPath);
+        const manualValidation = toManualValidationState(currentStatus.manualValidation);
+        if (!manualValidation.validated) {
+          console.log("Publish pending: version is not fully validated yet.");
+          continue;
+        }
+
+        try {
+          const published = await publishCurrentValidatedVersionToAppCatalog({
+            resortKey: args.resortKey,
+            workspacePath,
+            statusPath,
+            appPublicRoot: args.appPublicRoot
+          });
+          console.log(`Published resort assets: version=${published.version} pack=${published.outputPath}`);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.log(`Auto-publish after basemap generation failed: ${message}`);
+        }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         console.log(`Basemap generation failed: ${message}`);
