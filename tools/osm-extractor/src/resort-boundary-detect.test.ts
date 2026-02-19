@@ -129,8 +129,11 @@ describe("resort boundary detect", () => {
       expect(result.candidates).toHaveLength(2);
       expect(result.candidates[0]?.osmId).toBe(100);
       expect(result.candidates[0]?.validation.containsSelectionCenter).toBe(true);
+      expect(result.candidates[0]?.validation.signals).toContain("contains-selection-center");
+      expect(result.candidates[0]?.validation.distanceToSelectionCenterKm).toBeLessThan(1);
       expect(result.candidates[1]?.validation.containsSelectionCenter).toBe(false);
       expect(result.candidates[1]?.validation.issues.join(" ")).toMatch(/outside candidate boundary/i);
+      expect(result.candidates[1]?.validation.distanceToSelectionCenterKm).toBeGreaterThan(25);
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }
@@ -272,6 +275,7 @@ describe("resort boundary detect", () => {
       expect(result.candidates[0]?.osmId).toBe(999);
       expect(result.candidates[0]?.ring).not.toBeNull();
       expect(result.candidates[0]?.validation.containsSelectionCenter).toBe(true);
+      expect(result.candidates[0]?.validation.signals).toContain("winter-sports-name");
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }

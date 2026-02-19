@@ -17,8 +17,10 @@ type BoundaryGeoJsonFeature = {
     score: number;
     source: "selection" | "search";
     areaKm2: number | null;
+    distanceToSelectionCenterKm: number;
     containsSelectionCenter: boolean;
     ringClosed: boolean;
+    signals: string[];
     issues: string[];
   };
 };
@@ -79,8 +81,10 @@ export async function setResortBoundary(args: {
       score: selected.validation.score,
       source: selected.source,
       areaKm2: selected.validation.areaKm2,
+      distanceToSelectionCenterKm: selected.validation.distanceToSelectionCenterKm,
       containsSelectionCenter: selected.validation.containsSelectionCenter,
       ringClosed: selected.validation.ringClosed,
+      signals: selected.validation.signals,
       issues: selected.validation.issues
     }
   };

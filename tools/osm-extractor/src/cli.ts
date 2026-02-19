@@ -422,7 +422,7 @@ async function main(): Promise<void> {
         continue;
       }
       console.log(
-        `${index + 1}. ${candidate.displayName} [${candidate.osmType}/${candidate.osmId}] score=${candidate.validation.score} containsCenter=${candidate.validation.containsSelectionCenter ? "yes" : "no"} type=${candidate.geometryType ?? "none"}`
+        `${index + 1}. ${candidate.displayName} [${candidate.osmType}/${candidate.osmId}] score=${candidate.validation.score} containsCenter=${candidate.validation.containsSelectionCenter ? "yes" : "no"} distanceKm=${candidate.validation.distanceToSelectionCenterKm.toFixed(1)} type=${candidate.geometryType ?? "none"} why=${candidate.validation.signals.slice(0, 3).join(",") || "none"}`
       );
     }
     return;
