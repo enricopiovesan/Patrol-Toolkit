@@ -8,6 +8,7 @@ import {
   createNextVersionClone,
   formatKnownResortSummary,
   formatSearchCandidate,
+  isBoundaryReadyForSync,
   listKnownResorts,
   parseCandidateSelection,
   persistResortVersion,
@@ -325,5 +326,46 @@ describe("menu resort key canonicalization", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("menu sync preflight", () => {
+  it("requires boundary complete with artifact path before runs/lifts sync", () => {
+    expect(
+      isBoundaryReadyForSync({
+        schemaVersion: "2.0.0",
+        resort: {
+          query: {
+            name: "Kicking Horse",
+            country: "CA"
+          }
+        },
+        layers: {
+          boundary: { status: "pending" },
+          lifts: { status: "pending" },
+          runs: { status: "pending" }
+        }
+      })
+    ).toBe(false);
+
+    expect(
+      isBoundaryReadyForSync({
+        schemaVersion: "2.0.0",
+        resort: {
+          query: {
+            name: "Kicking Horse",
+            country: "CA"
+          }
+        },
+        layers: {
+          boundary: {
+            status: "complete",
+            artifactPath: "resorts/CA_Golden_Kicking_Horse/v1/boundary.geojson"
+          },
+          lifts: { status: "pending" },
+          runs: { status: "pending" }
+        }
+      })
+    ).toBe(true);
   });
 });
