@@ -2,8 +2,9 @@ import maplibregl, { type GeoJSONSource } from "maplibre-gl";
 import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { LocationTracker, type GeoPosition } from "../location/location-tracker";
-import { buildResortOverlayData } from "./overlays";
 import type { ResortPack } from "../resort-pack/types";
+import { buildResortOverlayData } from "./overlays";
+import { resolveStyleForPack } from "./style-loader";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 const LOCATION_SOURCE_ID = "current-location";
@@ -24,26 +25,6 @@ const DEFAULT_CENTER: [number, number] = [7.2, 45.1];
 export type PositionUpdateDetail = {
   coordinates: [number, number];
   accuracy: number;
-};
-
-const BASE_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  name: "Patrol Toolkit Base",
-  sources: {
-    "osm-raster": {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors"
-    }
-  },
-  layers: [
-    {
-      id: "osm-raster-layer",
-      type: "raster",
-      source: "osm-raster"
-    }
-  ]
 };
 
 @customElement("map-view")
@@ -108,6 +89,8 @@ export class MapView extends LitElement {
   private map: maplibregl.Map | null = null;
   private locationTracker: LocationTracker | null = null;
   private lastPosition: GeoPosition | null = null;
+  private currentStyleKey = "";
+  private styleApplyToken = 0;
 
   @property({ attribute: false })
   accessor pack: ResortPack | null = null;
@@ -130,7 +113,12 @@ export class MapView extends LitElement {
 
     this.map = new maplibregl.Map({
       container,
-      style: BASE_STYLE,
+      style: {
+        version: 8,
+        name: "Patrol Toolkit Offline Bootstrap",
+        sources: {},
+        layers: [{ id: "bootstrap-background", type: "background", paint: { "background-color": "#e2e8f0" } }]
+      },
       center: DEFAULT_CENTER,
       zoom: 14,
       attributionControl: {
@@ -144,6 +132,7 @@ export class MapView extends LitElement {
       this.initializeLocationLayers();
       this.initializeResortLayers();
       this.syncResortLayers();
+      void this.applyStyleForActivePack();
       this.startTracking();
     });
 
@@ -178,6 +167,7 @@ export class MapView extends LitElement {
 
   protected override updated(changedProperties: Map<string, unknown>): void {
     if (changedProperties.has("pack")) {
+      void this.applyStyleForActivePack();
       this.syncResortLayers();
     }
   }
@@ -380,6 +370,52 @@ export class MapView extends LitElement {
     runsSource.setData(overlays.runs);
     liftsSource.setData(overlays.lifts);
     towersSource.setData(overlays.liftTowers);
+  }
+
+  private async applyStyleForActivePack(remainingAttempts = 60): Promise<void> {
+    if (!this.map) {
+      return;
+    }
+
+    if ((!this.map.loaded() || !this.map.isStyleLoaded()) && remainingAttempts > 0) {
+      window.setTimeout(() => {
+        void this.applyStyleForActivePack(remainingAttempts - 1);
+      }, 50);
+      return;
+    }
+
+    const token = ++this.styleApplyToken;
+    const { key, style } = await resolveStyleForPack(this.pack);
+    if (!this.map || token !== this.styleApplyToken || this.currentStyleKey === key) {
+      return;
+    }
+
+    this.currentStyleKey = key;
+    this.map.setStyle(style, { diff: false });
+    this.rebindLayersWhenStyleReady(token);
+  }
+
+  private rebindLayersWhenStyleReady(token: number, remainingAttempts = 60): void {
+    if (!this.map || token !== this.styleApplyToken) {
+      return;
+    }
+
+    if (!this.map.isStyleLoaded()) {
+      if (remainingAttempts <= 0) {
+        this.status = "Map style failed to load.";
+        return;
+      }
+
+      window.setTimeout(() => this.rebindLayersWhenStyleReady(token, remainingAttempts - 1), 50);
+      return;
+    }
+
+    this.initializeLocationLayers();
+    this.initializeResortLayers();
+    this.syncResortLayers();
+    if (this.lastPosition) {
+      this.updateLocationSource(this.lastPosition);
+    }
   }
 
   private dispatchPositionUpdate(position: GeoPosition): void {

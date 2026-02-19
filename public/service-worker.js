@@ -137,13 +137,20 @@ async function handleTileRequest(request) {
     return cachedResponse;
   }
 
-  const networkResponse = await fetch(request);
-  if (isCacheableResponse(networkResponse)) {
-    await cache.put(request, networkResponse.clone());
-    await trimCache(TILE_CACHE, 250);
-  }
+  try {
+    const networkResponse = await fetch(request);
+    if (isCacheableResponse(networkResponse)) {
+      await cache.put(request, networkResponse.clone());
+      await trimCache(TILE_CACHE, 250);
+    }
 
-  return networkResponse;
+    return networkResponse;
+  } catch {
+    return new Response("Tile unavailable offline.", {
+      status: 504,
+      headers: { "Content-Type": "text/plain; charset=utf-8" }
+    });
+  }
 }
 
 function isCacheableResponse(response) {
