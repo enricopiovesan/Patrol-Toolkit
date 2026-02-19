@@ -246,7 +246,7 @@ export async function runInteractiveMenu(args: {
           country: countryCode,
           limit: 5
         });
-        const rankedCandidates = await rankSearchCandidates(search.candidates);
+        const rankedCandidates = await rankSearchCandidates(search.candidates, { town });
         console.log(`Search results (${rankedCandidates.length}):`);
         for (let index = 0; index < rankedCandidates.length; index += 1) {
           const ranked = rankedCandidates[index];
@@ -339,9 +339,10 @@ export function formatSearchCandidate(index: number, ranked: RankedSearchCandida
 
 export async function rankSearchCandidates(
   candidates: ResortSearchCandidate[],
-  deps?: { hasPolygonFn?: (candidate: ResortSearchCandidate) => Promise<boolean> }
+  deps?: { hasPolygonFn?: (candidate: ResortSearchCandidate) => Promise<boolean>; town?: string }
 ): Promise<RankedSearchCandidate[]> {
   const hasPolygonFn = deps?.hasPolygonFn ?? candidateHasPolygonGeometry;
+  const townNeedle = normalizeSearchText(deps?.town ?? "");
   const ranked: RankedSearchCandidate[] = [];
 
   for (const candidate of candidates) {
@@ -372,6 +373,11 @@ export async function rankSearchCandidates(
     }
     const leftImportance = left.candidate.importance ?? -1;
     const rightImportance = right.candidate.importance ?? -1;
+    const leftTownMatch = candidateMatchesTown(left.candidate, townNeedle);
+    const rightTownMatch = candidateMatchesTown(right.candidate, townNeedle);
+    if (leftTownMatch !== rightTownMatch) {
+      return leftTownMatch ? -1 : 1;
+    }
     if (leftImportance !== rightImportance) {
       return rightImportance - leftImportance;
     }
@@ -379,6 +385,25 @@ export async function rankSearchCandidates(
   });
 
   return ranked;
+}
+
+function candidateMatchesTown(candidate: ResortSearchCandidate, normalizedTown: string): boolean {
+  if (normalizedTown.length === 0) {
+    return false;
+  }
+  const haystack = normalizeSearchText(
+    [candidate.displayName, candidate.region ?? "", candidate.country ?? ""].filter((part) => part.length > 0).join(" ")
+  );
+  return haystack.includes(normalizedTown);
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 export async function persistResortVersion(args: {
@@ -809,7 +834,7 @@ async function runKnownResortMenu(args: {
         country: countryCode,
         limit: 5
       });
-      const rankedCandidates = await rankSearchCandidates(search.candidates);
+      const rankedCandidates = await rankSearchCandidates(search.candidates, { town });
       if (rankedCandidates.length === 0) {
         console.log("No resort candidates found.");
         continue;
