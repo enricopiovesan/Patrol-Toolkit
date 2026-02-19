@@ -8,10 +8,12 @@ import {
   createNextVersionClone,
   formatKnownResortSummary,
   formatSearchCandidate,
+  getExistingResortLatestVersion,
   isBoundaryReadyForSync,
   listKnownResorts,
   parseLayerSelection,
   parseCandidateSelection,
+  parseDuplicateResortAction,
   persistResortVersion,
   rankSearchCandidates,
   setLayerManualValidation,
@@ -109,6 +111,15 @@ describe("menu candidate selection parsing", () => {
     expect(parseCandidateSelection("4", 3)).toBe(-1);
     expect(parseCandidateSelection("abc", 3)).toBe(-1);
     expect(parseCandidateSelection("1.2", 3)).toBe(-1);
+  });
+});
+
+describe("menu duplicate resort action parsing", () => {
+  it("parses duplicate action menu options", () => {
+    expect(parseDuplicateResortAction("1")).toBe("create");
+    expect(parseDuplicateResortAction("2")).toBe("cancel");
+    expect(parseDuplicateResortAction("0")).toBeNull();
+    expect(parseDuplicateResortAction("abc")).toBeNull();
   });
 });
 
@@ -308,6 +319,11 @@ describe("menu resort persistence", () => {
       expect(first.wasExistingResort).toBe(false);
       expect(second.version).toBe("v2");
       expect(second.wasExistingResort).toBe(true);
+
+      const latest = await getExistingResortLatestVersion(root, "CA_Golden_Kicking_Horse");
+      expect(latest).toBe("v2");
+      const missing = await getExistingResortLatestVersion(root, "CA_Golden_Unknown");
+      expect(missing).toBeNull();
 
       const statusRaw = await readFile(second.statusPath, "utf8");
       const status = JSON.parse(statusRaw) as { manualValidation: { validated: boolean } };
