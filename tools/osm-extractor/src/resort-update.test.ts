@@ -91,6 +91,7 @@ describe("resort update", () => {
       updatedAt: "2026-02-19T10:00:00.000Z"
     });
     expect(result.operation.kind).toBe("runs");
+    expect(result.dryRun).toBe(false);
     expect(result.changed).toBe(true);
     expect(result.changedFields).toEqual(["status", "artifactPath", "featureCount", "checksumSha256", "updatedAt"]);
   });
@@ -124,6 +125,38 @@ describe("resort update", () => {
       }
     );
 
+    expect(result.changed).toBe(false);
+    expect(result.changedFields).toEqual([]);
+  });
+
+  it("does not execute layer sync when dry-run is enabled", async () => {
+    const workspace = createWorkspace("lifts", {
+      status: "pending"
+    });
+    const readWorkspaceFn = vi.fn<(...args: [string]) => Promise<ResortWorkspace>>().mockResolvedValue(workspace);
+    const syncLiftsFn = vi.fn().mockResolvedValue({
+      workspacePath: "/tmp/resort.json",
+      outputPath: "/tmp/lifts.geojson",
+      queryHash: "q1",
+      liftCount: 2,
+      checksumSha256: "same"
+    });
+
+    const result = await updateResortLayer(
+      {
+        workspacePath: "/tmp/resort.json",
+        layer: "lifts",
+        dryRun: true
+      },
+      {
+        readWorkspaceFn,
+        syncLiftsFn
+      }
+    );
+
+    expect(syncLiftsFn).not.toHaveBeenCalled();
+    expect(result.dryRun).toBe(true);
+    expect(result.operation.kind).toBe("dry-run");
     expect(result.changed).toBe(false);
     expect(result.changedFields).toEqual([]);
   });

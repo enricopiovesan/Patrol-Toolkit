@@ -17,11 +17,15 @@ export type ResortUpdateLayerSnapshot = {
 export type ResortUpdateResult = {
   workspacePath: string;
   layer: ResortUpdateLayer;
+  dryRun: boolean;
   before: ResortUpdateLayerSnapshot;
   after: ResortUpdateLayerSnapshot;
   changed: boolean;
   changedFields: Array<keyof ResortUpdateLayerSnapshot>;
   operation:
+    | {
+        kind: "dry-run";
+      }
     | {
         kind: "boundary";
         result: ResortBoundarySetResult;
@@ -46,6 +50,7 @@ export async function updateResortLayer(
     bufferMeters?: number;
     timeoutSeconds?: number;
     updatedAt?: string;
+    dryRun?: boolean;
   },
   deps?: {
     readWorkspaceFn?: typeof readResortWorkspace;
@@ -61,6 +66,22 @@ export async function updateResortLayer(
 
   const beforeWorkspace = await readWorkspaceFn(args.workspacePath);
   const before = toSnapshot(beforeWorkspace.layers[args.layer]);
+  const dryRun = args.dryRun ?? false;
+
+  if (dryRun) {
+    return {
+      workspacePath: args.workspacePath,
+      layer: args.layer,
+      dryRun: true,
+      before,
+      after: before,
+      changed: false,
+      changedFields: [],
+      operation: {
+        kind: "dry-run"
+      }
+    };
+  }
 
   let operation: ResortUpdateResult["operation"];
   if (args.layer === "boundary") {
@@ -102,6 +123,7 @@ export async function updateResortLayer(
   return {
     workspacePath: args.workspacePath,
     layer: args.layer,
+    dryRun: false,
     before,
     after,
     changed: changedFields.length > 0,
