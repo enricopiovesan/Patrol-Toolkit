@@ -134,6 +134,37 @@ describe("attach basemap assets", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("generates basemap assets from latest prior version basemap", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-generate-basemap-prev-version-"));
+    try {
+      const resortsRoot = join(root, "resorts");
+      const publicRoot = join(root, "public");
+      const resortKey = "CA_Golden_Kicking_Horse";
+      const previousVersionPath = join(resortsRoot, resortKey, "v1");
+      const currentVersionPath = join(resortsRoot, resortKey, "v2");
+      await mkdir(join(previousVersionPath, "basemap"), { recursive: true });
+      await mkdir(currentVersionPath, { recursive: true });
+      await writeFile(join(previousVersionPath, "basemap", "base.pmtiles"), new Uint8Array([4, 5, 6]));
+      await writeFile(join(previousVersionPath, "basemap", "style.json"), "{\"name\":\"v1\"}");
+
+      const result = await generateBasemapAssetsForVersion({
+        resortsRoot,
+        appPublicRoot: publicRoot,
+        resortKey,
+        versionPath: currentVersionPath
+      });
+
+      expect(result.generatedNow).toBe(true);
+      expect(result.sourceLabel).toBe("existing version v1");
+      const copiedPmtiles = await readFile(join(currentVersionPath, "basemap", "base.pmtiles"));
+      const copiedStyle = await readFile(join(currentVersionPath, "basemap", "style.json"), "utf8");
+      expect([...copiedPmtiles]).toEqual([4, 5, 6]);
+      expect(copiedStyle).toBe("{\"name\":\"v1\"}");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("menu known resort listing", () => {

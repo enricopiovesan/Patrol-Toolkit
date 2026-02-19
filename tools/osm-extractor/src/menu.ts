@@ -1155,8 +1155,7 @@ async function runKnownResortMenu(args: {
           resortsRoot: args.resortsRoot,
           appPublicRoot: args.appPublicRoot,
           resortKey: args.resortKey,
-          versionPath: dirname(workspacePath),
-          rl: args.rl
+          versionPath: dirname(workspacePath)
         });
         if (result.generatedNow) {
           console.log(`Basemap assets generated under ${join(dirname(workspacePath), "basemap")} from ${result.sourceLabel}.`);
@@ -1270,7 +1269,6 @@ export async function generateBasemapAssetsForVersion(args: {
   appPublicRoot: string;
   resortKey: string;
   versionPath: string;
-  rl?: MenuReadline;
 }): Promise<{ generatedNow: boolean; sourceLabel: string }> {
   const targetPmtiles = join(args.versionPath, "basemap", "base.pmtiles");
   const targetStyle = join(args.versionPath, "basemap", "style.json");
@@ -1279,23 +1277,12 @@ export async function generateBasemapAssetsForVersion(args: {
     return { generatedNow: false, sourceLabel: "current version basemap" };
   }
 
-  const source = await resolveBasemapSourcePaths(args);
-  let sourcePaths = source;
-  if (!sourcePaths && args.rl) {
-    const manualPmtiles = (await args.rl.question("No basemap source found. PMTiles source path: ")).trim();
-    const manualStyle = (await args.rl.question("Style JSON source path: ")).trim();
-    if (manualPmtiles.length > 0 && manualStyle.length > 0) {
-      sourcePaths = {
-        pmtilesPath: manualPmtiles,
-        stylePath: manualStyle,
-        sourceLabel: "manual source paths"
-      };
-    }
-  }
+  const sourcePaths = await resolveBasemapSourcePaths(args);
 
   if (!sourcePaths) {
+    const expectedSharedPath = join(args.resortsRoot, args.resortKey, "basemap");
     throw new Error(
-      "No basemap source found. Expected either resorts/<resortKey>/basemap/{base.pmtiles,style.json} or public/packs/<resortKey>/{base.pmtiles,style.json}."
+      `No basemap source found. Place base.pmtiles and style.json under ${expectedSharedPath} and run Generate basemap assets again.`
     );
   }
 
@@ -1314,6 +1301,7 @@ async function resolveBasemapSourcePaths(args: {
   resortsRoot: string;
   appPublicRoot: string;
   resortKey: string;
+  versionPath: string;
 }): Promise<BasemapSourcePaths | null> {
   const resortBasemap = {
     pmtilesPath: join(args.resortsRoot, args.resortKey, "basemap", "base.pmtiles"),
@@ -1324,6 +1312,11 @@ async function resolveBasemapSourcePaths(args: {
     return resortBasemap;
   }
 
+  const versionBasemap = await resolveBasemapFromOtherVersion(args);
+  if (versionBasemap) {
+    return versionBasemap;
+  }
+
   const publishedBasemap = {
     pmtilesPath: join(args.appPublicRoot, "packs", args.resortKey, "base.pmtiles"),
     stylePath: join(args.appPublicRoot, "packs", args.resortKey, "style.json"),
@@ -1331,6 +1324,39 @@ async function resolveBasemapSourcePaths(args: {
   };
   if ((await isRegularFile(publishedBasemap.pmtilesPath)) && (await isRegularFile(publishedBasemap.stylePath))) {
     return publishedBasemap;
+  }
+
+  return null;
+}
+
+async function resolveBasemapFromOtherVersion(args: {
+  resortsRoot: string;
+  resortKey: string;
+  versionPath: string;
+}): Promise<BasemapSourcePaths | null> {
+  const resortPath = join(args.resortsRoot, args.resortKey);
+  const currentVersionDirName = basename(args.versionPath);
+  let entries;
+  try {
+    entries = await readdir(resortPath, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+
+  const versionNames = entries
+    .filter((entry) => entry.isDirectory() && /^v\d+$/iu.test(entry.name) && entry.name !== currentVersionDirName)
+    .map((entry) => entry.name)
+    .sort((left, right) => (parseVersionFolder(right) ?? -1) - (parseVersionFolder(left) ?? -1));
+
+  for (const versionName of versionNames) {
+    const candidate = {
+      pmtilesPath: join(resortPath, versionName, "basemap", "base.pmtiles"),
+      stylePath: join(resortPath, versionName, "basemap", "style.json"),
+      sourceLabel: `existing version ${versionName}`
+    };
+    if ((await isRegularFile(candidate.pmtilesPath)) && (await isRegularFile(candidate.stylePath))) {
+      return candidate;
+    }
   }
 
   return null;
