@@ -15,7 +15,7 @@ import { setResortBoundary } from "./resort-boundary-set.js";
 import { syncResortLifts } from "./resort-sync-lifts.js";
 import { syncResortRuns } from "./resort-sync-runs.js";
 import { readResortSyncStatus } from "./resort-sync-status.js";
-import { updateResortLayers, type ResortUpdateLayerSelection } from "./resort-update.js";
+import { updateResortLayers, type ResortUpdateBatchResult, type ResortUpdateLayerSelection } from "./resort-update.js";
 
 type CliErrorJson = {
   ok: false;
@@ -50,6 +50,11 @@ export class CliCommandError extends Error {
     this.details = details;
   }
 }
+
+type ResortUpdateCommandDeps = {
+  updateResortLayersFn?: typeof updateResortLayers;
+  log?: (line: string) => void;
+};
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
@@ -642,97 +647,7 @@ async function main(): Promise<void> {
   }
 
   if (command === "resort-update") {
-    const updateOptions = parseResortUpdateOptions(args);
-
-    let result;
-    try {
-      result = await updateResortLayers({
-        workspacePath: updateOptions.workspacePath,
-        layer: updateOptions.layer,
-        index: updateOptions.index,
-        outputPath: updateOptions.outputPath,
-        searchLimit: updateOptions.searchLimit,
-        bufferMeters: updateOptions.bufferMeters,
-        timeoutSeconds: updateOptions.timeoutSeconds,
-        updatedAt: updateOptions.updatedAt,
-        dryRun: updateOptions.dryRun
-      });
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new CliCommandError("RESORT_UPDATE_FAILED", message, {
-        command: "resort-update",
-        workspacePath: updateOptions.workspacePath,
-        layer: updateOptions.layer
-      });
-    }
-
-    if (updateOptions.requireComplete && !result.overallReady) {
-      if (result.results.length === 1) {
-        const only = result.results[0];
-        if (only && !only.readiness.ready) {
-          throw new CliCommandError(
-            "UPDATE_INCOMPLETE",
-            `Layer '${only.layer}' is not complete after update.`,
-            {
-              workspacePath: result.workspacePath,
-              layer: only.layer,
-              issues: only.readiness.issues
-            }
-          );
-        }
-      }
-      throw new CliCommandError("UPDATE_INCOMPLETE", "One or more layers are not complete after update.", {
-        workspacePath: result.workspacePath,
-        layerSelection: result.layerSelection,
-        issues: result.issues
-      });
-    }
-
-    if (outputJson) {
-      console.log(
-        JSON.stringify({
-          ok: true,
-          resortUpdate: result.results.length === 1 ? result.results[0] : result
-        })
-      );
-      return;
-    }
-
-    if (result.results.length === 1) {
-      const only = result.results[0];
-      if (only) {
-        console.log(
-          `RESORT_UPDATED workspace=${only.workspacePath} layer=${only.layer} dryRun=${only.dryRun ? "yes" : "no"} changed=${only.changed ? "yes" : "no"} fields=${
-            only.changedFields.length > 0 ? only.changedFields.join(",") : "none"
-          } ready=${only.readiness.ready ? "yes" : "no"} features=${only.after.featureCount ?? "?"} output=${
-            only.after.artifactPath ?? "?"
-          }`
-        );
-        if (only.readiness.issues.length > 0) {
-          console.log("  readiness issues:");
-          for (const issue of only.readiness.issues) {
-            console.log(`    - ${issue}`);
-          }
-        }
-      }
-      return;
-    }
-
-    console.log(
-      `RESORT_UPDATED_BATCH workspace=${result.workspacePath} layers=boundary,lifts,runs dryRun=${result.dryRun ? "yes" : "no"} ready=${
-        result.overallReady ? "yes" : "no"
-      }`
-    );
-    for (const layerResult of result.results) {
-      console.log(
-        `  ${layerResult.layer} changed=${layerResult.changed ? "yes" : "no"} ready=${
-          layerResult.readiness.ready ? "yes" : "no"
-        } features=${layerResult.after.featureCount ?? "?"}`
-      );
-      for (const issue of layerResult.readiness.issues) {
-        console.log(`    - ${issue}`);
-      }
-    }
+    await runResortUpdateCommand(args, outputJson);
     return;
   }
 
@@ -989,6 +904,106 @@ export function parseResortUpdateOptions(args: string[]): ResortUpdateCliOptions
     dryRun,
     requireComplete
   };
+}
+
+export async function runResortUpdateCommand(
+  args: string[],
+  outputJson: boolean,
+  deps?: ResortUpdateCommandDeps
+): Promise<void> {
+  const updateOptions = parseResortUpdateOptions(args);
+  const updateResortLayersFn = deps?.updateResortLayersFn ?? updateResortLayers;
+  const log = deps?.log ?? console.log;
+
+  let result: ResortUpdateBatchResult;
+  try {
+    result = await updateResortLayersFn({
+      workspacePath: updateOptions.workspacePath,
+      layer: updateOptions.layer,
+      index: updateOptions.index,
+      outputPath: updateOptions.outputPath,
+      searchLimit: updateOptions.searchLimit,
+      bufferMeters: updateOptions.bufferMeters,
+      timeoutSeconds: updateOptions.timeoutSeconds,
+      updatedAt: updateOptions.updatedAt,
+      dryRun: updateOptions.dryRun
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new CliCommandError("RESORT_UPDATE_FAILED", message, {
+      command: "resort-update",
+      workspacePath: updateOptions.workspacePath,
+      layer: updateOptions.layer
+    });
+  }
+
+  if (updateOptions.requireComplete && !result.overallReady) {
+    if (result.results.length === 1) {
+      const only = result.results[0];
+      if (only && !only.readiness.ready) {
+        throw new CliCommandError(
+          "UPDATE_INCOMPLETE",
+          `Layer '${only.layer}' is not complete after update.`,
+          {
+            workspacePath: result.workspacePath,
+            layer: only.layer,
+            issues: only.readiness.issues
+          }
+        );
+      }
+    }
+    throw new CliCommandError("UPDATE_INCOMPLETE", "One or more layers are not complete after update.", {
+      workspacePath: result.workspacePath,
+      layerSelection: result.layerSelection,
+      issues: result.issues
+    });
+  }
+
+  if (outputJson) {
+    log(
+      JSON.stringify({
+        ok: true,
+        resortUpdate: result.results.length === 1 ? result.results[0] : result
+      })
+    );
+    return;
+  }
+
+  if (result.results.length === 1) {
+    const only = result.results[0];
+    if (only) {
+      log(
+        `RESORT_UPDATED workspace=${only.workspacePath} layer=${only.layer} dryRun=${only.dryRun ? "yes" : "no"} changed=${only.changed ? "yes" : "no"} fields=${
+          only.changedFields.length > 0 ? only.changedFields.join(",") : "none"
+        } ready=${only.readiness.ready ? "yes" : "no"} features=${only.after.featureCount ?? "?"} output=${
+          only.after.artifactPath ?? "?"
+        }`
+      );
+      if (only.readiness.issues.length > 0) {
+        log("  readiness issues:");
+        for (const issue of only.readiness.issues) {
+          log(`    - ${issue}`);
+        }
+      }
+    }
+    return;
+  }
+
+  log(
+    `RESORT_UPDATED_BATCH workspace=${result.workspacePath} layers=boundary,lifts,runs dryRun=${result.dryRun ? "yes" : "no"} ready=${
+      result.overallReady ? "yes" : "no"
+    }`
+  );
+  for (const layerResult of result.results) {
+    log(
+      `  ${layerResult.layer} changed=${layerResult.changed ? "yes" : "no"} ready=${
+        layerResult.readiness.ready ? "yes" : "no"
+      } features=${layerResult.after.featureCount ?? "?"}`
+    );
+    for (const issue of layerResult.readiness.issues) {
+      log(`    - ${issue}`);
+    }
+  }
 }
 
 export function formatCliError(error: unknown, command: string | null): CliErrorJson {
