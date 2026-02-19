@@ -41,6 +41,34 @@ npm --prefix tools/osm-extractor run run:menu
 npm --prefix tools/osm-extractor run check
 ```
 
+## Operator Happy Path (Menu)
+
+Use this flow when you want guided onboarding/update without remembering flags.
+
+1. Start menu:
+
+```bash
+npm --prefix tools/osm-extractor run run:menu
+```
+
+2. Create/select resort:
+- `1. Resort list` for known resorts.
+- `2. New Resort` for onboarding.
+
+3. In resort submenu:
+- `2/3/4` for single-layer sync (`boundary`, `runs`, `lifts`).
+- `5` for immutable multi-layer update in one new version.
+- `6/7/8` to mark layer manual validation.
+- `1` to verify readiness/metrics.
+
+4. Export app-ready bundle from latest manually validated version:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-export-latest \
+  --resort-key CA_Golden_Kicking_Horse \
+  --output ./out/CA_Golden_Kicking_Horse.latest.validated.json
+```
+
 ## Quality Gate
 
 ```bash
@@ -155,6 +183,34 @@ node tools/osm-extractor/dist/src/cli.js resort-update \
   --json
 ```
 
+11. Export latest manually validated immutable version as one bundle:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-export-latest \
+  --resorts-root ./resorts \
+  --resort-key CA_Golden_Kicking_Horse \
+  --output ./out/CA_Golden_Kicking_Horse.latest.validated.json
+```
+
+## Developer Mode (Command-First)
+
+Use command mode for deterministic scripting/CI.
+
+- Build once:
+
+```bash
+npm --prefix tools/osm-extractor run build
+```
+
+- Run compiled CLI directly:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js --help
+```
+
+- Prefer `--json` for machine parsing and CI gates.
+- Prefer `--require-complete` on `resort-update` for strict readiness enforcement.
+
 ## Command Reference
 
 ### validate-pack
@@ -265,6 +321,27 @@ JSON success fields:
 ### Resort Acquisition (Name -> Boundary -> Lifts/Runs)
 
 Use the step-by-step workflow above for this flow. The command reference here documents all supported commands and flags.
+
+### resort-export-latest
+
+Export the latest manually validated immutable version for one resort as a single JSON bundle.
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-export-latest \
+  --resorts-root ./resorts \
+  --resort-key CA_Golden_Kicking_Horse \
+  --output ./out/CA_Golden_Kicking_Horse.latest.validated.json
+```
+
+JSON mode:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-export-latest \
+  --resorts-root ./resorts \
+  --resort-key CA_Golden_Kicking_Horse \
+  --output ./out/CA_Golden_Kicking_Horse.latest.validated.json \
+  --json
+```
 
 ### extract-resort
 
@@ -418,6 +495,17 @@ Known stable error codes:
 - `COMMAND_FAILED`
 
 ## Troubleshooting
+
+- `No valid boundary candidates with polygon geometry were found`:
+  - confirm resort selection identity (`Re-select resort identity` in menu),
+  - retry boundary update and prefer higher-score candidates with `containsCenter=yes`.
+- Overpass/Nominatim instability or rate-limit symptoms (timeouts/429/503):
+  - retry same command (CLI has caching/throttle),
+  - reduce concurrent manual runs,
+  - run single-layer updates before full `--layer all`.
+- `No manually validated version found for resort ...` on export:
+  - validate boundary/runs/lifts in menu (`6/7/8`) for latest version,
+  - rerun `resort-export-latest`.
 
 - Failure matrix and remediation playbook:
   - `tools/osm-extractor/docs/troubleshooting.md`
