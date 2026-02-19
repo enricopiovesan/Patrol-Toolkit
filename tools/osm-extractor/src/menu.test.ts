@@ -144,6 +144,42 @@ describe("menu search ranking", () => {
     expect(ranked[0]?.candidate.osmId).toBe(2);
     expect(ranked[1]?.candidate.osmId).toBe(1);
   });
+
+  it("prioritizes candidates matching requested town", async () => {
+    const ranked = await rankSearchCandidates(
+      [
+        {
+          osmType: "relation",
+          osmId: 1,
+          displayName: "Kicking Horse, Morin-Heights, Canada",
+          countryCode: "ca",
+          country: "Canada",
+          region: "Quebec",
+          center: [-74.2, 45.8],
+          importance: 0.9,
+          source: "nominatim"
+        },
+        {
+          osmType: "relation",
+          osmId: 2,
+          displayName: "Kicking Horse Mountain Resort, Golden, Canada",
+          countryCode: "ca",
+          country: "Canada",
+          region: "British Columbia",
+          center: [-116.96, 51.29],
+          importance: 0.1,
+          source: "nominatim"
+        }
+      ],
+      {
+        town: "Golden",
+        hasPolygonFn: async () => true
+      }
+    );
+
+    expect(ranked[0]?.candidate.osmId).toBe(2);
+    expect(ranked[1]?.candidate.osmId).toBe(1);
+  });
 });
 
 describe("menu resort persistence", () => {
