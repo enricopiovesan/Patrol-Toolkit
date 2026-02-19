@@ -79,7 +79,7 @@ export async function resolveStyleForPack(
   } catch {
     return {
       key: `fallback:${pack.resort.id}`,
-      style: fallbackStyle
+      style: OFFLINE_FALLBACK_STYLE
     };
   }
 }
