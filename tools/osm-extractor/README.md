@@ -21,12 +21,6 @@
 - Local OSM JSON input files for `ingest-osm`/`build-pack`/`extract-*` workflows
 - Network access for resort acquisition commands (`resort-search`, `resort-boundary-*`, `resort-sync-*`, `resort-update`)
 
-## Install
-
-```bash
-npm --prefix tools/osm-extractor install
-```
-
 ## Get Started
 
 1. Install dependencies:
@@ -444,6 +438,13 @@ Known stable error codes:
   - mandatory validation gates,
   - app-side pack import verification steps.
 
+## Menu Documentation
+
+- Operator guide:
+  - `tools/osm-extractor/docs/menu-user-guide.md`
+- Developer architecture and data contracts:
+  - `tools/osm-extractor/docs/development/menu-architecture.md`
+
 ## Links
 
 - Extractor spec vision: `tools/osm-extractor/spec/vision.md`
@@ -453,3 +454,5 @@ Known stable error codes:
 - Extractor troubleshooting: `tools/osm-extractor/docs/troubleshooting.md`
 - Extractor data playbook: `tools/osm-extractor/docs/data-extraction-playbook.md`
 - Extractor handoff checklist: `tools/osm-extractor/docs/checklists/resort-handoff.md`
+- Menu user guide: `tools/osm-extractor/docs/menu-user-guide.md`
+- Menu developer architecture: `tools/osm-extractor/docs/development/menu-architecture.md`
