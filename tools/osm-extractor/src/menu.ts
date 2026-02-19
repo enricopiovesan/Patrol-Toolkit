@@ -45,6 +45,12 @@ export type OfflineBasemapMetrics = {
   publishedStyle: boolean;
 };
 
+type BasemapSourcePaths = {
+  pmtilesPath: string;
+  stylePath: string;
+  sourceLabel: string;
+};
+
 export type PersistedResortVersion = {
   resortKey: string;
   resortPath: string;
@@ -1144,20 +1150,18 @@ async function runKnownResortMenu(args: {
         continue;
       }
 
-      const pmtilesSourcePath = (await args.rl.question("PMTiles source path: ")).trim();
-      const styleSourcePath = (await args.rl.question("Style JSON source path: ")).trim();
-      if (pmtilesSourcePath.length === 0 || styleSourcePath.length === 0) {
-        console.log("Basemap generation skipped: both PMTiles and style paths are required.");
-        continue;
-      }
-
       try {
-        await attachBasemapAssetsToVersion({
+        const result = await generateBasemapAssetsForVersion({
+          resortsRoot: args.resortsRoot,
+          appPublicRoot: args.appPublicRoot,
+          resortKey: args.resortKey,
           versionPath: dirname(workspacePath),
-          pmtilesSourcePath,
-          styleSourcePath
         });
-        console.log(`Basemap assets attached under ${join(dirname(workspacePath), "basemap")}`);
+        if (result.generatedNow) {
+          console.log(`Basemap assets generated under ${join(dirname(workspacePath), "basemap")} from ${result.sourceLabel}.`);
+        } else {
+          console.log(`Basemap assets already present under ${join(dirname(workspacePath), "basemap")}.`);
+        }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         console.log(`Basemap generation failed: ${message}`);
@@ -1258,6 +1262,63 @@ export async function attachBasemapAssetsToVersion(args: {
   await mkdir(basemapDir, { recursive: true });
   await cp(args.pmtilesSourcePath, join(basemapDir, "base.pmtiles"));
   await cp(args.styleSourcePath, join(basemapDir, "style.json"));
+}
+
+export async function generateBasemapAssetsForVersion(args: {
+  resortsRoot: string;
+  appPublicRoot: string;
+  resortKey: string;
+  versionPath: string;
+}): Promise<{ generatedNow: boolean; sourceLabel: string }> {
+  const targetPmtiles = join(args.versionPath, "basemap", "base.pmtiles");
+  const targetStyle = join(args.versionPath, "basemap", "style.json");
+  const alreadyGenerated = (await isRegularFile(targetPmtiles)) && (await isRegularFile(targetStyle));
+  if (alreadyGenerated) {
+    return { generatedNow: false, sourceLabel: "current version basemap" };
+  }
+
+  const source = await resolveBasemapSourcePaths(args);
+  if (!source) {
+    throw new Error(
+      "No basemap source found. Expected either resorts/<resortKey>/basemap/{base.pmtiles,style.json} or public/packs/<resortKey>/{base.pmtiles,style.json}."
+    );
+  }
+
+  await attachBasemapAssetsToVersion({
+    versionPath: args.versionPath,
+    pmtilesSourcePath: source.pmtilesPath,
+    styleSourcePath: source.stylePath
+  });
+  return {
+    generatedNow: true,
+    sourceLabel: source.sourceLabel
+  };
+}
+
+async function resolveBasemapSourcePaths(args: {
+  resortsRoot: string;
+  appPublicRoot: string;
+  resortKey: string;
+}): Promise<BasemapSourcePaths | null> {
+  const resortBasemap = {
+    pmtilesPath: join(args.resortsRoot, args.resortKey, "basemap", "base.pmtiles"),
+    stylePath: join(args.resortsRoot, args.resortKey, "basemap", "style.json"),
+    sourceLabel: "resort shared basemap"
+  };
+  if ((await isRegularFile(resortBasemap.pmtilesPath)) && (await isRegularFile(resortBasemap.stylePath))) {
+    return resortBasemap;
+  }
+
+  const publishedBasemap = {
+    pmtilesPath: join(args.appPublicRoot, "packs", args.resortKey, "base.pmtiles"),
+    stylePath: join(args.appPublicRoot, "packs", args.resortKey, "style.json"),
+    sourceLabel: "published app basemap"
+  };
+  if ((await isRegularFile(publishedBasemap.pmtilesPath)) && (await isRegularFile(publishedBasemap.stylePath))) {
+    return publishedBasemap;
+  }
+
+  return null;
 }
 
 export function parseLayerSelection(value: string): ResortLayer[] | null {

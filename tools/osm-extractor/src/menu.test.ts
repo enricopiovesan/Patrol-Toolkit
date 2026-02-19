@@ -17,6 +17,7 @@ import {
   parseDuplicateResortAction,
   persistResortVersion,
   readOfflineBasemapMetrics,
+  generateBasemapAssetsForVersion,
   rankSearchCandidates,
   runInteractiveMenu,
   setLayerManualValidation,
@@ -100,6 +101,35 @@ describe("attach basemap assets", () => {
       const copiedStyle = await readFile(join(versionPath, "basemap", "style.json"), "utf8");
       expect([...copiedPmtiles]).toEqual([11, 22]);
       expect(copiedStyle).toBe("{\"version\":8}");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("generates basemap assets from shared resort basemap source without prompts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-generate-basemap-"));
+    try {
+      const resortsRoot = join(root, "resorts");
+      const publicRoot = join(root, "public");
+      const resortKey = "CA_Golden_Kicking_Horse";
+      const versionPath = join(resortsRoot, resortKey, "v2");
+      await mkdir(join(versionPath), { recursive: true });
+      await mkdir(join(resortsRoot, resortKey, "basemap"), { recursive: true });
+      await writeFile(join(resortsRoot, resortKey, "basemap", "base.pmtiles"), new Uint8Array([9, 8, 7]));
+      await writeFile(join(resortsRoot, resortKey, "basemap", "style.json"), "{\"name\":\"shared\"}");
+
+      const result = await generateBasemapAssetsForVersion({
+        resortsRoot,
+        appPublicRoot: publicRoot,
+        resortKey,
+        versionPath
+      });
+
+      expect(result.generatedNow).toBe(true);
+      const copiedPmtiles = await readFile(join(versionPath, "basemap", "base.pmtiles"));
+      const copiedStyle = await readFile(join(versionPath, "basemap", "style.json"), "utf8");
+      expect([...copiedPmtiles]).toEqual([9, 8, 7]);
+      expect(copiedStyle).toBe("{\"name\":\"shared\"}");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
