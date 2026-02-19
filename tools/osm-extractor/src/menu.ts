@@ -380,6 +380,24 @@ export async function runInteractiveMenu(args: {
         }
         console.log(`Selected resort: ${picked.displayName} [${picked.osmType}/${picked.osmId}]`);
 
+        const resortKey = buildResortKey(countryCode, town, name);
+        const latestExistingVersion = await getExistingResortLatestVersion(args.resortsRoot, resortKey);
+        if (latestExistingVersion) {
+          console.log(`Existing resort detected: key=${resortKey} latest=${latestExistingVersion}`);
+          console.log("1. Create new immutable version");
+          console.log("2. Cancel");
+          const duplicateChoice = (await rl.question("Select option (1-2): ")).trim();
+          const duplicateAction = parseDuplicateResortAction(duplicateChoice);
+          if (duplicateAction === null) {
+            console.log("Invalid option. Please select 1 or 2.");
+            continue;
+          }
+          if (duplicateAction === "cancel") {
+            console.log("Creation cancelled.");
+            continue;
+          }
+        }
+
         const persisted = await persistResortVersion({
           resortsRoot: args.resortsRoot,
           countryCode,
@@ -423,6 +441,16 @@ export function parseCandidateSelection(value: string, max: number): number | nu
     return -1;
   }
   return parsed;
+}
+
+export function parseDuplicateResortAction(value: string): "create" | "cancel" | null {
+  if (value === "1") {
+    return "create";
+  }
+  if (value === "2") {
+    return "cancel";
+  }
+  return null;
 }
 
 export function formatKnownResortSummary(index: number, resort: KnownResortSummary): string {
@@ -592,6 +620,15 @@ export async function persistResortVersion(args: {
     statusPath,
     wasExistingResort: existingVersions.length > 0
   };
+}
+
+export async function getExistingResortLatestVersion(resortsRoot: string, resortKey: string): Promise<string | null> {
+  const resortPath = join(resortsRoot, resortKey);
+  const versions = await readVersionFolders(resortPath);
+  if (versions.length === 0) {
+    return null;
+  }
+  return `v${String(Math.max(...versions))}`;
 }
 
 export function buildResortKey(countryCode: string, town: string, resortName: string): string {
