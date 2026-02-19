@@ -36,6 +36,7 @@ export type ResortUpdateCliOptions = {
   bufferMeters?: number;
   timeoutSeconds?: number;
   updatedAt?: string;
+  dryRun: boolean;
 };
 
 export class CliCommandError extends Error {
@@ -652,7 +653,8 @@ async function main(): Promise<void> {
         searchLimit: updateOptions.searchLimit,
         bufferMeters: updateOptions.bufferMeters,
         timeoutSeconds: updateOptions.timeoutSeconds,
-        updatedAt: updateOptions.updatedAt
+        updatedAt: updateOptions.updatedAt,
+        dryRun: updateOptions.dryRun
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -674,7 +676,7 @@ async function main(): Promise<void> {
     }
 
     console.log(
-      `RESORT_UPDATED workspace=${result.workspacePath} layer=${result.layer} changed=${result.changed ? "yes" : "no"} fields=${
+      `RESORT_UPDATED workspace=${result.workspacePath} layer=${result.layer} dryRun=${result.dryRun ? "yes" : "no"} changed=${result.changed ? "yes" : "no"} fields=${
         result.changedFields.length > 0 ? result.changedFields.join(",") : "none"
       } features=${result.after.featureCount ?? "?"} output=${result.after.artifactPath ?? "?"}`
     );
@@ -823,6 +825,7 @@ export function parseResortUpdateOptions(args: string[]): ResortUpdateCliOptions
   const bufferMeters = readNumberFlag(args, "--buffer-meters");
   const timeoutSeconds = readIntegerFlag(args, "--timeout-seconds");
   const updatedAt = readFlag(args, "--updated-at") ?? undefined;
+  const dryRun = hasFlag(args, "--dry-run");
 
   if (!workspacePath || !layerRaw) {
     throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --workspace <path> and --layer <boundary|lifts|runs> arguments.", {
@@ -908,7 +911,8 @@ export function parseResortUpdateOptions(args: string[]): ResortUpdateCliOptions
     searchLimit,
     bufferMeters,
     timeoutSeconds,
-    updatedAt
+    updatedAt,
+    dryRun
   };
 }
 
@@ -938,7 +942,7 @@ export function formatCliError(error: unknown, command: string | null): CliError
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--dry-run] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
   );
 }
 

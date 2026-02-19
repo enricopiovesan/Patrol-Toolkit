@@ -72,7 +72,30 @@ describe("resort-update option parsing", () => {
       searchLimit: undefined,
       bufferMeters: 40,
       timeoutSeconds: 25,
-      updatedAt: undefined
+      updatedAt: undefined,
+      dryRun: false
+    });
+  });
+
+  it("parses dry-run flag", () => {
+    const result = parseResortUpdateOptions([
+      "--workspace",
+      "/tmp/resort.json",
+      "--layer",
+      "runs",
+      "--dry-run"
+    ]);
+
+    expect(result).toEqual({
+      workspacePath: "/tmp/resort.json",
+      layer: "runs",
+      outputPath: undefined,
+      index: undefined,
+      searchLimit: undefined,
+      bufferMeters: undefined,
+      timeoutSeconds: undefined,
+      updatedAt: undefined,
+      dryRun: true
     });
   });
 
