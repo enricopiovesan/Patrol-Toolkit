@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createAuditLogger, noopAuditLogger } from "./audit-log.js";
@@ -106,6 +106,8 @@ export type ResortPublishLatestResult = {
   outputUrl: string;
   catalogPath: string;
   exportedAt: string;
+  basemapPmtilesPath: string;
+  basemapStylePath: string;
 };
 
 type ResortCatalogIndex = {
@@ -1306,6 +1308,12 @@ export async function publishLatestValidatedResortVersion(args: {
     outputPath,
     exportedAt: args.exportedAt
   });
+  const versionPath = join(resolve(args.resortsRoot), args.resortKey, exportResult.version);
+  const basemapAssets = await publishBasemapAssetsForVersion({
+    versionPath,
+    publicRoot,
+    resortKey: args.resortKey
+  });
 
   const exportedBundle = await readJsonFile<{
     workspace?: {
@@ -1350,8 +1358,49 @@ export async function publishLatestValidatedResortVersion(args: {
     outputPath,
     outputUrl,
     catalogPath,
-    exportedAt: exportResult.exportedAt
+    exportedAt: exportResult.exportedAt,
+    basemapPmtilesPath: basemapAssets.pmtilesDestinationPath,
+    basemapStylePath: basemapAssets.styleDestinationPath
   };
+}
+
+async function publishBasemapAssetsForVersion(args: {
+  versionPath: string;
+  publicRoot: string;
+  resortKey: string;
+}): Promise<{ pmtilesDestinationPath: string; styleDestinationPath: string }> {
+  const basemapSourceDir = join(args.versionPath, "basemap");
+  const pmtilesSourcePath = join(basemapSourceDir, "base.pmtiles");
+  const styleSourcePath = join(basemapSourceDir, "style.json");
+
+  await assertRegularFile(pmtilesSourcePath, "Missing basemap PMTiles");
+  await assertRegularFile(styleSourcePath, "Missing basemap style");
+
+  const destinationDir = join(args.publicRoot, "packs", args.resortKey);
+  const pmtilesDestinationPath = join(destinationDir, "base.pmtiles");
+  const styleDestinationPath = join(destinationDir, "style.json");
+
+  await mkdir(destinationDir, { recursive: true });
+  await copyFile(pmtilesSourcePath, pmtilesDestinationPath);
+  await copyFile(styleSourcePath, styleDestinationPath);
+
+  return {
+    pmtilesDestinationPath,
+    styleDestinationPath
+  };
+}
+
+async function assertRegularFile(path: string, label: string): Promise<void> {
+  let metadata;
+  try {
+    metadata = await stat(path);
+  } catch {
+    throw new Error(`${label}: ${path}`);
+  }
+
+  if (!metadata.isFile()) {
+    throw new Error(`${label}: ${path}`);
+  }
 }
 
 async function readLayerArtifactJson(versionPath: string, artifactPath: string | undefined): Promise<unknown | null> {

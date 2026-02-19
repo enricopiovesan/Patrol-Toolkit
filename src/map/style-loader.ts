@@ -4,6 +4,21 @@ import type { ResortPack } from "../resort-pack/types";
 export const OFFLINE_FALLBACK_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   name: "Patrol Toolkit Offline Fallback",
+  sources: {},
+  layers: [
+    {
+      id: "offline-fallback-background",
+      type: "background",
+      paint: {
+        "background-color": "#dce7e4"
+      }
+    }
+  ]
+};
+
+const NETWORK_FALLBACK_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  name: "Patrol Toolkit Network Fallback",
   sources: {
     "osm-raster": {
       type: "raster",
@@ -23,12 +38,15 @@ export const OFFLINE_FALLBACK_STYLE: maplibregl.StyleSpecification = {
 
 export async function resolveStyleForPack(
   pack: ResortPack | null,
-  fetchFn: typeof fetch = fetch
+  fetchFn: typeof fetch = fetch,
+  isOnlineFn: () => boolean = defaultIsOnline
 ): Promise<{ key: string; style: maplibregl.StyleSpecification }> {
+  const fallbackStyle = isOnlineFn() ? NETWORK_FALLBACK_STYLE : OFFLINE_FALLBACK_STYLE;
+
   if (!pack) {
     return {
       key: "fallback",
-      style: OFFLINE_FALLBACK_STYLE
+      style: fallbackStyle
     };
   }
 
@@ -36,34 +54,45 @@ export async function resolveStyleForPack(
   if (!isLocalRelativePath(stylePath)) {
     return {
       key: `fallback:${pack.resort.id}`,
-      style: OFFLINE_FALLBACK_STYLE
+      style: fallbackStyle
     };
   }
 
   const normalized = normalizeRelativePath(stylePath);
+  const styleCandidates = [normalized, maybeCanonicalizePackStylePath(normalized)].filter(
+    (path, index, all) => all.indexOf(path) === index
+  );
 
-  try {
-    const response = await fetchFn(normalized);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+  for (const styleCandidate of styleCandidates) {
+    try {
+      const response = await fetchFn(styleCandidate);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const payload = (await response.json()) as unknown;
+      if (!isStyleSpecification(payload)) {
+        throw new Error("Invalid style payload.");
+      }
+      const hydratedStyle = injectPmtilesSourceUrls(payload, pack.basemap.pmtilesPath);
+
+      return {
+        key: `pack:${pack.resort.id}:${styleCandidate}`,
+        style: hydratedStyle
+      };
+    } catch {
+      // Try next candidate.
     }
-
-    const payload = (await response.json()) as unknown;
-    if (!isStyleSpecification(payload)) {
-      throw new Error("Invalid style payload.");
-    }
-    const hydratedStyle = injectPmtilesSourceUrls(payload, pack.basemap.pmtilesPath);
-
-    return {
-      key: `pack:${pack.resort.id}:${normalized}`,
-      style: hydratedStyle
-    };
-  } catch {
-    return {
-      key: `fallback:${pack.resort.id}`,
-      style: OFFLINE_FALLBACK_STYLE
-    };
   }
+
+  return {
+    key: `fallback:${pack.resort.id}`,
+    style: fallbackStyle
+  };
+}
+
+function defaultIsOnline(): boolean {
+  return typeof navigator !== "undefined" && navigator.onLine === true;
 }
 
 function injectPmtilesSourceUrls(
@@ -139,6 +168,23 @@ function looksLikeLocalPmtilesPath(path: string): boolean {
   }
 
   return !path.includes("://");
+}
+
+function maybeCanonicalizePackStylePath(path: string): string {
+  const match = /^\/packs\/([^/]+)\/style\.json$/iu.exec(path);
+  if (!match) {
+    return path;
+  }
+
+  const resortId = match[1];
+  const canonical = resortId
+    .split("_")
+    .filter((part) => part.length > 0)
+    .map((part, index) =>
+      index === 0 ? part.toUpperCase() : `${part.slice(0, 1).toUpperCase()}${part.slice(1).toLowerCase()}`
+    )
+    .join("_");
+  return `/packs/${canonical}/style.json`;
 }
 
 function isStyleSpecification(value: unknown): value is maplibregl.StyleSpecification {

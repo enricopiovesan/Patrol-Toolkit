@@ -45,6 +45,17 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     void self.skipWaiting();
+    return;
+  }
+
+  if (event.data?.type === "PRECACHE_URLS" && Array.isArray(event.data.urls)) {
+    const urls = event.data.urls.filter((url) => typeof url === "string");
+    const work = precacheSameOriginUrls(urls);
+    if (typeof event.waitUntil === "function") {
+      event.waitUntil(work);
+    } else {
+      void work;
+    }
   }
 });
 
@@ -101,12 +112,37 @@ async function handleNavigationRequest(request) {
 
 async function handleSameOriginStaticRequest(request) {
   const cache = await caches.open(STATIC_CACHE);
-  const cachedResponse = await cache.match(request);
+  const rangeHeader = request.headers.get("range");
+  const requestUrl = new URL(request.url);
+  const cacheKey = requestUrl.toString();
+  const cachedResponse = await cache.match(cacheKey);
+
+  if (rangeHeader) {
+    if (cachedResponse && cachedResponse.status === 200) {
+      const partial = await buildPartialResponseFromFull(cachedResponse, rangeHeader);
+      if (partial) {
+        return partial;
+      }
+    }
+
+    try {
+      return await fetch(request);
+    } catch {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      return new Response("Asset unavailable offline.", {
+        status: 504,
+        headers: { "Content-Type": "text/plain; charset=utf-8" }
+      });
+    }
+  }
 
   const networkRequest = fetch(request)
     .then(async (networkResponse) => {
       if (isCacheableResponse(networkResponse)) {
-        await cache.put(request, networkResponse.clone());
+        await cache.put(cacheKey, networkResponse.clone());
         await trimCache(STATIC_CACHE, 120);
       }
 
@@ -127,6 +163,72 @@ async function handleSameOriginStaticRequest(request) {
   return new Response("Asset unavailable offline.", {
     status: 504,
     headers: { "Content-Type": "text/plain; charset=utf-8" }
+  });
+}
+
+async function precacheSameOriginUrls(urls) {
+  const cache = await caches.open(STATIC_CACHE);
+
+  for (const url of urls) {
+    try {
+      const absoluteUrl = new URL(url, self.location.origin);
+      if (absoluteUrl.origin !== self.location.origin) {
+        continue;
+      }
+
+      const request = new Request(absoluteUrl.toString(), { method: "GET" });
+      const response = await fetch(request);
+      if (isCacheableResponse(response)) {
+        await cache.put(absoluteUrl.toString(), response.clone());
+      }
+    } catch {
+      // Best-effort prefetch for offline readiness.
+    }
+  }
+
+  await trimCache(STATIC_CACHE, 120);
+}
+
+async function buildPartialResponseFromFull(fullResponse, rangeHeader) {
+  const match = /^bytes=(\d+)-(\d*)$/iu.exec(rangeHeader.trim());
+  if (!match) {
+    return null;
+  }
+
+  const start = Number.parseInt(match[1], 10);
+  if (!Number.isFinite(start) || start < 0) {
+    return null;
+  }
+
+  const fullBuffer = await fullResponse.clone().arrayBuffer();
+  const total = fullBuffer.byteLength;
+  if (start >= total) {
+    return new Response(null, {
+      status: 416,
+      headers: {
+        "Content-Range": `bytes */${total}`,
+        "Accept-Ranges": "bytes"
+      }
+    });
+  }
+
+  const hasEnd = Boolean(match[2] && match[2].length > 0);
+  const requestedEnd = hasEnd ? Number.parseInt(match[2], 10) : total - 1;
+  const end = Number.isFinite(requestedEnd) ? Math.min(requestedEnd, total - 1) : total - 1;
+  if (end < start) {
+    return null;
+  }
+
+  const chunk = fullBuffer.slice(start, end + 1);
+  const headers = new Headers(fullResponse.headers);
+  headers.set("Content-Range", `bytes ${start}-${end}/${total}`);
+  headers.set("Content-Length", String(chunk.byteLength));
+  headers.set("Accept-Ranges", "bytes");
+
+  return new Response(chunk, {
+    status: 206,
+    statusText: "Partial Content",
+    headers
   });
 }
 

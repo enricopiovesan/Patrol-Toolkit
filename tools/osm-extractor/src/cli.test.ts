@@ -485,6 +485,7 @@ describe("resort-publish-latest command helpers", () => {
     const root = await mkdtemp(join(tmpdir(), "resort-publish-"));
     const resortKey = "CA_Golden_Kicking_Horse";
     const v2 = join(root, "resorts", resortKey, "v2");
+    const basemapDir = join(v2, "basemap");
     const publicRoot = join(root, "public");
 
     try {
@@ -514,6 +515,13 @@ describe("resort-publish-latest command helpers", () => {
       await writeFile(join(v2, "boundary.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
       await writeFile(join(v2, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
       await writeFile(join(v2, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await mkdir(basemapDir, { recursive: true });
+      await writeFile(join(basemapDir, "base.pmtiles"), new Uint8Array([1, 2, 3]));
+      await writeFile(
+        join(basemapDir, "style.json"),
+        JSON.stringify({ version: 8, sources: {}, layers: [{ id: "bg", type: "background" }] }),
+        "utf8"
+      );
 
       const published = await publishLatestValidatedResortVersion({
         resortsRoot: join(root, "resorts"),
@@ -541,6 +549,14 @@ describe("resort-publish-latest command helpers", () => {
       expect(catalog.resorts[0]?.versions[0]?.version).toBe("v2");
       expect(catalog.resorts[0]?.versions[0]?.approved).toBe(true);
       expect(catalog.resorts[0]?.versions[0]?.packUrl).toBe("/packs/CA_Golden_Kicking_Horse.latest.validated.json");
+      const publishedPmtiles = await readFile(join(publicRoot, "packs", resortKey, "base.pmtiles"));
+      const publishedStyle = await readFile(join(publicRoot, "packs", resortKey, "style.json"), "utf8");
+      expect([...publishedPmtiles]).toEqual([1, 2, 3]);
+      expect(JSON.parse(publishedStyle)).toEqual({
+        version: 8,
+        sources: {},
+        layers: [{ id: "bg", type: "background" }]
+      });
     } finally {
       await rm(root, { recursive: true, force: true });
     }

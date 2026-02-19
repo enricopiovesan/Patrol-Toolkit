@@ -17,6 +17,34 @@ type MockCaches = {
 };
 
 describe("service worker cache hardening", () => {
+  it("precaches same-origin URLs on PRECACHE_URLS message", async () => {
+    const listeners = new Map() as ListenerMap;
+    const stores = new Map<string, Map<string, Response>>();
+    const caches = createMockCaches(stores);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      return new Response(`payload:${url}`, { status: 200 });
+    });
+    const cleanup = loadServiceWorker(listeners, caches, fetchMock as typeof fetch);
+
+    const messageListener = listeners.get("message");
+    if (!messageListener) {
+      throw new Error("Message listener not registered");
+    }
+
+    await createMessageWaitUntilPromise(messageListener, {
+      type: "PRECACHE_URLS",
+      urls: ["/packs/demo/style.json", "/packs/demo/base.pmtiles", "https://example.com/skip.json"]
+    });
+
+    const staticStore = stores.get("ptk-static-v0.0.1");
+    expect(staticStore?.has("https://patrol.local/packs/demo/style.json")).toBe(true);
+    expect(staticStore?.has("https://patrol.local/packs/demo/base.pmtiles")).toBe(true);
+    expect(staticStore?.has("https://example.com/skip.json")).toBe(false);
+    cleanup();
+  });
+
   it("trims static cache to configured max entries", async () => {
     const listeners = new Map() as ListenerMap;
     const stores = new Map<string, Map<string, Response>>();
@@ -119,6 +147,50 @@ describe("service worker cache hardening", () => {
     expect(response.status).toBe(504);
     cleanup();
   });
+
+  it("serves byte ranges from cached full same-origin assets while offline", async () => {
+    const listeners = new Map() as ListenerMap;
+    const stores = new Map<string, Map<string, Response>>();
+    const caches = createMockCaches(stores);
+
+    const staticCacheName = "ptk-static-v0.0.1";
+    stores.set(staticCacheName, new Map());
+    const staticStore = stores.get(staticCacheName);
+    if (!staticStore) {
+      throw new Error("Missing static cache store");
+    }
+
+    staticStore.set(
+      "https://patrol.local/packs/demo/base.pmtiles",
+      new Response(new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]), {
+        status: 200,
+        headers: { "Content-Type": "application/octet-stream" }
+      })
+    );
+
+    const fetchMock = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    const cleanup = loadServiceWorker(listeners, caches, fetchMock);
+
+    const fetchListener = listeners.get("fetch");
+    if (!fetchListener) {
+      throw new Error("Fetch listener not registered");
+    }
+
+    const response = await createRespondWithPromise(
+      fetchListener,
+      new Request("https://patrol.local/packs/demo/base.pmtiles", {
+        headers: { range: "bytes=2-5" }
+      })
+    );
+    const payload = new Uint8Array(await response.arrayBuffer());
+
+    expect(response.status).toBe(206);
+    expect(response.headers.get("content-range")).toBe("bytes 2-5/10");
+    expect([...payload]).toEqual([2, 3, 4, 5]);
+    cleanup();
+  });
 });
 
 function loadServiceWorker(
@@ -213,6 +285,27 @@ function createRespondWithPromise(
   }
 
   return responsePromise;
+}
+
+function createMessageWaitUntilPromise(
+  messageListener: (event: unknown) => void,
+  data: unknown
+): Promise<void> {
+  let waitPromise: Promise<unknown> | null = null;
+
+  messageListener({
+    data,
+    waitUntil: (promise: Promise<unknown>) => {
+      waitPromise = promise;
+    }
+  });
+
+  if (!waitPromise) {
+    return Promise.resolve();
+  }
+
+  const settled = waitPromise as Promise<unknown>;
+  return settled.then(() => undefined);
 }
 
 function toAbsoluteUrl(path: string): string {

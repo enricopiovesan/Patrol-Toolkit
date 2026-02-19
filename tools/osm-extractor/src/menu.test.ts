@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  attachBasemapAssetsToVersion,
   buildResortKey,
   canonicalizeResortKeys,
   createNextVersionClone,
@@ -15,12 +16,229 @@ import {
   parseCandidateSelection,
   parseDuplicateResortAction,
   persistResortVersion,
+  readOfflineBasemapMetrics,
+  generateBasemapAssetsForVersion,
   rankSearchCandidates,
   runInteractiveMenu,
   setLayerManualValidation,
   toManualValidationState,
   toCanonicalResortKey
 } from "./menu.js";
+
+describe("offline basemap metrics", () => {
+  it("reports missing generated and published basemap files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-basemap-metrics-empty-"));
+    try {
+      const metrics = await readOfflineBasemapMetrics({
+        versionPath: join(root, "resorts", "CA_Golden_Kicking_Horse", "v1"),
+        appPublicRoot: join(root, "public"),
+        resortKey: "CA_Golden_Kicking_Horse"
+      });
+
+      expect(metrics).toEqual({
+        generated: false,
+        published: false,
+        generatedPmtiles: false,
+        generatedStyle: false,
+        publishedPmtiles: false,
+        publishedStyle: false
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reports generated and published basemap files when present", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-basemap-metrics-full-"));
+    try {
+      const versionPath = join(root, "resorts", "CA_Golden_Kicking_Horse", "v1");
+      const publicRoot = join(root, "public");
+      await mkdir(join(versionPath, "basemap"), { recursive: true });
+      await mkdir(join(publicRoot, "packs", "CA_Golden_Kicking_Horse"), { recursive: true });
+      await writeFile(join(versionPath, "basemap", "base.pmtiles"), new Uint8Array([1]));
+      await writeFile(join(versionPath, "basemap", "style.json"), "{}");
+      await writeFile(join(publicRoot, "packs", "CA_Golden_Kicking_Horse", "base.pmtiles"), new Uint8Array([2]));
+      await writeFile(join(publicRoot, "packs", "CA_Golden_Kicking_Horse", "style.json"), "{}");
+
+      const metrics = await readOfflineBasemapMetrics({
+        versionPath,
+        appPublicRoot: publicRoot,
+        resortKey: "CA_Golden_Kicking_Horse"
+      });
+
+      expect(metrics).toEqual({
+        generated: true,
+        published: true,
+        generatedPmtiles: true,
+        generatedStyle: true,
+        publishedPmtiles: true,
+        publishedStyle: true
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("attach basemap assets", () => {
+  it("copies basemap files into version basemap directory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-attach-basemap-"));
+    try {
+      const versionPath = join(root, "resorts", "CA_Golden_Kicking_Horse", "v1");
+      const sourcePath = join(root, "sources");
+      await mkdir(versionPath, { recursive: true });
+      await mkdir(sourcePath, { recursive: true });
+      await writeFile(join(sourcePath, "source.pmtiles"), new Uint8Array([11, 22]));
+      await writeFile(join(sourcePath, "source-style.json"), "{\"version\":8}");
+
+      await attachBasemapAssetsToVersion({
+        versionPath,
+        pmtilesSourcePath: join(sourcePath, "source.pmtiles"),
+        styleSourcePath: join(sourcePath, "source-style.json")
+      });
+
+      const copiedPmtiles = await readFile(join(versionPath, "basemap", "base.pmtiles"));
+      const copiedStyle = await readFile(join(versionPath, "basemap", "style.json"), "utf8");
+      expect([...copiedPmtiles]).toEqual([11, 22]);
+      expect(copiedStyle).toBe("{\"version\":8}");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("generates basemap assets from shared resort basemap source without prompts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-generate-basemap-"));
+    try {
+      const resortsRoot = join(root, "resorts");
+      const publicRoot = join(root, "public");
+      const resortKey = "CA_Golden_Kicking_Horse";
+      const versionPath = join(resortsRoot, resortKey, "v2");
+      await mkdir(join(versionPath), { recursive: true });
+      await mkdir(join(resortsRoot, resortKey, "basemap"), { recursive: true });
+      await writeFile(join(resortsRoot, resortKey, "basemap", "base.pmtiles"), new Uint8Array([9, 8, 7]));
+      await writeFile(join(resortsRoot, resortKey, "basemap", "style.json"), "{\"name\":\"shared\"}");
+
+      const result = await generateBasemapAssetsForVersion({
+        resortsRoot,
+        appPublicRoot: publicRoot,
+        resortKey,
+        versionPath
+      });
+
+      expect(result.generatedNow).toBe(true);
+      const copiedPmtiles = await readFile(join(versionPath, "basemap", "base.pmtiles"));
+      const copiedStyle = await readFile(join(versionPath, "basemap", "style.json"), "utf8");
+      expect([...copiedPmtiles]).toEqual([9, 8, 7]);
+      expect(copiedStyle).toBe("{\"name\":\"shared\"}");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("generates basemap assets from latest prior version basemap", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-generate-basemap-prev-version-"));
+    try {
+      const resortsRoot = join(root, "resorts");
+      const publicRoot = join(root, "public");
+      const resortKey = "CA_Golden_Kicking_Horse";
+      const previousVersionPath = join(resortsRoot, resortKey, "v1");
+      const currentVersionPath = join(resortsRoot, resortKey, "v2");
+      await mkdir(join(previousVersionPath, "basemap"), { recursive: true });
+      await mkdir(currentVersionPath, { recursive: true });
+      await writeFile(join(previousVersionPath, "basemap", "base.pmtiles"), new Uint8Array([4, 5, 6]));
+      await writeFile(join(previousVersionPath, "basemap", "style.json"), "{\"name\":\"v1\"}");
+
+      const result = await generateBasemapAssetsForVersion({
+        resortsRoot,
+        appPublicRoot: publicRoot,
+        resortKey,
+        versionPath: currentVersionPath
+      });
+
+      expect(result.generatedNow).toBe(true);
+      expect(result.sourceLabel).toBe("existing version v1");
+      const copiedPmtiles = await readFile(join(currentVersionPath, "basemap", "base.pmtiles"));
+      const copiedStyle = await readFile(join(currentVersionPath, "basemap", "style.json"), "utf8");
+      expect([...copiedPmtiles]).toEqual([4, 5, 6]);
+      expect(copiedStyle).toBe("{\"name\":\"v1\"}");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("generates placeholder basemap assets when no source exists", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-generate-basemap-placeholder-"));
+    try {
+      const resortsRoot = join(root, "resorts");
+      const publicRoot = join(root, "public");
+      const resortKey = "CA_Golden_Kicking_Horse";
+      const currentVersionPath = join(resortsRoot, resortKey, "v3");
+      await mkdir(currentVersionPath, { recursive: true });
+
+      const result = await generateBasemapAssetsForVersion({
+        resortsRoot,
+        appPublicRoot: publicRoot,
+        resortKey,
+        versionPath: currentVersionPath
+      });
+
+      expect(result.generatedNow).toBe(true);
+      expect(result.sourceLabel).toBe("CLI-generated placeholder basemap");
+
+      const generatedPmtiles = await readFile(join(currentVersionPath, "basemap", "base.pmtiles"));
+      const generatedStyleRaw = await readFile(join(currentVersionPath, "basemap", "style.json"), "utf8");
+      const generatedStyle = JSON.parse(generatedStyleRaw) as {
+        version: number;
+        sources: Record<string, { type?: string }>;
+        layers: Array<{ id: string; type: string; source?: string }>;
+      };
+
+      expect(generatedPmtiles.length).toBeGreaterThan(0);
+      expect(generatedStyle.version).toBe(8);
+      expect(generatedStyle.sources["osm-raster"]?.type).toBe("raster");
+      expect(generatedStyle.layers[0]?.id).toBe("cli-generated-osm");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("upgrades legacy generated placeholder style when basemap already exists", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-generate-basemap-upgrade-"));
+    try {
+      const resortsRoot = join(root, "resorts");
+      const publicRoot = join(root, "public");
+      const resortKey = "CA_Golden_Kicking_Horse";
+      const currentVersionPath = join(resortsRoot, resortKey, "v4");
+      await mkdir(join(currentVersionPath, "basemap"), { recursive: true });
+      await writeFile(join(currentVersionPath, "basemap", "base.pmtiles"), new Uint8Array([80, 84, 75]));
+      await writeFile(
+        join(currentVersionPath, "basemap", "style.json"),
+        JSON.stringify({
+          version: 8,
+          name: "Patrol Toolkit CLI Generated Basemap",
+          sources: {},
+          layers: [{ id: "cli-generated-background", type: "background" }]
+        }),
+        "utf8"
+      );
+
+      const result = await generateBasemapAssetsForVersion({
+        resortsRoot,
+        appPublicRoot: publicRoot,
+        resortKey,
+        versionPath: currentVersionPath
+      });
+
+      expect(result.generatedNow).toBe(true);
+      expect(result.sourceLabel).toBe("upgraded CLI-generated placeholder basemap");
+      const generatedStyleRaw = await readFile(join(currentVersionPath, "basemap", "style.json"), "utf8");
+      const generatedStyle = JSON.parse(generatedStyleRaw) as { sources: Record<string, { type?: string }> };
+      expect(generatedStyle.sources["osm-raster"]?.type).toBe("raster");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("menu known resort listing", () => {
   it("returns empty list when resorts root does not exist", async () => {
@@ -717,7 +935,7 @@ describe("menu interactive flows", () => {
           candidates: [candidate]
         })
       });
-      expect(rl.prompts.some((prompt) => prompt.includes("Select option (1-10):"))).toBe(true);
+      expect(rl.prompts.some((prompt) => prompt.includes("Select option (1-11):"))).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -728,6 +946,7 @@ describe("menu interactive flows", () => {
     const publicRoot = join(root, "public");
     const resortKey = "CA_Golden_Kicking_Horse";
     const versionPath = join(root, resortKey, "v1");
+    const basemapDir = join(versionPath, "basemap");
     const workspacePath = join(versionPath, "resort.json");
     const statusPath = join(versionPath, "status.json");
     const rl = createFakeReadline([
@@ -796,6 +1015,13 @@ describe("menu interactive flows", () => {
       await writeFile(join(versionPath, "boundary.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
       await writeFile(join(versionPath, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
       await writeFile(join(versionPath, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await mkdir(basemapDir, { recursive: true });
+      await writeFile(join(basemapDir, "base.pmtiles"), new Uint8Array([7, 8, 9]));
+      await writeFile(
+        join(basemapDir, "style.json"),
+        JSON.stringify({ version: 8, sources: {}, layers: [{ id: "bg", type: "background" }] }),
+        "utf8"
+      );
 
       await runInteractiveMenu({
         resortsRoot: root,
@@ -823,6 +1049,103 @@ describe("menu interactive flows", () => {
       expect(catalog.resorts[0]?.resortId).toBe(resortKey);
       expect(catalog.resorts[0]?.versions[0]?.approved).toBe(true);
       expect(catalog.resorts[0]?.versions[0]?.packUrl).toBe(`/packs/${resortKey}.latest.validated.json`);
+      const publishedPmtiles = await readFile(join(publicRoot, "packs", resortKey, "base.pmtiles"));
+      const publishedStyle = await readFile(join(publicRoot, "packs", resortKey, "style.json"), "utf8");
+      expect([...publishedPmtiles]).toEqual([7, 8, 9]);
+      expect(JSON.parse(publishedStyle)).toEqual({
+        version: 8,
+        sources: {},
+        layers: [{ id: "bg", type: "background" }]
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("publishes immediately after basemap generation when version is already validated", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-basemap-publish-"));
+    const publicRoot = join(root, "public");
+    const resortKey = "CA_Golden_Kicking_Horse";
+    const versionPath = join(root, resortKey, "v1");
+    const workspacePath = join(versionPath, "resort.json");
+    const statusPath = join(versionPath, "status.json");
+    const rl = createFakeReadline(["1", "1", "9", "10", "3"]);
+    try {
+      await mkdir(versionPath, { recursive: true });
+      await writeFile(
+        workspacePath,
+        JSON.stringify(
+          {
+            schemaVersion: "2.0.0",
+            resort: {
+              query: { name: "Kicking Horse", country: "CA" }
+            },
+            layers: {
+              boundary: { status: "complete", artifactPath: "boundary.geojson", featureCount: 1 },
+              runs: { status: "complete", artifactPath: "runs.geojson", featureCount: 72 },
+              lifts: { status: "complete", artifactPath: "lifts.geojson", featureCount: 7 }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(
+        statusPath,
+        JSON.stringify(
+          {
+            schemaVersion: "1.0.0",
+            resortKey,
+            version: "v1",
+            createdAt: "2026-02-19T16:31:09.346Z",
+            query: { name: "Kicking Horse", countryCode: "CA", town: "Golden" },
+            readiness: { overall: "ready", issues: [] },
+            manualValidation: {
+              validated: true,
+              layers: {
+                boundary: { validated: true },
+                runs: { validated: true },
+                lifts: { validated: true }
+              }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(join(versionPath, "boundary.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(versionPath, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(versionPath, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        appPublicRoot: publicRoot,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((entry) => ({
+            candidate: entry,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Kicking Horse", country: "CA", limit: 5 },
+          candidates: []
+        })
+      });
+
+      const catalogRaw = await readFile(join(publicRoot, "resort-packs", "index.json"), "utf8");
+      const catalog = JSON.parse(catalogRaw) as {
+        resorts: Array<{ resortId: string; versions: Array<{ approved: boolean; packUrl: string }> }>;
+      };
+      expect(catalog.resorts[0]?.resortId).toBe(resortKey);
+      expect(catalog.resorts[0]?.versions[0]?.approved).toBe(true);
+      expect(catalog.resorts[0]?.versions[0]?.packUrl).toBe(`/packs/${resortKey}.latest.validated.json`);
+
+      const publishedPmtiles = await readFile(join(publicRoot, "packs", resortKey, "base.pmtiles"));
+      const publishedStyle = await readFile(join(publicRoot, "packs", resortKey, "style.json"), "utf8");
+      expect(publishedPmtiles.length).toBeGreaterThan(0);
+      expect(JSON.parse(publishedStyle)).toMatchObject({ version: 8 });
     } finally {
       await rm(root, { recursive: true, force: true });
     }

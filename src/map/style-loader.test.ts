@@ -4,8 +4,25 @@ import type { ResortPack } from "../resort-pack/types";
 import { OFFLINE_FALLBACK_STYLE, resolveStyleForPack } from "./style-loader";
 
 describe("resolveStyleForPack", () => {
+  it("uses a local-only offline fallback style", () => {
+    expect(OFFLINE_FALLBACK_STYLE.sources).toEqual({});
+    expect(OFFLINE_FALLBACK_STYLE.layers).toEqual([
+      {
+        id: "offline-fallback-background",
+        type: "background",
+        paint: {
+          "background-color": "#dce7e4"
+        }
+      }
+    ]);
+  });
+
   it("returns offline fallback when pack is null", async () => {
-    const result = await resolveStyleForPack(null);
+    const result = await resolveStyleForPack(
+      null,
+      undefined,
+      () => false
+    );
     expect(result.key).toBe("fallback");
     expect(result.style).toEqual(OFFLINE_FALLBACK_STYLE);
   });
@@ -32,7 +49,7 @@ describe("resolveStyleForPack", () => {
       })
     );
 
-    const result = await resolveStyleForPack(pack, fetchMock);
+    const result = await resolveStyleForPack(pack, fetchMock, () => false);
     expect(fetchMock).toHaveBeenCalledWith("/packs/demo/style.json");
     expect(result.key).toBe("pack:demo-resort:/packs/demo/style.json");
     expect(result.style).toEqual({
@@ -46,12 +63,46 @@ describe("resolveStyleForPack", () => {
     });
   });
 
+  it("retries canonicalized pack style path when stored path casing is stale", async () => {
+    const pack = structuredClone(validPack) as ResortPack;
+    pack.basemap.stylePath = "packs/CA_golden_kicking_horse/style.json";
+
+    const stylePayload = {
+      version: 8,
+      sources: {
+        basemap: {
+          type: "raster",
+          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+          tileSize: 256
+        }
+      },
+      layers: [{ id: "basemap", type: "raster", source: "basemap" }]
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("Not found", { status: 404 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(stylePayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+    const result = await resolveStyleForPack(pack, fetchMock, () => true);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/packs/CA_golden_kicking_horse/style.json");
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/packs/CA_Golden_Kicking_Horse/style.json");
+    expect(result.key).toBe("pack:demo-resort:/packs/CA_Golden_Kicking_Horse/style.json");
+    expect(result.style).toEqual(stylePayload);
+  });
+
   it("returns fallback when style path is remote", async () => {
     const pack = structuredClone(validPack) as ResortPack;
     pack.basemap.stylePath = "https://example.com/style.json";
 
     const fetchMock = vi.fn();
-    const result = await resolveStyleForPack(pack, fetchMock);
+    const result = await resolveStyleForPack(pack, fetchMock, () => false);
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.key).toBe("fallback:demo-resort");
@@ -80,7 +131,7 @@ describe("resolveStyleForPack", () => {
       })
     );
 
-    const result = await resolveStyleForPack(pack, fetchMock);
+    const result = await resolveStyleForPack(pack, fetchMock, () => false);
     expect(result.style).toEqual({
       ...stylePayload,
       sources: {
@@ -90,5 +141,43 @@ describe("resolveStyleForPack", () => {
         }
       }
     });
+  });
+
+  it("uses network fallback style when online and pack style is unavailable", async () => {
+    const pack = structuredClone(validPack) as ResortPack;
+    pack.basemap.stylePath = "https://example.com/style.json";
+
+    const result = await resolveStyleForPack(pack, vi.fn(), () => true);
+    expect(result.key).toBe("fallback:demo-resort");
+    expect(result.style).toEqual({
+      version: 8,
+      name: "Patrol Toolkit Network Fallback",
+      sources: {
+        "osm-raster": {
+          type: "raster",
+          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+          tileSize: 256,
+          attribution: "© OpenStreetMap contributors"
+        }
+      },
+      layers: [
+        {
+          id: "osm-raster-layer",
+          type: "raster",
+          source: "osm-raster"
+        }
+      ]
+    });
+  });
+
+  it("uses offline fallback style when offline and local style cannot be fetched", async () => {
+    const pack = structuredClone(validPack) as ResortPack;
+    pack.basemap.stylePath = "packs/demo/style.json";
+
+    const fetchMock = vi.fn().mockResolvedValue(new Response("Not found", { status: 404 }));
+    const result = await resolveStyleForPack(pack, fetchMock, () => false);
+
+    expect(result.key).toBe("fallback:demo-resort");
+    expect(result.style).toEqual(OFFLINE_FALLBACK_STYLE);
   });
 });

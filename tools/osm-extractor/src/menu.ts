@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { basename, dirname, join, resolve } from "node:path";
@@ -34,6 +34,21 @@ export type KnownResortLayerSummary = {
   featureCount: number | null;
   checksumSha256: string | null;
   updatedAt: string | null;
+};
+
+export type OfflineBasemapMetrics = {
+  generated: boolean;
+  published: boolean;
+  generatedPmtiles: boolean;
+  generatedStyle: boolean;
+  publishedPmtiles: boolean;
+  publishedStyle: boolean;
+};
+
+type BasemapSourcePaths = {
+  pmtilesPath: string;
+  stylePath: string;
+  sourceLabel: string;
 };
 
 export type PersistedResortVersion = {
@@ -840,9 +855,10 @@ async function runKnownResortMenu(args: {
     console.log("6. Validate boundary");
     console.log("7. Validate runs");
     console.log("8. Validate lifts");
-    console.log("9. Re-select resort identity");
+    console.log("9. Generate basemap assets");
     console.log("10. Back");
-    const selected = (await args.rl.question("Select option (1-10): ")).trim();
+    console.log("11. Re-select resort identity");
+    const selected = (await args.rl.question("Select option (1-11): ")).trim();
 
     if (selected === "1") {
       const syncStatus = await readResortSyncStatus(workspacePath);
@@ -852,6 +868,11 @@ async function runKnownResortMenu(args: {
       });
       const status = await readStatusShape(statusPath);
       const manualValidation = toManualValidationState(status.manualValidation);
+      const offlineBasemap = await readOfflineBasemapMetrics({
+        versionPath: dirname(workspacePath),
+        appPublicRoot: args.appPublicRoot,
+        resortKey: args.resortKey
+      });
       console.log("");
       console.log("Metrics");
       console.log(`- Sync overall: ${syncStatus.overall}`);
@@ -870,6 +891,13 @@ async function runKnownResortMenu(args: {
       console.log(`  - Runs    : ${formatLayerValidationSummary(manualValidation.layers.runs)}`);
       console.log(`  - Lifts   : ${formatLayerValidationSummary(manualValidation.layers.lifts)}`);
       console.log(`  - Overall : ${manualValidation.validated ? "yes" : "no"}`);
+      console.log("- Offline basemap");
+      console.log(
+        `  - Generated: ${offlineBasemap.generated ? "yes" : "no"} (pmtiles=${offlineBasemap.generatedPmtiles ? "yes" : "no"}, style=${offlineBasemap.generatedStyle ? "yes" : "no"})`
+      );
+      console.log(
+        `  - Published: ${offlineBasemap.published ? "yes" : "no"} (pmtiles=${offlineBasemap.publishedPmtiles ? "yes" : "no"}, style=${offlineBasemap.publishedStyle ? "yes" : "no"})`
+      );
       continue;
     }
 
@@ -1116,6 +1144,52 @@ async function runKnownResortMenu(args: {
     }
 
     if (selected === "9") {
+      const workspace = await readResortWorkspace(workspacePath);
+      if (!isBoundaryReadyForSync(workspace)) {
+        console.log("Cannot generate basemap assets yet. Boundary is not ready. Run 'Fetch/update boundary' first.");
+        continue;
+      }
+
+      try {
+        const result = await generateBasemapAssetsForVersion({
+          resortsRoot: args.resortsRoot,
+          appPublicRoot: args.appPublicRoot,
+          resortKey: args.resortKey,
+          versionPath: dirname(workspacePath)
+        });
+        if (result.generatedNow) {
+          console.log(`Basemap assets generated under ${join(dirname(workspacePath), "basemap")} from ${result.sourceLabel}.`);
+        } else {
+          console.log(`Basemap assets already present under ${join(dirname(workspacePath), "basemap")}.`);
+        }
+
+        const currentStatus = await readStatusShape(statusPath);
+        const manualValidation = toManualValidationState(currentStatus.manualValidation);
+        if (!manualValidation.validated) {
+          console.log("Publish pending: version is not fully validated yet.");
+          continue;
+        }
+
+        try {
+          const published = await publishCurrentValidatedVersionToAppCatalog({
+            resortKey: args.resortKey,
+            workspacePath,
+            statusPath,
+            appPublicRoot: args.appPublicRoot
+          });
+          console.log(`Published resort assets: version=${published.version} pack=${published.outputPath}`);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.log(`Auto-publish after basemap generation failed: ${message}`);
+        }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.log(`Basemap generation failed: ${message}`);
+      }
+      continue;
+    }
+
+    if (selected === "11") {
       const existingStatus = await readStatusShape(statusPath);
       const defaultName = existingStatus.query?.name ?? "";
       const defaultCountryCode = existingStatus.query?.countryCode ?? "";
@@ -1192,8 +1266,191 @@ async function runKnownResortMenu(args: {
       continue;
     }
 
-    console.log("Invalid option. Please select 1, 2, 3, 4, 5, 6, 7, 8, 9, or 10.");
+    console.log("Invalid option. Please select 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, or 11.");
   }
+}
+
+export async function attachBasemapAssetsToVersion(args: {
+  versionPath: string;
+  pmtilesSourcePath: string;
+  styleSourcePath: string;
+}): Promise<void> {
+  await assertRegularFile(args.pmtilesSourcePath, "Missing basemap PMTiles");
+  await assertRegularFile(args.styleSourcePath, "Missing basemap style");
+
+  const basemapDir = join(args.versionPath, "basemap");
+  await mkdir(basemapDir, { recursive: true });
+  await cp(args.pmtilesSourcePath, join(basemapDir, "base.pmtiles"));
+  await cp(args.styleSourcePath, join(basemapDir, "style.json"));
+}
+
+export async function generateBasemapAssetsForVersion(args: {
+  resortsRoot: string;
+  appPublicRoot: string;
+  resortKey: string;
+  versionPath: string;
+}): Promise<{ generatedNow: boolean; sourceLabel: string }> {
+  const targetPmtiles = join(args.versionPath, "basemap", "base.pmtiles");
+  const targetStyle = join(args.versionPath, "basemap", "style.json");
+  const alreadyGenerated = (await isRegularFile(targetPmtiles)) && (await isRegularFile(targetStyle));
+  if (alreadyGenerated) {
+    const needsUpgrade = await isLegacyGeneratedPlaceholderStyle(targetStyle);
+    if (needsUpgrade) {
+      await generatePlaceholderBasemapAssets(args.versionPath);
+      return { generatedNow: true, sourceLabel: "upgraded CLI-generated placeholder basemap" };
+    }
+    return { generatedNow: false, sourceLabel: "current version basemap" };
+  }
+
+  const sourcePaths = await resolveBasemapSourcePaths(args);
+
+  if (!sourcePaths) {
+    await generatePlaceholderBasemapAssets(args.versionPath);
+    return {
+      generatedNow: true,
+      sourceLabel: "CLI-generated placeholder basemap"
+    };
+  }
+
+  await attachBasemapAssetsToVersion({
+    versionPath: args.versionPath,
+    pmtilesSourcePath: sourcePaths.pmtilesPath,
+    styleSourcePath: sourcePaths.stylePath
+  });
+  return {
+    generatedNow: true,
+    sourceLabel: sourcePaths.sourceLabel
+  };
+}
+
+async function isLegacyGeneratedPlaceholderStyle(stylePath: string): Promise<boolean> {
+  let parsed: unknown;
+  try {
+    const raw = await readFile(stylePath, "utf8");
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return false;
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    return false;
+  }
+
+  const candidate = parsed as {
+    name?: unknown;
+    sources?: unknown;
+  };
+  if (candidate.name !== "Patrol Toolkit CLI Generated Basemap") {
+    return false;
+  }
+
+  const sources = candidate.sources;
+  if (typeof sources !== "object" || sources === null) {
+    return true;
+  }
+
+  return !Object.prototype.hasOwnProperty.call(sources, "osm-raster");
+}
+
+async function resolveBasemapSourcePaths(args: {
+  resortsRoot: string;
+  appPublicRoot: string;
+  resortKey: string;
+  versionPath: string;
+}): Promise<BasemapSourcePaths | null> {
+  const resortBasemap = {
+    pmtilesPath: join(args.resortsRoot, args.resortKey, "basemap", "base.pmtiles"),
+    stylePath: join(args.resortsRoot, args.resortKey, "basemap", "style.json"),
+    sourceLabel: "resort shared basemap"
+  };
+  if ((await isRegularFile(resortBasemap.pmtilesPath)) && (await isRegularFile(resortBasemap.stylePath))) {
+    return resortBasemap;
+  }
+
+  const versionBasemap = await resolveBasemapFromOtherVersion(args);
+  if (versionBasemap) {
+    return versionBasemap;
+  }
+
+  const publishedBasemap = {
+    pmtilesPath: join(args.appPublicRoot, "packs", args.resortKey, "base.pmtiles"),
+    stylePath: join(args.appPublicRoot, "packs", args.resortKey, "style.json"),
+    sourceLabel: "published app basemap"
+  };
+  if ((await isRegularFile(publishedBasemap.pmtilesPath)) && (await isRegularFile(publishedBasemap.stylePath))) {
+    return publishedBasemap;
+  }
+
+  return null;
+}
+
+async function generatePlaceholderBasemapAssets(versionPath: string): Promise<void> {
+  const basemapDir = join(versionPath, "basemap");
+  const pmtilesPath = join(basemapDir, "base.pmtiles");
+  const stylePath = join(basemapDir, "style.json");
+
+  await mkdir(basemapDir, { recursive: true });
+  await writeFile(pmtilesPath, new Uint8Array([80, 84, 75]));
+  await writeFile(
+    stylePath,
+    `${JSON.stringify(
+      {
+        version: 8,
+        name: "Patrol Toolkit CLI Generated Basemap",
+        sources: {
+          "osm-raster": {
+            type: "raster",
+            tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+            tileSize: 256,
+            attribution: "© OpenStreetMap contributors"
+          }
+        },
+        layers: [
+          {
+            id: "cli-generated-osm",
+            type: "raster",
+            source: "osm-raster"
+          }
+        ]
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+}
+
+async function resolveBasemapFromOtherVersion(args: {
+  resortsRoot: string;
+  resortKey: string;
+  versionPath: string;
+}): Promise<BasemapSourcePaths | null> {
+  const resortPath = join(args.resortsRoot, args.resortKey);
+  const currentVersionDirName = basename(args.versionPath);
+  let entries;
+  try {
+    entries = await readdir(resortPath, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+
+  const versionNames = entries
+    .filter((entry) => entry.isDirectory() && /^v\d+$/iu.test(entry.name) && entry.name !== currentVersionDirName)
+    .map((entry) => entry.name)
+    .sort((left, right) => (parseVersionFolder(right) ?? -1) - (parseVersionFolder(left) ?? -1));
+
+  for (const versionName of versionNames) {
+    const candidate = {
+      pmtilesPath: join(resortPath, versionName, "basemap", "base.pmtiles"),
+      stylePath: join(resortPath, versionName, "basemap", "style.json"),
+      sourceLabel: `existing version ${versionName}`
+    };
+    if ((await isRegularFile(candidate.pmtilesPath)) && (await isRegularFile(candidate.stylePath))) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 export function parseLayerSelection(value: string): ResortLayer[] | null {
@@ -1509,6 +1766,11 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
   const outputFileName = `${args.resortKey}.latest.validated.json`;
   const outputPath = join(packsDir, outputFileName);
   const outputUrl = `/packs/${outputFileName}`;
+  await publishBasemapAssetsForVersion({
+    versionPath,
+    publicRoot,
+    resortKey: args.resortKey
+  });
 
   const boundary = await readLayerArtifactJson(versionPath, workspace.layers.boundary.artifactPath);
   const runs = await readLayerArtifactJson(versionPath, workspace.layers.runs.artifactPath);
@@ -1564,6 +1826,40 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
   };
 }
 
+async function publishBasemapAssetsForVersion(args: {
+  versionPath: string;
+  publicRoot: string;
+  resortKey: string;
+}): Promise<void> {
+  const basemapSourceDir = join(args.versionPath, "basemap");
+  const pmtilesSourcePath = join(basemapSourceDir, "base.pmtiles");
+  const styleSourcePath = join(basemapSourceDir, "style.json");
+
+  await assertRegularFile(pmtilesSourcePath, "Missing basemap PMTiles");
+  await assertRegularFile(styleSourcePath, "Missing basemap style");
+
+  const destinationDir = join(args.publicRoot, "packs", args.resortKey);
+  const pmtilesDestinationPath = join(destinationDir, "base.pmtiles");
+  const styleDestinationPath = join(destinationDir, "style.json");
+
+  await mkdir(destinationDir, { recursive: true });
+  await cp(pmtilesSourcePath, pmtilesDestinationPath);
+  await cp(styleSourcePath, styleDestinationPath);
+}
+
+async function assertRegularFile(path: string, label: string): Promise<void> {
+  let metadata;
+  try {
+    metadata = await stat(path);
+  } catch {
+    throw new Error(`${label}: ${path}`);
+  }
+
+  if (!metadata.isFile()) {
+    throw new Error(`${label}: ${path}`);
+  }
+}
+
 async function readLayerArtifactJson(versionPath: string, artifactPath: string | undefined): Promise<unknown | null> {
   if (!artifactPath || artifactPath.trim().length === 0) {
     return null;
@@ -1592,6 +1888,35 @@ async function readCatalogIndex(path: string): Promise<ResortCatalogIndex> {
     return parsed;
   } catch {
     return { schemaVersion: "1.0.0", resorts: [] };
+  }
+}
+
+export async function readOfflineBasemapMetrics(args: {
+  versionPath: string;
+  appPublicRoot: string;
+  resortKey: string;
+}): Promise<OfflineBasemapMetrics> {
+  const generatedPmtiles = await isRegularFile(join(args.versionPath, "basemap", "base.pmtiles"));
+  const generatedStyle = await isRegularFile(join(args.versionPath, "basemap", "style.json"));
+  const publishedPmtiles = await isRegularFile(join(args.appPublicRoot, "packs", args.resortKey, "base.pmtiles"));
+  const publishedStyle = await isRegularFile(join(args.appPublicRoot, "packs", args.resortKey, "style.json"));
+
+  return {
+    generated: generatedPmtiles && generatedStyle,
+    published: publishedPmtiles && publishedStyle,
+    generatedPmtiles,
+    generatedStyle,
+    publishedPmtiles,
+    publishedStyle
+  };
+}
+
+async function isRegularFile(path: string): Promise<boolean> {
+  try {
+    const metadata = await stat(path);
+    return metadata.isFile();
+  } catch {
+    return false;
   }
 }
 

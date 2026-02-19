@@ -220,7 +220,7 @@ type ExportBundle = {
 
 function convertExportBundleToResortPack(input: unknown, fallbackResortId: string): ResortPack {
   const bundle = (isObjectRecord(input) ? input : {}) as ExportBundle;
-  const resortId = stringOrFallback(bundle.status?.resortKey, bundle.export?.resortKey, fallbackResortId);
+  const resortId = stringOrFallback(bundle.export?.resortKey, bundle.status?.resortKey, fallbackResortId);
   const resortName = stringOrFallback(bundle.status?.query?.name, fallbackResortId);
 
   const boundary = extractBoundaryPolygon(bundle.layers?.boundary);
