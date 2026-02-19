@@ -15,3 +15,4 @@
 1.8.x = Machine-readable ingest/build result output for CLI parity (see `1.8.0.md`)
 1.9.x = Machine-readable CLI error envelopes for automation-safe failures (see `1.9.0.md`)
 2.0.x = CLI-first resort acquisition with staged boundary/lifts/runs sync (see `2.0.0.md`)
+2.1.x = Interactive menu workflow with immutable resort version storage (see `2.1.0.md`)

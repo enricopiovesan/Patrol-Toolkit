@@ -60,3 +60,23 @@ Output: independent, repeatable layer fetch/sync with status tracking and resuma
 ## UC15 - Incremental Resort Refresh After OSM Edits
 Input: existing resort workspace + changed OSM upstream data.
 Output: partial refresh of affected layers (for example runs-only) without rebuilding unaffected layers.
+
+## UC16 - Interactive Menu Entry
+Input: operator runs CLI with `menu`.
+Output: guided command menu with discoverable options for known resort selection and new resort onboarding.
+
+## UC17 - Known Resort Selection
+Input: existing resorts under root `resorts/` with immutable versions.
+Output: operator selects a resort by number and the CLI loads latest version for operational actions.
+
+## UC18 - Resort Directory And Version Contract
+Input: selected resort metadata (`countryCode`, `town`, `resortName`, stable resort id).
+Output: deterministic directory naming `CC_Town_Resort_Name` with immutable version folders `v1`, `v2`, ... and no in-place mutation.
+
+## UC19 - Mandatory Search Prompts
+Input: operator chooses "search/select new resort".
+Output: CLI prompts for required fields `name`, `countryCode`, and `town` before upstream search is executed.
+
+## UC20 - Version Status Metrics
+Input: created/updated resort version.
+Output: `status.json` with stable schema containing layer metrics and a manual validation/test flag.
