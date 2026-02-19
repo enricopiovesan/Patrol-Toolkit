@@ -16,7 +16,12 @@ describe("resolveStyleForPack", () => {
 
     const stylePayload = {
       version: 8,
-      sources: {},
+      sources: {
+        basemap: {
+          type: "vector",
+          url: "packs/demo/base.pmtiles"
+        }
+      },
       layers: [{ id: "bg", type: "background", paint: { "background-color": "#fff" } }]
     };
 
@@ -30,7 +35,15 @@ describe("resolveStyleForPack", () => {
     const result = await resolveStyleForPack(pack, fetchMock);
     expect(fetchMock).toHaveBeenCalledWith("/packs/demo/style.json");
     expect(result.key).toBe("pack:demo-resort:/packs/demo/style.json");
-    expect(result.style).toEqual(stylePayload);
+    expect(result.style).toEqual({
+      ...stylePayload,
+      sources: {
+        basemap: {
+          type: "vector",
+          url: "pmtiles:///packs/demo/base.pmtiles"
+        }
+      }
+    });
   });
 
   it("returns fallback when style path is remote", async () => {
@@ -43,5 +56,39 @@ describe("resolveStyleForPack", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.key).toBe("fallback:demo-resort");
     expect(result.style).toEqual(OFFLINE_FALLBACK_STYLE);
+  });
+
+  it("injects pack pmtiles path when vector source has no url", async () => {
+    const pack = structuredClone(validPack) as ResortPack;
+    pack.basemap.stylePath = "packs/demo/style.json";
+    pack.basemap.pmtilesPath = "packs/demo/custom.pmtiles";
+
+    const stylePayload = {
+      version: 8,
+      sources: {
+        basemap: {
+          type: "vector"
+        }
+      },
+      layers: [{ id: "bg", type: "background", paint: { "background-color": "#fff" } }]
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(stylePayload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+
+    const result = await resolveStyleForPack(pack, fetchMock);
+    expect(result.style).toEqual({
+      ...stylePayload,
+      sources: {
+        basemap: {
+          type: "vector",
+          url: "pmtiles:///packs/demo/custom.pmtiles"
+        }
+      }
+    });
   });
 });
