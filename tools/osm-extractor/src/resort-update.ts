@@ -4,6 +4,7 @@ import { syncResortRuns, type ResortSyncRunsResult } from "./resort-sync-runs.js
 import { readResortWorkspace, type ResortWorkspaceLayerState } from "./resort-workspace.js";
 
 export type ResortUpdateLayer = "boundary" | "lifts" | "runs";
+export type ResortUpdateLayerSelection = ResortUpdateLayer | "all";
 
 export type ResortUpdateLayerSnapshot = {
   status: ResortWorkspaceLayerState["status"];
@@ -42,6 +43,15 @@ export type ResortUpdateResult = {
         kind: "runs";
         result: ResortSyncRunsResult;
       };
+};
+
+export type ResortUpdateBatchResult = {
+  workspacePath: string;
+  layerSelection: ResortUpdateLayerSelection;
+  dryRun: boolean;
+  results: ResortUpdateResult[];
+  overallReady: boolean;
+  issues: string[];
 };
 
 export async function updateResortLayer(
@@ -137,6 +147,52 @@ export async function updateResortLayer(
     changed: changedFields.length > 0,
     changedFields,
     operation
+  };
+}
+
+export async function updateResortLayers(
+  args: {
+    workspacePath: string;
+    layer: ResortUpdateLayerSelection;
+    index?: number;
+    outputPath?: string;
+    searchLimit?: number;
+    bufferMeters?: number;
+    timeoutSeconds?: number;
+    updatedAt?: string;
+    dryRun?: boolean;
+  },
+  deps?: {
+    updateLayerFn?: typeof updateResortLayer;
+  }
+): Promise<ResortUpdateBatchResult> {
+  const updateLayerFn = deps?.updateLayerFn ?? updateResortLayer;
+  const layers: ResortUpdateLayer[] = args.layer === "all" ? ["boundary", "lifts", "runs"] : [args.layer];
+  const results: ResortUpdateResult[] = [];
+
+  for (const layer of layers) {
+    const result = await updateLayerFn({
+      workspacePath: args.workspacePath,
+      layer,
+      index: layer === "boundary" ? args.index : undefined,
+      outputPath: args.layer === "all" ? undefined : args.outputPath,
+      searchLimit: layer === "boundary" ? args.searchLimit : undefined,
+      bufferMeters: layer === "boundary" ? undefined : args.bufferMeters,
+      timeoutSeconds: layer === "boundary" ? undefined : args.timeoutSeconds,
+      updatedAt: args.updatedAt,
+      dryRun: args.dryRun
+    });
+    results.push(result);
+  }
+
+  const issues = results.flatMap((result) => result.readiness.issues.map((issue) => `${result.layer}: ${issue}`));
+  return {
+    workspacePath: args.workspacePath,
+    layerSelection: args.layer,
+    dryRun: args.dryRun ?? false,
+    results,
+    overallReady: issues.length === 0,
+    issues
   };
 }
 
