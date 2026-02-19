@@ -1,0 +1,47 @@
+import { describe, expect, it, vi } from "vitest";
+import validPack from "../resort-pack/fixtures/valid-pack.json";
+import type { ResortPack } from "../resort-pack/types";
+import { OFFLINE_FALLBACK_STYLE, resolveStyleForPack } from "./style-loader";
+
+describe("resolveStyleForPack", () => {
+  it("returns fallback style when pack is missing", async () => {
+    const result = await resolveStyleForPack(null);
+    expect(result.key).toBe("fallback");
+    expect(result.style).toEqual(OFFLINE_FALLBACK_STYLE);
+  });
+
+  it("loads style json from local basemap path", async () => {
+    const pack = structuredClone(validPack) as ResortPack;
+    pack.basemap.stylePath = "packs/demo/style.json";
+
+    const stylePayload = {
+      version: 8,
+      sources: {},
+      layers: [{ id: "bg", type: "background", paint: { "background-color": "#fff" } }]
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(stylePayload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+
+    const result = await resolveStyleForPack(pack, fetchMock);
+    expect(fetchMock).toHaveBeenCalledWith("/packs/demo/style.json");
+    expect(result.key).toBe("pack:demo-resort:/packs/demo/style.json");
+    expect(result.style).toEqual(stylePayload);
+  });
+
+  it("returns fallback when style path is remote", async () => {
+    const pack = structuredClone(validPack) as ResortPack;
+    pack.basemap.stylePath = "https://cdn.example.com/style.json";
+
+    const fetchMock = vi.fn();
+    const result = await resolveStyleForPack(pack, fetchMock);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.key).toBe("fallback:demo-resort");
+    expect(result.style).toEqual(OFFLINE_FALLBACK_STYLE);
+  });
+});

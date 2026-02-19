@@ -118,7 +118,7 @@ async function createReadyShell(): Promise<HTMLElement> {
 
 function hasResortOptions(shell: HTMLElement): boolean {
   const options = shell.shadowRoot?.querySelectorAll("select option");
-  return (options?.length ?? 0) > 1;
+  return (options?.length ?? 0) > 0;
 }
 
 async function waitForCondition(assertion: () => boolean): Promise<void> {

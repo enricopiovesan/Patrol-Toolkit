@@ -1,37 +1,28 @@
 import maplibregl, { type GeoJSONSource } from "maplibre-gl";
 import { LitElement, css, html } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import { LocationTracker, type GeoPosition } from "../location/location-tracker";
+import type { ResortPack } from "../resort-pack/types";
+import { buildResortOverlayData } from "./overlays";
+import { resolveStyleForPack } from "./style-loader";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 const LOCATION_SOURCE_ID = "current-location";
 const LOCATION_ACCURACY_LAYER = "current-location-accuracy";
 const LOCATION_DOT_LAYER = "current-location-dot";
+const RESORT_BOUNDARY_SOURCE_ID = "resort-boundary";
+const RESORT_BOUNDARY_LAYER_ID = "resort-boundary-outline";
+const RESORT_RUNS_SOURCE_ID = "resort-runs";
+const RESORT_RUNS_LAYER_ID = "resort-runs-fill";
+const RESORT_LIFTS_SOURCE_ID = "resort-lifts";
+const RESORT_LIFTS_LAYER_ID = "resort-lifts-line";
+const RESORT_LIFT_TOWERS_SOURCE_ID = "resort-lift-towers";
+const RESORT_LIFT_TOWERS_LAYER_ID = "resort-lift-towers-circle";
 const DEFAULT_CENTER: [number, number] = [7.2, 45.1];
 
 export type PositionUpdateDetail = {
   coordinates: [number, number];
   accuracy: number;
-};
-
-const BASE_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  name: "Patrol Toolkit Base",
-  sources: {
-    "osm-raster": {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors"
-    }
-  },
-  layers: [
-    {
-      id: "osm-raster-layer",
-      type: "raster",
-      source: "osm-raster"
-    }
-  ]
 };
 
 @customElement("map-view")
@@ -96,6 +87,8 @@ export class MapView extends LitElement {
   private map: maplibregl.Map | null = null;
   private locationTracker: LocationTracker | null = null;
   private lastPosition: GeoPosition | null = null;
+  private currentStyleKey = "";
+  private styleApplyToken = 0;
 
   @state()
   private accessor status = "Waiting for GPS lock...";
@@ -106,6 +99,9 @@ export class MapView extends LitElement {
   @state()
   private accessor followGps = true;
 
+  @property({ attribute: false })
+  accessor pack: ResortPack | null = null;
+
   protected firstUpdated(): void {
     const container = this.renderRoot.querySelector<HTMLElement>("#map");
     if (!container) {
@@ -115,7 +111,12 @@ export class MapView extends LitElement {
 
     this.map = new maplibregl.Map({
       container,
-      style: BASE_STYLE,
+      style: {
+        version: 8,
+        name: "Patrol Toolkit Offline Base",
+        sources: {},
+        layers: [{ id: "background", type: "background", paint: { "background-color": "#eef2f7" } }]
+      },
       center: DEFAULT_CENTER,
       zoom: 14,
       attributionControl: {
@@ -127,6 +128,9 @@ export class MapView extends LitElement {
 
     this.map.on("load", () => {
       this.initializeLocationLayers();
+      this.initializeResortLayers();
+      this.syncResortLayers();
+      void this.applyStyleForActivePack();
       this.startTracking();
     });
 
@@ -157,6 +161,13 @@ export class MapView extends LitElement {
         this.status = message;
       }
     });
+  }
+
+  protected override updated(changedProperties: Map<string, unknown>): void {
+    if (changedProperties.has("pack")) {
+      void this.applyStyleForActivePack();
+      this.syncResortLayers();
+    }
   }
 
   disconnectedCallback(): void {
@@ -247,6 +258,142 @@ export class MapView extends LitElement {
         "circle-stroke-color": "#f8fafc",
         "circle-stroke-width": 2,
         "circle-radius": 8
+      }
+    });
+  }
+
+  private initializeResortLayers(): void {
+    if (!this.map) {
+      return;
+    }
+
+    if (!this.map.getSource(RESORT_BOUNDARY_SOURCE_ID)) {
+      this.map.addSource(RESORT_BOUNDARY_SOURCE_ID, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] }
+      });
+    }
+    if (!this.map.getLayer(RESORT_BOUNDARY_LAYER_ID)) {
+      this.map.addLayer({
+        id: RESORT_BOUNDARY_LAYER_ID,
+        type: "line",
+        source: RESORT_BOUNDARY_SOURCE_ID,
+        paint: {
+          "line-color": "#c2410c",
+          "line-width": 2,
+          "line-dasharray": [2, 2],
+          "line-opacity": 0.9
+        }
+      });
+    }
+
+    if (!this.map.getSource(RESORT_RUNS_SOURCE_ID)) {
+      this.map.addSource(RESORT_RUNS_SOURCE_ID, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] }
+      });
+    }
+    if (!this.map.getLayer(RESORT_RUNS_LAYER_ID)) {
+      this.map.addLayer({
+        id: RESORT_RUNS_LAYER_ID,
+        type: "fill",
+        source: RESORT_RUNS_SOURCE_ID,
+        paint: {
+          "fill-color": [
+            "match",
+            ["get", "difficulty"],
+            "green",
+            "#22c55e",
+            "blue",
+            "#2563eb",
+            "black",
+            "#0f172a",
+            "double-black",
+            "#7c3aed",
+            "#64748b"
+          ],
+          "fill-opacity": 0.34,
+          "fill-outline-color": "#0f172a"
+        }
+      });
+    }
+
+    if (!this.map.getSource(RESORT_LIFTS_SOURCE_ID)) {
+      this.map.addSource(RESORT_LIFTS_SOURCE_ID, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] }
+      });
+    }
+    if (!this.map.getLayer(RESORT_LIFTS_LAYER_ID)) {
+      this.map.addLayer({
+        id: RESORT_LIFTS_LAYER_ID,
+        type: "line",
+        source: RESORT_LIFTS_SOURCE_ID,
+        paint: {
+          "line-color": "#ef4444",
+          "line-width": 3,
+          "line-opacity": 0.9
+        }
+      });
+    }
+
+    if (!this.map.getSource(RESORT_LIFT_TOWERS_SOURCE_ID)) {
+      this.map.addSource(RESORT_LIFT_TOWERS_SOURCE_ID, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] }
+      });
+    }
+    if (!this.map.getLayer(RESORT_LIFT_TOWERS_LAYER_ID)) {
+      this.map.addLayer({
+        id: RESORT_LIFT_TOWERS_LAYER_ID,
+        type: "circle",
+        source: RESORT_LIFT_TOWERS_SOURCE_ID,
+        paint: {
+          "circle-color": "#ef4444",
+          "circle-radius": 3,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1
+        }
+      });
+    }
+  }
+
+  private syncResortLayers(): void {
+    if (!this.map) {
+      return;
+    }
+
+    const data = buildResortOverlayData(this.pack);
+    const boundarySource = this.map.getSource(RESORT_BOUNDARY_SOURCE_ID) as GeoJSONSource | undefined;
+    const runsSource = this.map.getSource(RESORT_RUNS_SOURCE_ID) as GeoJSONSource | undefined;
+    const liftsSource = this.map.getSource(RESORT_LIFTS_SOURCE_ID) as GeoJSONSource | undefined;
+    const towersSource = this.map.getSource(RESORT_LIFT_TOWERS_SOURCE_ID) as GeoJSONSource | undefined;
+
+    boundarySource?.setData(data.boundary);
+    runsSource?.setData(data.runs);
+    liftsSource?.setData(data.lifts);
+    towersSource?.setData(data.liftTowers);
+  }
+
+  private async applyStyleForActivePack(): Promise<void> {
+    if (!this.map) {
+      return;
+    }
+
+    const token = ++this.styleApplyToken;
+    const { key, style } = await resolveStyleForPack(this.pack);
+    if (!this.map || token !== this.styleApplyToken || this.currentStyleKey === key) {
+      return;
+    }
+
+    this.currentStyleKey = key;
+    this.map.setStyle(style);
+    this.map.once("style.load", () => {
+      this.initializeLocationLayers();
+      this.initializeResortLayers();
+      this.syncResortLayers();
+      if (this.lastPosition) {
+        this.updateLocationSource(this.lastPosition);
       }
     });
   }

@@ -310,8 +310,11 @@ export class AppShell extends LitElement {
           <section class="pack-panel" aria-label="Resort pack management">
             <div class="pack-row">
               ${this.resortOptions.length > 0
-                ? html`<select @change=${this.updateSelection} .value=${this.selectedPackId ?? ""} ?disabled=${!this.hasStorage}>
-                    <option value="">Select Resort Pack</option>
+                ? html`<select
+                    @change=${this.updateSelection}
+                    .value=${this.selectedPackId ?? this.resortOptions[0]?.resortId ?? ""}
+                    ?disabled=${!this.hasStorage}
+                  >
                     ${this.resortOptions.map(
                       (entry) =>
                         html`<option value=${entry.resortId}>
@@ -331,7 +334,7 @@ export class AppShell extends LitElement {
             <div class="phrase-hint">${this.phraseStatus}</div>
           </section>
         </section>
-        <map-view @position-update=${this.handlePositionUpdate}></map-view>
+        <map-view .pack=${this.activePack} @position-update=${this.handlePositionUpdate}></map-view>
       </main>
     `;
   }
