@@ -189,14 +189,14 @@ describe("attach basemap assets", () => {
       const generatedStyleRaw = await readFile(join(currentVersionPath, "basemap", "style.json"), "utf8");
       const generatedStyle = JSON.parse(generatedStyleRaw) as {
         version: number;
-        sources: Record<string, unknown>;
-        layers: Array<{ id: string; type: string }>;
+        sources: Record<string, { type?: string }>;
+        layers: Array<{ id: string; type: string; source?: string }>;
       };
 
       expect(generatedPmtiles.length).toBeGreaterThan(0);
       expect(generatedStyle.version).toBe(8);
-      expect(generatedStyle.sources).toEqual({});
-      expect(generatedStyle.layers[0]?.id).toBe("cli-generated-background");
+      expect(generatedStyle.sources["osm-raster"]?.type).toBe("raster");
+      expect(generatedStyle.layers[0]?.id).toBe("cli-generated-osm");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

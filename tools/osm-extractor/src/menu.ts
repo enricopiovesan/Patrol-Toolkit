@@ -1363,14 +1363,19 @@ async function generatePlaceholderBasemapAssets(versionPath: string): Promise<vo
       {
         version: 8,
         name: "Patrol Toolkit CLI Generated Basemap",
-        sources: {},
+        sources: {
+          "osm-raster": {
+            type: "raster",
+            tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+            tileSize: 256,
+            attribution: "© OpenStreetMap contributors"
+          }
+        },
         layers: [
           {
-            id: "cli-generated-background",
-            type: "background",
-            paint: {
-              "background-color": "#dce7e4"
-            }
+            id: "cli-generated-osm",
+            type: "raster",
+            source: "osm-raster"
           }
         ]
       },
