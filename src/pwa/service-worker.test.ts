@@ -95,6 +95,30 @@ describe("service worker cache hardening", () => {
     expect(tileStore.has("https://tile.openstreetmap.org/14/999/999.png")).toBe(true);
     cleanup();
   });
+
+  it("returns fallback response when tile fetch fails offline", async () => {
+    const listeners = new Map() as ListenerMap;
+    const stores = new Map<string, Map<string, Response>>();
+
+    const caches = createMockCaches(stores);
+    const fetchMock = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    const cleanup = loadServiceWorker(listeners, caches, fetchMock);
+
+    const fetchListener = listeners.get("fetch");
+    if (!fetchListener) {
+      throw new Error("Fetch listener not registered");
+    }
+
+    const response = await createRespondWithPromise(
+      fetchListener,
+      new Request("https://tile.openstreetmap.org/14/999/999.png")
+    );
+
+    expect(response.status).toBe(504);
+    cleanup();
+  });
 });
 
 function loadServiceWorker(
