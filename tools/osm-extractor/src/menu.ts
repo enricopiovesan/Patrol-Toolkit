@@ -718,13 +718,14 @@ async function runKnownResortMenu(args: {
         console.log("Cannot sync runs yet. Boundary is not ready. Run 'Fetch/update boundary' first.");
         continue;
       }
-      const cloned = await createNextVersionClone({
-        resortsRoot: args.resortsRoot,
-        resortKey: args.resortKey,
-        workspacePath,
-        statusPath
-      });
+      let cloned: ClonedResortVersion | null = null;
       try {
+        cloned = await createNextVersionClone({
+          resortsRoot: args.resortsRoot,
+          resortKey: args.resortKey,
+          workspacePath,
+          statusPath
+        });
         const result = await syncResortRuns({
           workspacePath: cloned.workspacePath,
           bufferMeters: 50
@@ -738,7 +739,9 @@ async function runKnownResortMenu(args: {
         console.log(`Created version ${cloned.version} for runs update.`);
         console.log(`Runs updated: count=${result.runCount} checksum=${result.checksumSha256}`);
       } catch (error: unknown) {
-        await rm(cloned.versionPath, { recursive: true, force: true });
+        if (cloned) {
+          await rm(cloned.versionPath, { recursive: true, force: true });
+        }
         const message = error instanceof Error ? error.message : String(error);
         console.log(`Runs update failed: ${message}`);
       }
@@ -751,13 +754,14 @@ async function runKnownResortMenu(args: {
         console.log("Cannot sync lifts yet. Boundary is not ready. Run 'Fetch/update boundary' first.");
         continue;
       }
-      const cloned = await createNextVersionClone({
-        resortsRoot: args.resortsRoot,
-        resortKey: args.resortKey,
-        workspacePath,
-        statusPath
-      });
+      let cloned: ClonedResortVersion | null = null;
       try {
+        cloned = await createNextVersionClone({
+          resortsRoot: args.resortsRoot,
+          resortKey: args.resortKey,
+          workspacePath,
+          statusPath
+        });
         const result = await syncResortLifts({
           workspacePath: cloned.workspacePath,
           bufferMeters: 50
@@ -771,7 +775,9 @@ async function runKnownResortMenu(args: {
         console.log(`Created version ${cloned.version} for lifts update.`);
         console.log(`Lifts updated: count=${result.liftCount} checksum=${result.checksumSha256}`);
       } catch (error: unknown) {
-        await rm(cloned.versionPath, { recursive: true, force: true });
+        if (cloned) {
+          await rm(cloned.versionPath, { recursive: true, force: true });
+        }
         const message = error instanceof Error ? error.message : String(error);
         console.log(`Lifts update failed: ${message}`);
       }
