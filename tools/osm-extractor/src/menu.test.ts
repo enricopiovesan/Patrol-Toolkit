@@ -16,6 +16,7 @@ import {
   parseDuplicateResortAction,
   persistResortVersion,
   rankSearchCandidates,
+  runInteractiveMenu,
   setLayerManualValidation,
   toManualValidationState,
   toCanonicalResortKey
@@ -591,3 +592,152 @@ describe("menu manual layer validation", () => {
     expect(afterInvalidateRuns.validatedAt).toBeNull();
   });
 });
+
+describe("menu interactive flows", () => {
+  it("creates a new resort via menu flow", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-create-"));
+    const rl = createFakeReadline(["2", "Kicking Horse", "CA", "Golden", "1", "3"]);
+    try {
+      await runInteractiveMenu({
+        resortsRoot: root,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((candidate) => ({
+            candidate,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Kicking Horse", country: "CA", limit: 5 },
+          candidates: [
+            {
+              osmType: "node",
+              osmId: 7248641928,
+              displayName: "Kicking Horse, Golden, Canada",
+              countryCode: "ca",
+              country: "Canada",
+              region: "British Columbia",
+              center: [-116.96246, 51.29371],
+              importance: 0.8,
+              source: "nominatim"
+            }
+          ]
+        })
+      });
+
+      const known = await listKnownResorts(root);
+      expect(known).toHaveLength(1);
+      expect(known[0]?.resortKey).toBe("CA_Golden_Kicking_Horse");
+      expect(known[0]?.latestVersion).toBe("v1");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("cancels duplicate resort creation when user selects cancel", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-duplicate-"));
+    const candidate = {
+      osmType: "node" as const,
+      osmId: 7248641928,
+      displayName: "Kicking Horse, Golden, Canada",
+      countryCode: "ca",
+      country: "Canada",
+      region: "British Columbia",
+      center: [-116.96246, 51.29371] as [number, number],
+      importance: 0.8,
+      source: "nominatim" as const
+    };
+    const rl = createFakeReadline(["2", "Kicking Horse", "CA", "Golden", "1", "2", "3"]);
+    try {
+      await persistResortVersion({
+        resortsRoot: root,
+        countryCode: "CA",
+        town: "Golden",
+        resortName: "Kicking Horse",
+        candidate
+      });
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((entry) => ({
+            candidate: entry,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Kicking Horse", country: "CA", limit: 5 },
+          candidates: [candidate]
+        })
+      });
+
+      const known = await listKnownResorts(root);
+      expect(known).toHaveLength(1);
+      expect(known[0]?.latestVersion).toBe("v1");
+      expect(known[0]?.latestVersionNumber).toBe(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("enters known resort menu and returns back to main menu", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-known-resort-"));
+    const candidate = {
+      osmType: "node" as const,
+      osmId: 7248641928,
+      displayName: "Kicking Horse, Golden, Canada",
+      countryCode: "ca",
+      country: "Canada",
+      region: "British Columbia",
+      center: [-116.96246, 51.29371] as [number, number],
+      importance: 0.8,
+      source: "nominatim" as const
+    };
+    const rl = createFakeReadline(["1", "1", "10", "3"]);
+    try {
+      await persistResortVersion({
+        resortsRoot: root,
+        countryCode: "CA",
+        town: "Golden",
+        resortName: "Kicking Horse",
+        candidate
+      });
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((entry) => ({
+            candidate: entry,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Kicking Horse", country: "CA", limit: 5 },
+          candidates: [candidate]
+        })
+      });
+      expect(rl.prompts.some((prompt) => prompt.includes("Select option (1-10):"))).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+function createFakeReadline(answers: string[]): { question: (query: string) => Promise<string>; close: () => void; prompts: string[] } {
+  const prompts: string[] = [];
+  let index = 0;
+  return {
+    prompts,
+    async question(query: string): Promise<string> {
+      prompts.push(query);
+      const answer = answers[index];
+      if (answer === undefined) {
+        throw new Error(`No test answer available for prompt: ${query}`);
+      }
+      index += 1;
+      return answer;
+    },
+    close(): void {
+      // External readline injected in tests; no-op on close.
+    }
+  };
+}
