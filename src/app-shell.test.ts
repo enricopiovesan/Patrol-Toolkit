@@ -62,56 +62,12 @@ describe("AppShell", () => {
     );
   });
 
-  it("generates and copies phrase from active pack and GPS event", async () => {
+  it("generates phrase from active pack and GPS event", async () => {
     const shell = await createReadyShell();
 
     await (shell as unknown as { generatePhrase: () => Promise<void> }).generatePhrase();
     expect(readPhrase(shell)).toBe("Easy Street, Mid, skier's left, below Summit Express tower 2");
-
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText }
-    });
-
-    await (shell as unknown as { copyPhrase: () => Promise<void> }).copyPhrase();
-
-    expect(writeText).toHaveBeenCalledOnce();
-    expect(writeText).toHaveBeenCalledWith(
-      "Easy Street, Mid, skier's left, below Summit Express tower 2"
-    );
-    expect(readPhraseHint(shell)).toBe("Phrase copied to clipboard.");
-  });
-
-  it("falls back to execCommand copy when Clipboard API fails", async () => {
-    const shell = await createReadyShell();
-    await (shell as unknown as { generatePhrase: () => Promise<void> }).generatePhrase();
-
-    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText }
-    });
-    setExecCommandMock(true);
-
-    await (shell as unknown as { copyPhrase: () => Promise<void> }).copyPhrase();
-
-    expect(writeText).toHaveBeenCalledOnce();
-    expect(readPhraseHint(shell)).toBe("Phrase copied to clipboard.");
-  });
-
-  it("reports clipboard unavailable when both APIs fail", async () => {
-    const shell = await createReadyShell();
-    await (shell as unknown as { generatePhrase: () => Promise<void> }).generatePhrase();
-
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: undefined
-    });
-    setExecCommandMock(false);
-
-    await (shell as unknown as { copyPhrase: () => Promise<void> }).copyPhrase();
-    expect(readPhraseHint(shell)).toBe("Clipboard unavailable on this device/browser.");
+    expect(readPhraseHint(shell)).toBe("Phrase generated.");
   });
 });
 
@@ -189,13 +145,5 @@ function deleteDatabase(name: string): Promise<void> {
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error ?? new Error("Failed to delete test database."));
     request.onblocked = () => resolve();
-  });
-}
-
-function setExecCommandMock(result: boolean): void {
-  Object.defineProperty(document, "execCommand", {
-    configurable: true,
-    writable: true,
-    value: vi.fn().mockReturnValue(result)
   });
 }
