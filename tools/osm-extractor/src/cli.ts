@@ -11,6 +11,7 @@ import { runExtractResortPipeline } from "./pipeline-run.js";
 import { searchResortCandidates } from "./resort-search.js";
 import { selectResortToWorkspace } from "./resort-select.js";
 import { detectResortBoundaryCandidates } from "./resort-boundary-detect.js";
+import { setResortBoundary } from "./resort-boundary-set.js";
 
 type CliErrorJson = {
   ok: false;
@@ -50,6 +51,7 @@ async function main(): Promise<void> {
     command !== "resort-search" &&
     command !== "resort-select" &&
     command !== "resort-boundary-detect" &&
+    command !== "resort-boundary-set" &&
     command !== "extract-resort" &&
     command !== "extract-fleet"
   ) {
@@ -62,6 +64,7 @@ async function main(): Promise<void> {
         "resort-search",
         "resort-select",
         "resort-boundary-detect",
+        "resort-boundary-set",
         "extract-resort",
         "extract-fleet"
       ]
@@ -383,6 +386,67 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "resort-boundary-set") {
+    const workspacePath = readFlag(args, "--workspace");
+    const index = readIntegerFlag(args, "--index");
+    const output = readFlag(args, "--output") ?? undefined;
+    const selectedAt = readFlag(args, "--selected-at") ?? undefined;
+    const searchLimit = readIntegerFlag(args, "--search-limit") ?? undefined;
+    if (!workspacePath || index === undefined) {
+      throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --workspace <path> and --index <n> arguments.", {
+        command: "resort-boundary-set",
+        required: ["--workspace", "--index"]
+      });
+    }
+    if (index < 1) {
+      throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --index expects an integer >= 1.", {
+        flag: "--index",
+        expected: "integer>=1",
+        value: String(index)
+      });
+    }
+    if (searchLimit !== undefined && searchLimit < 1) {
+      throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --search-limit expects an integer >= 1.", {
+        flag: "--search-limit",
+        expected: "integer>=1",
+        value: String(searchLimit)
+      });
+    }
+
+    let result;
+    try {
+      result = await setResortBoundary({
+        workspacePath,
+        index,
+        outputFile: output,
+        selectedAt,
+        searchLimit
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CliCommandError("BOUNDARY_SET_FAILED", message, {
+        command: "resort-boundary-set",
+        workspacePath,
+        index
+      });
+    }
+
+    if (outputJson) {
+      console.log(
+        JSON.stringify({
+          ok: true,
+          boundarySelection: result
+        })
+      );
+      return;
+    }
+
+    console.log(
+      `BOUNDARY_SELECTED index=${result.selectedIndex}/${result.candidateCount} workspace=${result.workspacePath} boundary=${result.boundaryPath} checksum=${result.checksumSha256} [${result.selectedOsm.osmType}/${result.selectedOsm.osmId}] ${result.selectedOsm.displayName}`
+    );
+    return;
+  }
+
   const input = readFlag(args, "--input");
   if (!input) {
     throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --input <path> argument.", {
@@ -542,7 +606,7 @@ export function formatCliError(error: unknown, command: string | null): CliError
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
   );
 }
 
