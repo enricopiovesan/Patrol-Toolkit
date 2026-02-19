@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { CliCommandError, formatCliError, isCliEntryPointUrl, parseResortUpdateOptions } from "./cli.js";
+import { describe, expect, it, vi } from "vitest";
+import { CliCommandError, formatCliError, isCliEntryPointUrl, parseResortUpdateOptions, runResortUpdateCommand } from "./cli.js";
 
 describe("CLI error JSON format", () => {
   it("formats explicit command errors with code and details", () => {
@@ -249,5 +249,124 @@ describe("resort-update option parsing", () => {
         "/tmp/file.geojson"
       ])
     ).toThrow(/does not accept --output/i);
+  });
+});
+
+describe("resort-update command behavior", () => {
+  it("prints text batch summary for --layer all", async () => {
+    const log = vi.fn();
+    const updateResortLayersFn = vi.fn().mockResolvedValue({
+      workspacePath: "/tmp/resort.json",
+      layerSelection: "all",
+      dryRun: false,
+      overallReady: true,
+      issues: [],
+      results: [
+        {
+          workspacePath: "/tmp/resort.json",
+          layer: "boundary",
+          dryRun: false,
+          before: { status: "pending", artifactPath: null, featureCount: null, checksumSha256: null, updatedAt: null, error: null },
+          after: {
+            status: "complete",
+            artifactPath: "/tmp/boundary.geojson",
+            featureCount: 1,
+            checksumSha256: "sha-b",
+            updatedAt: "2026-02-20T00:00:00.000Z",
+            error: null
+          },
+          readiness: { ready: true, issues: [] },
+          changed: true,
+          changedFields: ["status"],
+          operation: { kind: "boundary" }
+        },
+        {
+          workspacePath: "/tmp/resort.json",
+          layer: "lifts",
+          dryRun: false,
+          before: { status: "pending", artifactPath: null, featureCount: null, checksumSha256: null, updatedAt: null, error: null },
+          after: {
+            status: "complete",
+            artifactPath: "/tmp/lifts.geojson",
+            featureCount: 10,
+            checksumSha256: "sha-l",
+            updatedAt: "2026-02-20T00:00:00.000Z",
+            error: null
+          },
+          readiness: { ready: true, issues: [] },
+          changed: true,
+          changedFields: ["status"],
+          operation: { kind: "lifts" }
+        },
+        {
+          workspacePath: "/tmp/resort.json",
+          layer: "runs",
+          dryRun: false,
+          before: { status: "pending", artifactPath: null, featureCount: null, checksumSha256: null, updatedAt: null, error: null },
+          after: {
+            status: "complete",
+            artifactPath: "/tmp/runs.geojson",
+            featureCount: 22,
+            checksumSha256: "sha-r",
+            updatedAt: "2026-02-20T00:00:00.000Z",
+            error: null
+          },
+          readiness: { ready: true, issues: [] },
+          changed: true,
+          changedFields: ["status"],
+          operation: { kind: "runs" }
+        }
+      ]
+    });
+
+    await runResortUpdateCommand(
+      ["--workspace", "/tmp/resort.json", "--layer", "all", "--index", "1"],
+      false,
+      { updateResortLayersFn, log }
+    );
+
+    expect(log).toHaveBeenCalled();
+    expect(log.mock.calls[0]?.[0]).toMatch(/RESORT_UPDATED_BATCH workspace=\/tmp\/resort.json/);
+    expect(log.mock.calls.map((call) => String(call[0])).join("\n")).toMatch(/boundary changed=yes ready=yes/);
+    expect(log.mock.calls.map((call) => String(call[0])).join("\n")).toMatch(/lifts changed=yes ready=yes/);
+    expect(log.mock.calls.map((call) => String(call[0])).join("\n")).toMatch(/runs changed=yes ready=yes/);
+  });
+
+  it("throws UPDATE_INCOMPLETE for --layer all with --require-complete in text mode", async () => {
+    const updateResortLayersFn = vi.fn().mockResolvedValue({
+      workspacePath: "/tmp/resort.json",
+      layerSelection: "all",
+      dryRun: false,
+      overallReady: false,
+      issues: ["runs: featureCount must be >= 1"],
+      results: []
+    });
+
+    await expect(
+      runResortUpdateCommand(
+        ["--workspace", "/tmp/resort.json", "--layer", "all", "--index", "1", "--require-complete"],
+        false,
+        { updateResortLayersFn, log: vi.fn() }
+      )
+    ).rejects.toMatchObject({ code: "UPDATE_INCOMPLETE" });
+  });
+
+  it("throws UPDATE_INCOMPLETE for --layer all with --require-complete in JSON mode", async () => {
+    const updateResortLayersFn = vi.fn().mockResolvedValue({
+      workspacePath: "/tmp/resort.json",
+      layerSelection: "all",
+      dryRun: false,
+      overallReady: false,
+      issues: ["runs: featureCount must be >= 1"],
+      results: []
+    });
+
+    await expect(
+      runResortUpdateCommand(
+        ["--workspace", "/tmp/resort.json", "--layer", "all", "--index", "1", "--require-complete"],
+        true,
+        { updateResortLayersFn, log: vi.fn() }
+      )
+    ).rejects.toMatchObject({ code: "UPDATE_INCOMPLETE" });
   });
 });
