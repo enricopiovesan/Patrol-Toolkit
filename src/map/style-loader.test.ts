@@ -63,6 +63,40 @@ describe("resolveStyleForPack", () => {
     });
   });
 
+  it("retries canonicalized pack style path when stored path casing is stale", async () => {
+    const pack = structuredClone(validPack) as ResortPack;
+    pack.basemap.stylePath = "packs/CA_golden_kicking_horse/style.json";
+
+    const stylePayload = {
+      version: 8,
+      sources: {
+        basemap: {
+          type: "raster",
+          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+          tileSize: 256
+        }
+      },
+      layers: [{ id: "basemap", type: "raster", source: "basemap" }]
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("Not found", { status: 404 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(stylePayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      );
+
+    const result = await resolveStyleForPack(pack, fetchMock, () => true);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/packs/CA_golden_kicking_horse/style.json");
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/packs/CA_Golden_Kicking_Horse/style.json");
+    expect(result.key).toBe("pack:demo-resort:/packs/CA_Golden_Kicking_Horse/style.json");
+    expect(result.style).toEqual(stylePayload);
+  });
+
   it("returns fallback when style path is remote", async () => {
     const pack = structuredClone(validPack) as ResortPack;
     pack.basemap.stylePath = "https://example.com/style.json";
@@ -134,5 +168,16 @@ describe("resolveStyleForPack", () => {
         }
       ]
     });
+  });
+
+  it("uses offline fallback style when offline and local style cannot be fetched", async () => {
+    const pack = structuredClone(validPack) as ResortPack;
+    pack.basemap.stylePath = "packs/demo/style.json";
+
+    const fetchMock = vi.fn().mockResolvedValue(new Response("Not found", { status: 404 }));
+    const result = await resolveStyleForPack(pack, fetchMock, () => false);
+
+    expect(result.key).toBe("fallback:demo-resort");
+    expect(result.style).toEqual(OFFLINE_FALLBACK_STYLE);
   });
 });

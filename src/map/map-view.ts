@@ -431,9 +431,18 @@ export class MapView extends LitElement {
       return false;
     }
 
-    return /asset unavailable offline|tile unavailable offline|failed to fetch|gateway timeout|pmtiles|504/iu.test(
-      message
-    );
+    const normalized = message.toLowerCase();
+    if (!normalized) {
+      return false;
+    }
+
+    // OSM raster tiles can be partially cached offline; do not replace the whole style
+    // when individual remote tile requests fail.
+    if (normalized.includes("tile.openstreetmap.org")) {
+      return false;
+    }
+
+    return /asset unavailable offline|failed to fetch|gateway timeout|pmtiles|504/iu.test(normalized);
   }
 
   private applyRuntimeOfflineFallback(): void {
