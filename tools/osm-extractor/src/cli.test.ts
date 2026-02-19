@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CliCommandError, formatCliError, isCliEntryPointUrl } from "./cli.js";
+import { CliCommandError, formatCliError, isCliEntryPointUrl, parseResortUpdateOptions } from "./cli.js";
 
 describe("CLI error JSON format", () => {
   it("formats explicit command errors with code and details", () => {
@@ -48,5 +48,88 @@ describe("CLI entrypoint detection", () => {
       entryPath: "/repo/tools/osm-extractor/dist/src/../src/cli.js"
     });
     expect(result).toBe(true);
+  });
+});
+
+describe("resort-update option parsing", () => {
+  it("parses valid lifts layer options", () => {
+    const result = parseResortUpdateOptions([
+      "--workspace",
+      "/tmp/resort.json",
+      "--layer",
+      "lifts",
+      "--buffer-meters",
+      "40",
+      "--timeout-seconds",
+      "25"
+    ]);
+
+    expect(result).toEqual({
+      workspacePath: "/tmp/resort.json",
+      layer: "lifts",
+      outputPath: undefined,
+      index: undefined,
+      searchLimit: undefined,
+      bufferMeters: 40,
+      timeoutSeconds: 25,
+      updatedAt: undefined
+    });
+  });
+
+  it("rejects boundary layer when index is missing", () => {
+    expect(() =>
+      parseResortUpdateOptions([
+        "--workspace",
+        "/tmp/resort.json",
+        "--layer",
+        "boundary"
+      ])
+    ).toThrow(/requires --index/i);
+  });
+
+  it("rejects lifts/runs layer with boundary-only flags", () => {
+    expect(() =>
+      parseResortUpdateOptions([
+        "--workspace",
+        "/tmp/resort.json",
+        "--layer",
+        "runs",
+        "--index",
+        "1"
+      ])
+    ).toThrow(/does not accept --index or --search-limit/i);
+  });
+
+  it("rejects boundary layer with run/lift-only flags", () => {
+    expect(() =>
+      parseResortUpdateOptions([
+        "--workspace",
+        "/tmp/resort.json",
+        "--layer",
+        "boundary",
+        "--index",
+        "1",
+        "--buffer-meters",
+        "20"
+      ])
+    ).toThrow(/does not accept --buffer-meters or --timeout-seconds/i);
+  });
+
+  it("throws INVALID_FLAG_COMBINATION code for mixed layer flags", () => {
+    try {
+      parseResortUpdateOptions([
+        "--workspace",
+        "/tmp/resort.json",
+        "--layer",
+        "runs",
+        "--search-limit",
+        "3"
+      ]);
+      throw new Error("Expected parseResortUpdateOptions to throw.");
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(CliCommandError);
+      const commandError = error as CliCommandError;
+      expect(commandError.code).toBe("INVALID_FLAG_COMBINATION");
+    }
   });
 });
