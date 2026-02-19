@@ -171,10 +171,12 @@ describe("menu output formatting", () => {
         }
       }
     });
-    expect(line).toContain("1. CA_Golden_Kicking_Horse | latest=v2 | validated=yes | readiness=incomplete");
-    expect(line).toContain("Boundary: status=complete features=1 checksum=1234567890ab");
-    expect(line).toContain("Runs: status=pending features=? checksum=n/a");
-    expect(line).toContain("Readiness issues: 2");
+    expect(line).toContain("1. CA_Golden_Kicking_Horse");
+    expect(line).toContain("Latest version : v2");
+    expect(line).toContain("Validated      : yes");
+    expect(line).toContain("Readiness      : incomplete (2 issue(s))");
+    expect(line).toContain("- Boundary status=complete  features=1  checksum=1234567890ab");
+    expect(line).toContain("- Runs     status=pending  features=?  checksum=n/a");
   });
 
   it("formats search candidate with labeled metadata", () => {
@@ -716,6 +718,111 @@ describe("menu interactive flows", () => {
         })
       });
       expect(rl.prompts.some((prompt) => prompt.includes("Select option (1-10):"))).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("auto-publishes to app catalog when all layer validations become yes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-auto-publish-"));
+    const publicRoot = join(root, "public");
+    const resortKey = "CA_Golden_Kicking_Horse";
+    const versionPath = join(root, resortKey, "v1");
+    const workspacePath = join(versionPath, "resort.json");
+    const statusPath = join(versionPath, "status.json");
+    const rl = createFakeReadline([
+      "1",
+      "1",
+      "6",
+      "y",
+      "Enrico",
+      "",
+      "7",
+      "y",
+      "Enrico",
+      "",
+      "8",
+      "y",
+      "Enrico",
+      "",
+      "10",
+      "3"
+    ]);
+    try {
+      await mkdir(versionPath, { recursive: true });
+      await writeFile(
+        workspacePath,
+        JSON.stringify(
+          {
+            schemaVersion: "2.0.0",
+            resort: {
+              query: { name: "Kicking Horse", country: "CA" }
+            },
+            layers: {
+              boundary: { status: "complete", artifactPath: "boundary.geojson", featureCount: 1 },
+              runs: { status: "complete", artifactPath: "runs.geojson", featureCount: 72 },
+              lifts: { status: "complete", artifactPath: "lifts.geojson", featureCount: 7 }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(
+        statusPath,
+        JSON.stringify(
+          {
+            schemaVersion: "1.0.0",
+            resortKey,
+            version: "v1",
+            createdAt: "2026-02-19T16:31:09.346Z",
+            query: { name: "Kicking Horse", countryCode: "CA", town: "Golden" },
+            readiness: { overall: "ready", issues: [] },
+            manualValidation: {
+              validated: false,
+              layers: {
+                boundary: { validated: false },
+                runs: { validated: false },
+                lifts: { validated: false }
+              }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(join(versionPath, "boundary.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(versionPath, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(versionPath, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        appPublicRoot: publicRoot,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((entry) => ({
+            candidate: entry,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Kicking Horse", country: "CA", limit: 5 },
+          candidates: []
+        })
+      });
+
+      const catalogRaw = await readFile(join(publicRoot, "resort-packs", "index.json"), "utf8");
+      const catalog = JSON.parse(catalogRaw) as {
+        resorts: Array<{
+          resortId: string;
+          versions: Array<{ approved: boolean; packUrl: string }>;
+        }>;
+      };
+
+      expect(catalog.resorts[0]?.resortId).toBe(resortKey);
+      expect(catalog.resorts[0]?.versions[0]?.approved).toBe(true);
+      expect(catalog.resorts[0]?.versions[0]?.packUrl).toBe(`/packs/${resortKey}.latest.validated.json`);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

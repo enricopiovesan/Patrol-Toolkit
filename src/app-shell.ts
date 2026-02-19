@@ -75,6 +75,18 @@ export class AppShell extends LitElement {
       color: #334155;
     }
 
+    .empty-state {
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px dashed #cbd5e1;
+      background: #f8fafc;
+      padding: 0.65rem 0.75rem;
+      display: grid;
+      align-items: center;
+      color: #475569;
+      font-size: 0.95rem;
+    }
+
     .status-line strong {
       color: #0f172a;
     }
@@ -297,15 +309,17 @@ export class AppShell extends LitElement {
           <p>Map foundation with live GPS dot for on-mountain positioning.</p>
           <section class="pack-panel" aria-label="Resort pack management">
             <div class="pack-row">
-              <select @change=${this.updateSelection} .value=${this.selectedPackId ?? ""} ?disabled=${!this.hasStorage}>
-                <option value="">Select Resort Pack</option>
-                ${this.resortOptions.map(
-                  (entry) =>
-                    html`<option value=${entry.resortId}>
-                      ${entry.resortName} (${entry.version})${entry.resortId === this.activePackId ? " (active)" : ""}
-                    </option>`
-                )}
-              </select>
+              ${this.resortOptions.length > 0
+                ? html`<select @change=${this.updateSelection} .value=${this.selectedPackId ?? ""} ?disabled=${!this.hasStorage}>
+                    <option value="">Select Resort Pack</option>
+                    ${this.resortOptions.map(
+                      (entry) =>
+                        html`<option value=${entry.resortId}>
+                          ${entry.resortName} (${entry.version})${entry.resortId === this.activePackId ? " (active)" : ""}
+                        </option>`
+                    )}
+                  </select>`
+                : html`<div class="empty-state">No resort packs available.</div>`}
             </div>
             <div class="status-line"><strong>Status:</strong> ${this.statusMessage}</div>
           </section>

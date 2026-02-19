@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "run:menu": "npm run build && node dist/src/cli.js",
+    "run:menu": "npm run build && node dist/src/cli.js menu --resorts-root ../../resorts --app-public-root ../../public",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "check": "npm run typecheck && npm run test && npm run build"
