@@ -15,6 +15,7 @@ import { setResortBoundary } from "./resort-boundary-set.js";
 import { syncResortLifts } from "./resort-sync-lifts.js";
 import { syncResortRuns } from "./resort-sync-runs.js";
 import { readResortSyncStatus } from "./resort-sync-status.js";
+import { updateResortLayer, type ResortUpdateLayer } from "./resort-update.js";
 
 type CliErrorJson = {
   ok: false;
@@ -58,6 +59,7 @@ async function main(): Promise<void> {
     command !== "resort-sync-lifts" &&
     command !== "resort-sync-runs" &&
     command !== "resort-sync-status" &&
+    command !== "resort-update" &&
     command !== "extract-resort" &&
     command !== "extract-fleet"
   ) {
@@ -74,6 +76,7 @@ async function main(): Promise<void> {
         "resort-sync-lifts",
         "resort-sync-runs",
         "resort-sync-status",
+        "resort-update",
         "extract-resort",
         "extract-fleet"
       ]
@@ -625,6 +628,104 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "resort-update") {
+    const workspacePath = readFlag(args, "--workspace");
+    const layerRaw = readFlag(args, "--layer");
+    const output = readFlag(args, "--output") ?? undefined;
+    const index = readIntegerFlag(args, "--index");
+    const searchLimit = readIntegerFlag(args, "--search-limit");
+    const bufferMeters = readNumberFlag(args, "--buffer-meters");
+    const timeoutSeconds = readIntegerFlag(args, "--timeout-seconds");
+    const updatedAt = readFlag(args, "--updated-at") ?? undefined;
+
+    if (!workspacePath || !layerRaw) {
+      throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --workspace <path> and --layer <boundary|lifts|runs> arguments.", {
+        command: "resort-update",
+        required: ["--workspace", "--layer"]
+      });
+    }
+    if (layerRaw !== "boundary" && layerRaw !== "lifts" && layerRaw !== "runs") {
+      throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --layer expects one of: boundary, lifts, runs.", {
+        flag: "--layer",
+        expected: "boundary|lifts|runs",
+        value: layerRaw
+      });
+    }
+    const layer = layerRaw as ResortUpdateLayer;
+    if (layer === "boundary" && index === undefined) {
+      throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Boundary update requires --index <n>.", {
+        command: "resort-update",
+        required: ["--index"]
+      });
+    }
+    if (index !== undefined && index < 1) {
+      throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --index expects an integer >= 1.", {
+        flag: "--index",
+        expected: "integer>=1",
+        value: String(index)
+      });
+    }
+    if (searchLimit !== undefined && searchLimit < 1) {
+      throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --search-limit expects an integer >= 1.", {
+        flag: "--search-limit",
+        expected: "integer>=1",
+        value: String(searchLimit)
+      });
+    }
+    if (bufferMeters !== undefined && bufferMeters < 0) {
+      throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --buffer-meters expects a number >= 0.", {
+        flag: "--buffer-meters",
+        expected: "number>=0",
+        value: String(bufferMeters)
+      });
+    }
+    if (timeoutSeconds !== undefined && timeoutSeconds < 1) {
+      throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --timeout-seconds expects an integer >= 1.", {
+        flag: "--timeout-seconds",
+        expected: "integer>=1",
+        value: String(timeoutSeconds)
+      });
+    }
+
+    let result;
+    try {
+      result = await updateResortLayer({
+        workspacePath,
+        layer,
+        index,
+        outputPath: output,
+        searchLimit,
+        bufferMeters,
+        timeoutSeconds,
+        updatedAt
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CliCommandError("RESORT_UPDATE_FAILED", message, {
+        command: "resort-update",
+        workspacePath,
+        layer
+      });
+    }
+
+    if (outputJson) {
+      console.log(
+        JSON.stringify({
+          ok: true,
+          resortUpdate: result
+        })
+      );
+      return;
+    }
+
+    console.log(
+      `RESORT_UPDATED workspace=${result.workspacePath} layer=${result.layer} changed=${result.changed ? "yes" : "no"} fields=${
+        result.changedFields.length > 0 ? result.changedFields.join(",") : "none"
+      } features=${result.after.featureCount ?? "?"} output=${result.after.artifactPath ?? "?"}`
+    );
+    return;
+  }
+
   const input = readFlag(args, "--input");
   if (!input) {
     throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --input <path> argument.", {
@@ -784,7 +885,7 @@ export function formatCliError(error: unknown, command: string | null): CliError
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
   );
 }
 
