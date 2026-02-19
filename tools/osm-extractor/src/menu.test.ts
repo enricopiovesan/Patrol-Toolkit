@@ -4,11 +4,14 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildResortKey,
+  canonicalizeResortKeys,
   formatKnownResortSummary,
   formatSearchCandidate,
   listKnownResorts,
   parseCandidateSelection,
-  persistResortVersion
+  persistResortVersion,
+  rankSearchCandidates,
+  toCanonicalResortKey
 } from "./menu.js";
 
 describe("menu known resort listing", () => {
@@ -80,15 +83,18 @@ describe("menu output formatting", () => {
 
   it("formats search candidate with labeled metadata", () => {
     const text = formatSearchCandidate(2, {
-      osmType: "node",
-      osmId: 7248641928,
-      displayName: "Kicking Horse, Golden, Canada",
-      countryCode: "ca",
-      country: "Canada",
-      region: "British Columbia",
-      center: [-116.96246, 51.29371],
-      importance: 0.438,
-      source: "nominatim"
+      candidate: {
+        osmType: "node",
+        osmId: 7248641928,
+        displayName: "Kicking Horse, Golden, Canada",
+        countryCode: "ca",
+        country: "Canada",
+        region: "British Columbia",
+        center: [-116.96246, 51.29371],
+        importance: 0.438,
+        source: "nominatim"
+      },
+      hasPolygonGeometry: true
     });
 
     expect(text).toMatch(/^2\. Kicking Horse, Golden, Canada/);
@@ -97,6 +103,44 @@ describe("menu output formatting", () => {
     expect(text).toMatch(/Region: British Columbia/);
     expect(text).toMatch(/Center: 51\.29371,-116\.96246/);
     expect(text).toMatch(/Importance: 0\.438/);
+    expect(text).toMatch(/BoundaryGeometry=yes/);
+  });
+});
+
+describe("menu search ranking", () => {
+  it("ranks polygon+relation candidates first", async () => {
+    const ranked = await rankSearchCandidates(
+      [
+        {
+          osmType: "node",
+          osmId: 1,
+          displayName: "Node Candidate",
+          countryCode: "ca",
+          country: "Canada",
+          region: "BC",
+          center: [-116, 51],
+          importance: 0.9,
+          source: "nominatim"
+        },
+        {
+          osmType: "relation",
+          osmId: 2,
+          displayName: "Relation Candidate",
+          countryCode: "ca",
+          country: "Canada",
+          region: "BC",
+          center: [-116, 51],
+          importance: 0.1,
+          source: "nominatim"
+        }
+      ],
+      {
+        hasPolygonFn: async (candidate) => candidate.osmType === "relation"
+      }
+    );
+
+    expect(ranked[0]?.candidate.osmId).toBe(2);
+    expect(ranked[1]?.candidate.osmId).toBe(1);
   });
 });
 
@@ -158,6 +202,25 @@ describe("menu resort persistence", () => {
           manuallyValidated: false
         }
       ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("menu resort key canonicalization", () => {
+  it("converts legacy lowercase key to canonical key", () => {
+    expect(toCanonicalResortKey("CA_golden_kicking_horse")).toBe("CA_Golden_Kicking_Horse");
+    expect(toCanonicalResortKey("ca_morin_heights_kicking_horse")).toBe("CA_Morin_Heights_Kicking_Horse");
+  });
+
+  it("renames legacy resort folders to canonical names", async () => {
+    const root = await mkdtemp(join(tmpdir(), "resorts-canonicalize-"));
+    try {
+      await mkdir(join(root, "CA_golden_kicking_horse", "v1"), { recursive: true });
+      await canonicalizeResortKeys(root);
+      const result = await listKnownResorts(root);
+      expect(result[0]?.resortKey).toBe("CA_Golden_Kicking_Horse");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
