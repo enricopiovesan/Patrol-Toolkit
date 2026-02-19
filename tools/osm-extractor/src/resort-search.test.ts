@@ -14,6 +14,8 @@ describe("resort search", () => {
     const result = await searchResortCandidates(
       { name: "Kicking Horse", country: "CA", limit: 5 },
       {
+        disableCache: true,
+        retry: { maxAttempts: 1, baseDelayMs: 1, retryOnStatuses: [429] },
         fetchFn: (async () =>
           ({
             ok: true,
@@ -59,8 +61,10 @@ describe("resort search", () => {
     await expect(
       searchResortCandidates(
         { name: "Kicking Horse", country: "CA", limit: 5 },
-        {
-          fetchFn: (async () =>
+      {
+        disableCache: true,
+        retry: { maxAttempts: 1, baseDelayMs: 1, retryOnStatuses: [429] },
+        fetchFn: (async () =>
             ({
               ok: false,
               status: 429,

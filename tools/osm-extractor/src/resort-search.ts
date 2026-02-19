@@ -1,3 +1,5 @@
+import { defaultCacheDir, resilientFetchJson } from "./network-resilience.js";
+
 export type ResortSearchCandidate = {
   osmType: "relation" | "way" | "node";
   osmId: number;
@@ -55,23 +57,35 @@ export async function searchResortCandidates(
   deps?: {
     fetchFn?: typeof fetch;
     userAgent?: string;
+    disableCache?: boolean;
+    retry?: {
+      maxAttempts: number;
+      baseDelayMs: number;
+      retryOnStatuses: number[];
+    };
   }
 ): Promise<ResortSearchResult> {
   const fetchFn = deps?.fetchFn ?? fetch;
   const userAgent = deps?.userAgent ?? "patrol-toolkit-osm-extractor/0.1";
-
-  const response = await fetchFn(buildResortSearchUrl(args), {
+  const url = buildResortSearchUrl(args);
+  const raw = await resilientFetchJson({
+    url,
+    method: "GET",
     headers: {
       accept: "application/json",
       "user-agent": userAgent
-    }
+    },
+    fetchFn,
+    throttleMs: deps?.fetchFn ? 0 : 1100,
+    retry: deps?.retry,
+    cache: deps?.disableCache
+      ? undefined
+      : {
+          dir: defaultCacheDir(),
+          ttlMs: 60 * 60 * 1000,
+          key: `resort-search:${url}`
+        }
   });
-
-  if (!response.ok) {
-    throw new Error(`Resort search failed: upstream returned HTTP ${response.status}.`);
-  }
-
-  const raw = (await response.json()) as unknown;
   if (!Array.isArray(raw)) {
     throw new Error("Resort search failed: upstream response is not a JSON array.");
   }
