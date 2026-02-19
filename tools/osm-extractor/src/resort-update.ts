@@ -20,6 +20,10 @@ export type ResortUpdateResult = {
   dryRun: boolean;
   before: ResortUpdateLayerSnapshot;
   after: ResortUpdateLayerSnapshot;
+  readiness: {
+    ready: boolean;
+    issues: string[];
+  };
   changed: boolean;
   changedFields: Array<keyof ResortUpdateLayerSnapshot>;
   operation:
@@ -69,12 +73,14 @@ export async function updateResortLayer(
   const dryRun = args.dryRun ?? false;
 
   if (dryRun) {
+    const readiness = assessLayerReadiness(args.layer, before);
     return {
       workspacePath: args.workspacePath,
       layer: args.layer,
       dryRun: true,
       before,
       after: before,
+      readiness,
       changed: false,
       changedFields: [],
       operation: {
@@ -119,6 +125,7 @@ export async function updateResortLayer(
   const afterWorkspace = await readWorkspaceFn(args.workspacePath);
   const after = toSnapshot(afterWorkspace.layers[args.layer]);
   const changedFields = diffSnapshotFields(before, after);
+  const readiness = assessLayerReadiness(args.layer, after);
 
   return {
     workspacePath: args.workspacePath,
@@ -126,9 +133,44 @@ export async function updateResortLayer(
     dryRun: false,
     before,
     after,
+    readiness,
     changed: changedFields.length > 0,
     changedFields,
     operation
+  };
+}
+
+function assessLayerReadiness(
+  layerName: ResortUpdateLayer,
+  snapshot: ResortUpdateLayerSnapshot
+): { ready: boolean; issues: string[] } {
+  const issues: string[] = [];
+  if (snapshot.status !== "complete") {
+    issues.push(`status is '${snapshot.status}', expected 'complete'`);
+  }
+  if (!snapshot.artifactPath) {
+    issues.push("artifactPath is missing");
+  }
+  if (!snapshot.checksumSha256) {
+    issues.push("checksumSha256 is missing");
+  }
+  if (snapshot.featureCount === null) {
+    issues.push("featureCount is missing");
+  } else if (layerName === "boundary" && snapshot.featureCount !== 1) {
+    issues.push("boundary featureCount must be exactly 1");
+  } else if (layerName !== "boundary" && snapshot.featureCount < 1) {
+    issues.push("featureCount must be >= 1");
+  }
+  if (!snapshot.updatedAt) {
+    issues.push("updatedAt is missing");
+  }
+  if (snapshot.error) {
+    issues.push(`error is set: ${snapshot.error}`);
+  }
+
+  return {
+    ready: issues.length === 0,
+    issues
   };
 }
 

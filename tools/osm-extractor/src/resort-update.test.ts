@@ -127,6 +127,8 @@ describe("resort update", () => {
 
     expect(result.changed).toBe(false);
     expect(result.changedFields).toEqual([]);
+    expect(result.readiness.ready).toBe(true);
+    expect(result.readiness.issues).toEqual([]);
   });
 
   it("does not execute layer sync when dry-run is enabled", async () => {
@@ -159,5 +161,35 @@ describe("resort update", () => {
     expect(result.operation.kind).toBe("dry-run");
     expect(result.changed).toBe(false);
     expect(result.changedFields).toEqual([]);
+  });
+
+  it("reports layer as not ready when expected fields are missing", async () => {
+    const readWorkspaceFn = vi
+      .fn<(...args: [string]) => Promise<ResortWorkspace>>()
+      .mockResolvedValue(createWorkspace("runs", { status: "pending" }))
+      .mockResolvedValueOnce(createWorkspace("runs", { status: "pending" }));
+    const syncRunsFn = vi.fn().mockResolvedValue({
+      workspacePath: "/tmp/resort.json",
+      outputPath: "/tmp/runs.geojson",
+      queryHash: "q1",
+      runCount: 0,
+      checksumSha256: "same"
+    });
+
+    const result = await updateResortLayer(
+      {
+        workspacePath: "/tmp/resort.json",
+        layer: "runs",
+        dryRun: true
+      },
+      {
+        readWorkspaceFn,
+        syncRunsFn
+      }
+    );
+
+    expect(result.readiness.ready).toBe(false);
+    expect(result.readiness.issues.join(" | ")).toMatch(/status is 'pending'/);
+    expect(result.readiness.issues.join(" | ")).toMatch(/featureCount is missing/);
   });
 });

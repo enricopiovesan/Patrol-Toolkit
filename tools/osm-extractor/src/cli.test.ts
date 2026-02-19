@@ -73,7 +73,8 @@ describe("resort-update option parsing", () => {
       bufferMeters: 40,
       timeoutSeconds: 25,
       updatedAt: undefined,
-      dryRun: false
+      dryRun: false,
+      requireComplete: false
     });
   });
 
@@ -95,7 +96,31 @@ describe("resort-update option parsing", () => {
       bufferMeters: undefined,
       timeoutSeconds: undefined,
       updatedAt: undefined,
-      dryRun: true
+      dryRun: true,
+      requireComplete: false
+    });
+  });
+
+  it("parses require-complete flag", () => {
+    const result = parseResortUpdateOptions([
+      "--workspace",
+      "/tmp/resort.json",
+      "--layer",
+      "runs",
+      "--require-complete"
+    ]);
+
+    expect(result).toEqual({
+      workspacePath: "/tmp/resort.json",
+      layer: "runs",
+      outputPath: undefined,
+      index: undefined,
+      searchLimit: undefined,
+      bufferMeters: undefined,
+      timeoutSeconds: undefined,
+      updatedAt: undefined,
+      dryRun: false,
+      requireComplete: true
     });
   });
 
