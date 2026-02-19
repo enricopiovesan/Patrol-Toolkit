@@ -1,7 +1,7 @@
-import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { buildNominatimLookupUrl } from "./resort-boundary-detect.js";
 import { detectResortBoundaryCandidates } from "./resort-boundary-detect.js";
 import { searchResortCandidates } from "./resort-search.js";
@@ -35,6 +35,14 @@ export type PersistedResortVersion = {
 export type RankedSearchCandidate = {
   candidate: ResortSearchCandidate;
   hasPolygonGeometry: boolean;
+};
+
+export type ClonedResortVersion = {
+  version: string;
+  versionNumber: number;
+  versionPath: string;
+  workspacePath: string;
+  statusPath: string;
 };
 
 type StatusShape = {
@@ -618,9 +626,15 @@ async function runKnownResortMenu(args: {
     }
 
     if (selected === "2") {
+      const cloned = await createNextVersionClone({
+        resortsRoot: args.resortsRoot,
+        resortKey: args.resortKey,
+        workspacePath,
+        statusPath
+      });
       try {
         const detection = await detectResortBoundaryCandidates({
-          workspacePath,
+          workspacePath: cloned.workspacePath,
           searchLimit: 5
         });
         const polygonCandidates = detection.candidates.filter((candidate) => candidate.ring !== null);
@@ -675,15 +689,19 @@ async function runKnownResortMenu(args: {
         }
 
         const result = await setResortBoundary({
-          workspacePath,
+          workspacePath: cloned.workspacePath,
           index: pickedIndexInDetection + 1
         });
         await syncStatusFileFromWorkspace({
-          workspacePath,
-          statusPath
+          workspacePath: cloned.workspacePath,
+          statusPath: cloned.statusPath
         });
+        workspacePath = cloned.workspacePath;
+        statusPath = cloned.statusPath;
+        console.log(`Created version ${cloned.version} for boundary update.`);
         console.log(`Boundary updated: ${result.selectedOsm.displayName} checksum=${result.checksumSha256}`);
       } catch (error: unknown) {
+        await rm(cloned.versionPath, { recursive: true, force: true });
         const message = error instanceof Error ? error.message : String(error);
         console.log(`Boundary update failed: ${message}`);
       }
@@ -691,17 +709,27 @@ async function runKnownResortMenu(args: {
     }
 
     if (selected === "3") {
+      const cloned = await createNextVersionClone({
+        resortsRoot: args.resortsRoot,
+        resortKey: args.resortKey,
+        workspacePath,
+        statusPath
+      });
       try {
         const result = await syncResortRuns({
-          workspacePath,
+          workspacePath: cloned.workspacePath,
           bufferMeters: 50
         });
         await syncStatusFileFromWorkspace({
-          workspacePath,
-          statusPath
+          workspacePath: cloned.workspacePath,
+          statusPath: cloned.statusPath
         });
+        workspacePath = cloned.workspacePath;
+        statusPath = cloned.statusPath;
+        console.log(`Created version ${cloned.version} for runs update.`);
         console.log(`Runs updated: count=${result.runCount} checksum=${result.checksumSha256}`);
       } catch (error: unknown) {
+        await rm(cloned.versionPath, { recursive: true, force: true });
         const message = error instanceof Error ? error.message : String(error);
         console.log(`Runs update failed: ${message}`);
       }
@@ -709,17 +737,27 @@ async function runKnownResortMenu(args: {
     }
 
     if (selected === "4") {
+      const cloned = await createNextVersionClone({
+        resortsRoot: args.resortsRoot,
+        resortKey: args.resortKey,
+        workspacePath,
+        statusPath
+      });
       try {
         const result = await syncResortLifts({
-          workspacePath,
+          workspacePath: cloned.workspacePath,
           bufferMeters: 50
         });
         await syncStatusFileFromWorkspace({
-          workspacePath,
-          statusPath
+          workspacePath: cloned.workspacePath,
+          statusPath: cloned.statusPath
         });
+        workspacePath = cloned.workspacePath;
+        statusPath = cloned.statusPath;
+        console.log(`Created version ${cloned.version} for lifts update.`);
         console.log(`Lifts updated: count=${result.liftCount} checksum=${result.checksumSha256}`);
       } catch (error: unknown) {
+        await rm(cloned.versionPath, { recursive: true, force: true });
         const message = error instanceof Error ? error.message : String(error);
         console.log(`Lifts update failed: ${message}`);
       }
@@ -864,6 +902,51 @@ async function readStatusShape(path: string): Promise<StatusShape> {
     }
     return {};
   }
+}
+
+export async function createNextVersionClone(args: {
+  resortsRoot: string;
+  resortKey: string;
+  workspacePath: string;
+  statusPath: string;
+  createdAt?: string;
+}): Promise<ClonedResortVersion> {
+  const resortPath = join(args.resortsRoot, args.resortKey);
+  const versions = await readVersionFolders(resortPath);
+  const versionNumber = versions.length === 0 ? 1 : Math.max(...versions) + 1;
+  const version = `v${String(versionNumber)}`;
+  const versionPath = join(resortPath, version);
+  const sourceVersionPath = dirname(args.workspacePath);
+  const workspacePath = join(versionPath, "resort.json");
+  const statusPath = join(versionPath, "status.json");
+
+  await cp(sourceVersionPath, versionPath, { recursive: true, force: false, errorOnExist: true });
+
+  const existingStatus = await readStatusShape(statusPath);
+  const createdAt = args.createdAt ?? new Date().toISOString();
+  const updatedStatus: StatusShape = {
+    ...existingStatus,
+    version,
+    createdAt,
+    manualValidation: {
+      validated: false,
+      validatedAt: null,
+      validatedBy: null,
+      notes: null
+    }
+  };
+  await writeFile(statusPath, `${JSON.stringify(updatedStatus, null, 2)}\n`, "utf8");
+
+  const workspace = await readResortWorkspace(workspacePath);
+  await writeResortWorkspace(workspacePath, workspace);
+
+  return {
+    version,
+    versionNumber,
+    versionPath,
+    workspacePath,
+    statusPath
+  };
 }
 
 export function toCanonicalResortKey(resortKey: string): string {

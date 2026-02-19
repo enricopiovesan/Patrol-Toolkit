@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildResortKey,
   canonicalizeResortKeys,
+  createNextVersionClone,
   formatKnownResortSummary,
   formatSearchCandidate,
   listKnownResorts,
@@ -202,6 +203,106 @@ describe("menu resort persistence", () => {
           manuallyValidated: false
         }
       ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("menu immutable version cloning", () => {
+  it("creates next version clone and resets manual validation", async () => {
+    const root = await mkdtemp(join(tmpdir(), "resorts-clone-"));
+    try {
+      const resortKey = "CA_Golden_Kicking_Horse";
+      const v1Path = join(root, resortKey, "v1");
+      const workspacePath = join(v1Path, "resort.json");
+      const statusPath = join(v1Path, "status.json");
+
+      await mkdir(v1Path, { recursive: true });
+      await writeFile(
+        workspacePath,
+        JSON.stringify({
+          schemaVersion: "2.0.0",
+          resort: {
+            query: {
+              name: "Kicking Horse",
+              country: "CA"
+            },
+            selection: {
+              osmType: "way",
+              osmId: 476843455,
+              displayName: "Kicking Horse Resort, Golden, Canada",
+              center: [-116.96246, 51.29371],
+              selectedAt: "2026-02-21T00:00:00.000Z"
+            }
+          },
+          layers: {
+            boundary: { status: "pending" },
+            lifts: { status: "pending" },
+            runs: { status: "pending" }
+          }
+        }),
+        "utf8"
+      );
+      await writeFile(
+        statusPath,
+        JSON.stringify(
+          {
+            schemaVersion: "1.0.0",
+            resortKey,
+            version: "v1",
+            createdAt: "2026-02-21T00:00:00.000Z",
+            manualValidation: {
+              validated: true,
+              validatedAt: "2026-02-21T00:10:00.000Z",
+              validatedBy: "tester",
+              notes: "approved"
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+
+      const cloned = await createNextVersionClone({
+        resortsRoot: root,
+        resortKey,
+        workspacePath,
+        statusPath,
+        createdAt: "2026-02-21T01:00:00.000Z"
+      });
+
+      expect(cloned.version).toBe("v2");
+      expect(cloned.versionNumber).toBe(2);
+
+      const v2StatusRaw = await readFile(cloned.statusPath, "utf8");
+      const v2Status = JSON.parse(v2StatusRaw) as {
+        version: string;
+        createdAt: string;
+        manualValidation: {
+          validated: boolean;
+          validatedAt: string | null;
+          validatedBy: string | null;
+          notes: string | null;
+        };
+      };
+      expect(v2Status.version).toBe("v2");
+      expect(v2Status.createdAt).toBe("2026-02-21T01:00:00.000Z");
+      expect(v2Status.manualValidation).toEqual({
+        validated: false,
+        validatedAt: null,
+        validatedBy: null,
+        notes: null
+      });
+
+      const v1StatusRaw = await readFile(statusPath, "utf8");
+      const v1Status = JSON.parse(v1StatusRaw) as {
+        version: string;
+        manualValidation: { validated: boolean };
+      };
+      expect(v1Status.version).toBe("v1");
+      expect(v1Status.manualValidation.validated).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
