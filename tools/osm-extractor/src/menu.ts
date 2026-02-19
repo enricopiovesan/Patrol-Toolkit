@@ -1156,6 +1156,7 @@ async function runKnownResortMenu(args: {
           appPublicRoot: args.appPublicRoot,
           resortKey: args.resortKey,
           versionPath: dirname(workspacePath),
+          rl: args.rl
         });
         if (result.generatedNow) {
           console.log(`Basemap assets generated under ${join(dirname(workspacePath), "basemap")} from ${result.sourceLabel}.`);
@@ -1269,6 +1270,7 @@ export async function generateBasemapAssetsForVersion(args: {
   appPublicRoot: string;
   resortKey: string;
   versionPath: string;
+  rl?: MenuReadline;
 }): Promise<{ generatedNow: boolean; sourceLabel: string }> {
   const targetPmtiles = join(args.versionPath, "basemap", "base.pmtiles");
   const targetStyle = join(args.versionPath, "basemap", "style.json");
@@ -1278,7 +1280,20 @@ export async function generateBasemapAssetsForVersion(args: {
   }
 
   const source = await resolveBasemapSourcePaths(args);
-  if (!source) {
+  let sourcePaths = source;
+  if (!sourcePaths && args.rl) {
+    const manualPmtiles = (await args.rl.question("No basemap source found. PMTiles source path: ")).trim();
+    const manualStyle = (await args.rl.question("Style JSON source path: ")).trim();
+    if (manualPmtiles.length > 0 && manualStyle.length > 0) {
+      sourcePaths = {
+        pmtilesPath: manualPmtiles,
+        stylePath: manualStyle,
+        sourceLabel: "manual source paths"
+      };
+    }
+  }
+
+  if (!sourcePaths) {
     throw new Error(
       "No basemap source found. Expected either resorts/<resortKey>/basemap/{base.pmtiles,style.json} or public/packs/<resortKey>/{base.pmtiles,style.json}."
     );
@@ -1286,12 +1301,12 @@ export async function generateBasemapAssetsForVersion(args: {
 
   await attachBasemapAssetsToVersion({
     versionPath: args.versionPath,
-    pmtilesSourcePath: source.pmtilesPath,
-    styleSourcePath: source.stylePath
+    pmtilesSourcePath: sourcePaths.pmtilesPath,
+    styleSourcePath: sourcePaths.stylePath
   });
   return {
     generatedNow: true,
-    sourceLabel: source.sourceLabel
+    sourceLabel: sourcePaths.sourceLabel
   };
 }
 
