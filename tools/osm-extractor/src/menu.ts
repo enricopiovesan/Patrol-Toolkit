@@ -997,7 +997,6 @@ export async function createNextVersionClone(args: {
 export function isBoundaryReadyForSync(workspace: ResortWorkspace): boolean {
   return workspace.layers.boundary.status === "complete" && typeof workspace.layers.boundary.artifactPath === "string";
 }
-
 export function toCanonicalResortKey(resortKey: string): string {
   const parts = resortKey.split("_").filter((part) => part.length > 0);
   if (parts.length === 0) {
