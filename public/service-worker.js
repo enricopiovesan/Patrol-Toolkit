@@ -11,7 +11,8 @@ const APP_SHELL_URLS = [
   "/offline.html",
   "/manifest.webmanifest",
   "/icons/icon.svg",
-  "/icons/icon-maskable.svg"
+  "/icons/icon-maskable.svg",
+  "/resort-packs/index.json"
 ];
 
 const TILE_HOSTS = new Set(["tile.openstreetmap.org"]);

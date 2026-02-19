@@ -8,12 +8,15 @@ import {
   createNextVersionClone,
   formatKnownResortSummary,
   formatSearchCandidate,
+  getExistingResortLatestVersion,
   isBoundaryReadyForSync,
   listKnownResorts,
   parseLayerSelection,
   parseCandidateSelection,
+  parseDuplicateResortAction,
   persistResortVersion,
   rankSearchCandidates,
+  runInteractiveMenu,
   setLayerManualValidation,
   toManualValidationState,
   toCanonicalResortKey
@@ -112,6 +115,15 @@ describe("menu candidate selection parsing", () => {
   });
 });
 
+describe("menu duplicate resort action parsing", () => {
+  it("parses duplicate action menu options", () => {
+    expect(parseDuplicateResortAction("1")).toBe("create");
+    expect(parseDuplicateResortAction("2")).toBe("cancel");
+    expect(parseDuplicateResortAction("0")).toBeNull();
+    expect(parseDuplicateResortAction("abc")).toBeNull();
+  });
+});
+
 describe("menu layer selection parsing", () => {
   it("parses canonical and shorthand layer selections", () => {
     expect(parseLayerSelection("all")).toEqual(["boundary", "runs", "lifts"]);
@@ -159,10 +171,12 @@ describe("menu output formatting", () => {
         }
       }
     });
-    expect(line).toContain("1. CA_Golden_Kicking_Horse | latest=v2 | validated=yes | readiness=incomplete");
-    expect(line).toContain("Boundary: status=complete features=1 checksum=1234567890ab");
-    expect(line).toContain("Runs: status=pending features=? checksum=n/a");
-    expect(line).toContain("Readiness issues: 2");
+    expect(line).toContain("1. CA_Golden_Kicking_Horse");
+    expect(line).toContain("Latest version : v2");
+    expect(line).toContain("Validated      : yes");
+    expect(line).toContain("Readiness      : incomplete (2 issue(s))");
+    expect(line).toContain("- Boundary status=complete  features=1  checksum=1234567890ab");
+    expect(line).toContain("- Runs     status=pending  features=?  checksum=n/a");
   });
 
   it("formats search candidate with labeled metadata", () => {
@@ -308,6 +322,11 @@ describe("menu resort persistence", () => {
       expect(first.wasExistingResort).toBe(false);
       expect(second.version).toBe("v2");
       expect(second.wasExistingResort).toBe(true);
+
+      const latest = await getExistingResortLatestVersion(root, "CA_Golden_Kicking_Horse");
+      expect(latest).toBe("v2");
+      const missing = await getExistingResortLatestVersion(root, "CA_Golden_Unknown");
+      expect(missing).toBeNull();
 
       const statusRaw = await readFile(second.statusPath, "utf8");
       const status = JSON.parse(statusRaw) as { manualValidation: { validated: boolean } };
@@ -575,3 +594,257 @@ describe("menu manual layer validation", () => {
     expect(afterInvalidateRuns.validatedAt).toBeNull();
   });
 });
+
+describe("menu interactive flows", () => {
+  it("creates a new resort via menu flow", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-create-"));
+    const rl = createFakeReadline(["2", "Kicking Horse", "CA", "Golden", "1", "3"]);
+    try {
+      await runInteractiveMenu({
+        resortsRoot: root,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((candidate) => ({
+            candidate,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Kicking Horse", country: "CA", limit: 5 },
+          candidates: [
+            {
+              osmType: "node",
+              osmId: 7248641928,
+              displayName: "Kicking Horse, Golden, Canada",
+              countryCode: "ca",
+              country: "Canada",
+              region: "British Columbia",
+              center: [-116.96246, 51.29371],
+              importance: 0.8,
+              source: "nominatim"
+            }
+          ]
+        })
+      });
+
+      const known = await listKnownResorts(root);
+      expect(known).toHaveLength(1);
+      expect(known[0]?.resortKey).toBe("CA_Golden_Kicking_Horse");
+      expect(known[0]?.latestVersion).toBe("v1");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("cancels duplicate resort creation when user selects cancel", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-duplicate-"));
+    const candidate = {
+      osmType: "node" as const,
+      osmId: 7248641928,
+      displayName: "Kicking Horse, Golden, Canada",
+      countryCode: "ca",
+      country: "Canada",
+      region: "British Columbia",
+      center: [-116.96246, 51.29371] as [number, number],
+      importance: 0.8,
+      source: "nominatim" as const
+    };
+    const rl = createFakeReadline(["2", "Kicking Horse", "CA", "Golden", "1", "2", "3"]);
+    try {
+      await persistResortVersion({
+        resortsRoot: root,
+        countryCode: "CA",
+        town: "Golden",
+        resortName: "Kicking Horse",
+        candidate
+      });
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((entry) => ({
+            candidate: entry,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Kicking Horse", country: "CA", limit: 5 },
+          candidates: [candidate]
+        })
+      });
+
+      const known = await listKnownResorts(root);
+      expect(known).toHaveLength(1);
+      expect(known[0]?.latestVersion).toBe("v1");
+      expect(known[0]?.latestVersionNumber).toBe(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("enters known resort menu and returns back to main menu", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-known-resort-"));
+    const candidate = {
+      osmType: "node" as const,
+      osmId: 7248641928,
+      displayName: "Kicking Horse, Golden, Canada",
+      countryCode: "ca",
+      country: "Canada",
+      region: "British Columbia",
+      center: [-116.96246, 51.29371] as [number, number],
+      importance: 0.8,
+      source: "nominatim" as const
+    };
+    const rl = createFakeReadline(["1", "1", "10", "3"]);
+    try {
+      await persistResortVersion({
+        resortsRoot: root,
+        countryCode: "CA",
+        town: "Golden",
+        resortName: "Kicking Horse",
+        candidate
+      });
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((entry) => ({
+            candidate: entry,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Kicking Horse", country: "CA", limit: 5 },
+          candidates: [candidate]
+        })
+      });
+      expect(rl.prompts.some((prompt) => prompt.includes("Select option (1-10):"))).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("auto-publishes to app catalog when all layer validations become yes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-auto-publish-"));
+    const publicRoot = join(root, "public");
+    const resortKey = "CA_Golden_Kicking_Horse";
+    const versionPath = join(root, resortKey, "v1");
+    const workspacePath = join(versionPath, "resort.json");
+    const statusPath = join(versionPath, "status.json");
+    const rl = createFakeReadline([
+      "1",
+      "1",
+      "6",
+      "y",
+      "Enrico",
+      "",
+      "7",
+      "y",
+      "Enrico",
+      "",
+      "8",
+      "y",
+      "Enrico",
+      "",
+      "10",
+      "3"
+    ]);
+    try {
+      await mkdir(versionPath, { recursive: true });
+      await writeFile(
+        workspacePath,
+        JSON.stringify(
+          {
+            schemaVersion: "2.0.0",
+            resort: {
+              query: { name: "Kicking Horse", country: "CA" }
+            },
+            layers: {
+              boundary: { status: "complete", artifactPath: "boundary.geojson", featureCount: 1 },
+              runs: { status: "complete", artifactPath: "runs.geojson", featureCount: 72 },
+              lifts: { status: "complete", artifactPath: "lifts.geojson", featureCount: 7 }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(
+        statusPath,
+        JSON.stringify(
+          {
+            schemaVersion: "1.0.0",
+            resortKey,
+            version: "v1",
+            createdAt: "2026-02-19T16:31:09.346Z",
+            query: { name: "Kicking Horse", countryCode: "CA", town: "Golden" },
+            readiness: { overall: "ready", issues: [] },
+            manualValidation: {
+              validated: false,
+              layers: {
+                boundary: { validated: false },
+                runs: { validated: false },
+                lifts: { validated: false }
+              }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(join(versionPath, "boundary.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(versionPath, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(versionPath, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        appPublicRoot: publicRoot,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((entry) => ({
+            candidate: entry,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Kicking Horse", country: "CA", limit: 5 },
+          candidates: []
+        })
+      });
+
+      const catalogRaw = await readFile(join(publicRoot, "resort-packs", "index.json"), "utf8");
+      const catalog = JSON.parse(catalogRaw) as {
+        resorts: Array<{
+          resortId: string;
+          versions: Array<{ approved: boolean; packUrl: string }>;
+        }>;
+      };
+
+      expect(catalog.resorts[0]?.resortId).toBe(resortKey);
+      expect(catalog.resorts[0]?.versions[0]?.approved).toBe(true);
+      expect(catalog.resorts[0]?.versions[0]?.packUrl).toBe(`/packs/${resortKey}.latest.validated.json`);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+function createFakeReadline(answers: string[]): { question: (query: string) => Promise<string>; close: () => void; prompts: string[] } {
+  const prompts: string[] = [];
+  let index = 0;
+  return {
+    prompts,
+    async question(query: string): Promise<string> {
+      prompts.push(query);
+      const answer = answers[index];
+      if (answer === undefined) {
+        throw new Error(`No test answer available for prompt: ${query}`);
+      }
+      index += 1;
+      return answer;
+    },
+    close(): void {
+      // External readline injected in tests; no-op on close.
+    }
+  };
+}

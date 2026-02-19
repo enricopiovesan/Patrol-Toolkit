@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0.0",
+  "resorts": [
+    {
+      "resortId": "CA_Golden_Kicking_Horse",
+      "resortName": "kicking horse",
+      "versions": [
+        {
+          "version": "v1",
+          "approved": true,
+          "packUrl": "/packs/CA_Golden_Kicking_Horse.latest.validated.json",
+          "createdAt": "2026-02-19T17:46:23.504Z"
+        }
+      ]
+    }
+  ]
+}

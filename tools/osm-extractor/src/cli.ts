@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { resolve } from "node:path";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createAuditLogger, noopAuditLogger } from "./audit-log.js";
 import { runExtractFleetPipeline } from "./fleet-run.js";
@@ -41,6 +42,90 @@ export type ResortUpdateCliOptions = {
   requireComplete: boolean;
 };
 
+type ResortWorkspaceLayerStateLike = {
+  status?: "pending" | "running" | "complete" | "failed";
+  artifactPath?: string;
+  featureCount?: number;
+  checksumSha256?: string;
+  updatedAt?: string;
+  error?: string;
+};
+
+type ResortWorkspaceLike = {
+  schemaVersion?: string;
+  resort?: {
+    query?: {
+      name?: string;
+      country?: string;
+    };
+    selection?: {
+      osmType?: "relation" | "way" | "node";
+      osmId?: number;
+      displayName?: string;
+      center?: [number, number];
+      selectedAt?: string;
+    };
+  };
+  layers?: {
+    boundary?: ResortWorkspaceLayerStateLike;
+    lifts?: ResortWorkspaceLayerStateLike;
+    runs?: ResortWorkspaceLayerStateLike;
+  };
+};
+
+type ResortStatusLike = {
+  schemaVersion?: string;
+  resortKey?: string;
+  version?: string;
+  createdAt?: string;
+  readiness?: {
+    overall?: "ready" | "incomplete";
+    issues?: string[];
+  };
+  manualValidation?: {
+    validated?: boolean;
+    validatedAt?: string | null;
+    validatedBy?: string | null;
+    notes?: string | null;
+  };
+};
+
+export type ResortExportLatestResult = {
+  resortsRoot: string;
+  resortKey: string;
+  version: string;
+  validatedAt: string | null;
+  outputPath: string;
+  exportedAt: string;
+};
+
+export type ResortPublishLatestResult = {
+  resortKey: string;
+  version: string;
+  outputPath: string;
+  outputUrl: string;
+  catalogPath: string;
+  exportedAt: string;
+};
+
+type ResortCatalogIndex = {
+  schemaVersion: "1.0.0";
+  resorts: ResortCatalogEntry[];
+};
+
+type ResortCatalogEntry = {
+  resortId: string;
+  resortName: string;
+  versions: ResortCatalogVersion[];
+};
+
+type ResortCatalogVersion = {
+  version: string;
+  approved: boolean;
+  packUrl: string;
+  createdAt: string;
+};
+
 export class CliCommandError extends Error {
   readonly code: string;
   readonly details?: unknown;
@@ -63,8 +148,10 @@ async function main(): Promise<void> {
 
   if (!command) {
     const resortsRoot = readFlag(args, "--resorts-root") ?? "./resorts";
+    const appPublicRoot = readFlag(args, "--app-public-root") ?? "./public";
     await runInteractiveMenu({
       resortsRoot,
+      appPublicRoot,
       searchFn: searchResortCandidates
     });
     return;
@@ -88,6 +175,8 @@ async function main(): Promise<void> {
     command !== "resort-sync-runs" &&
     command !== "resort-sync-status" &&
     command !== "resort-update" &&
+    command !== "resort-export-latest" &&
+    command !== "resort-publish-latest" &&
     command !== "menu" &&
     command !== "extract-resort" &&
     command !== "extract-fleet"
@@ -106,6 +195,8 @@ async function main(): Promise<void> {
         "resort-sync-runs",
         "resort-sync-status",
         "resort-update",
+        "resort-export-latest",
+        "resort-publish-latest",
         "menu",
         "extract-resort",
         "extract-fleet"
@@ -663,10 +754,108 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "resort-export-latest") {
+    const resortsRoot = readFlag(args, "--resorts-root") ?? "./resorts";
+    const resortKey = readFlag(args, "--resort-key");
+    const outputPath = readFlag(args, "--output");
+    const exportedAt = readFlag(args, "--exported-at") ?? undefined;
+    if (!resortKey || !outputPath) {
+      throw new CliCommandError(
+        "MISSING_REQUIRED_FLAGS",
+        "Missing required --resort-key <value> and --output <path> arguments.",
+        {
+          command: "resort-export-latest",
+          required: ["--resort-key", "--output"]
+        }
+      );
+    }
+
+    let result: ResortExportLatestResult;
+    try {
+      result = await exportLatestValidatedResortVersion({
+        resortsRoot,
+        resortKey,
+        outputPath,
+        exportedAt
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CliCommandError("RESORT_EXPORT_FAILED", message, {
+        command: "resort-export-latest",
+        resortsRoot,
+        resortKey,
+        outputPath
+      });
+    }
+
+    if (outputJson) {
+      console.log(
+        JSON.stringify({
+          ok: true,
+          resortExport: result
+        })
+      );
+      return;
+    }
+
+    console.log(
+      `RESORT_EXPORTED resortKey=${result.resortKey} version=${result.version} validatedAt=${result.validatedAt ?? "n/a"} output=${result.outputPath}`
+    );
+    return;
+  }
+
+  if (command === "resort-publish-latest") {
+    const resortsRoot = readFlag(args, "--resorts-root") ?? "./resorts";
+    const appPublicRoot = readFlag(args, "--app-public-root") ?? "./public";
+    const resortKey = readFlag(args, "--resort-key");
+    const exportedAt = readFlag(args, "--exported-at") ?? undefined;
+    if (!resortKey) {
+      throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --resort-key <value> argument.", {
+        command: "resort-publish-latest",
+        required: ["--resort-key"]
+      });
+    }
+
+    let result: ResortPublishLatestResult;
+    try {
+      result = await publishLatestValidatedResortVersion({
+        resortsRoot,
+        appPublicRoot,
+        resortKey,
+        exportedAt
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CliCommandError("RESORT_PUBLISH_FAILED", message, {
+        command: "resort-publish-latest",
+        resortsRoot,
+        appPublicRoot,
+        resortKey
+      });
+    }
+
+    if (outputJson) {
+      console.log(
+        JSON.stringify({
+          ok: true,
+          resortPublish: result
+        })
+      );
+      return;
+    }
+
+    console.log(
+      `RESORT_PUBLISHED resortKey=${result.resortKey} version=${result.version} output=${result.outputPath} catalog=${result.catalogPath}`
+    );
+    return;
+  }
+
   if (command === "menu") {
     const resortsRoot = readFlag(args, "--resorts-root") ?? "./resorts";
+    const appPublicRoot = readFlag(args, "--app-public-root") ?? "./public";
     await runInteractiveMenu({
       resortsRoot,
+      appPublicRoot,
       searchFn: searchResortCandidates
     });
     return;
@@ -1027,6 +1216,231 @@ export async function runResortUpdateCommand(
   }
 }
 
+export async function exportLatestValidatedResortVersion(args: {
+  resortsRoot: string;
+  resortKey: string;
+  outputPath: string;
+  exportedAt?: string;
+}): Promise<ResortExportLatestResult> {
+  const resortPath = resolve(args.resortsRoot, args.resortKey);
+  const versions = await readVersionFolders(resortPath);
+  if (versions.length === 0) {
+    throw new Error(`No versions found for resort '${args.resortKey}'.`);
+  }
+
+  const sorted = [...versions].sort((a, b) => b - a);
+  let selectedVersion: number | null = null;
+  let selectedStatus: ResortStatusLike | null = null;
+
+  for (const version of sorted) {
+    const versionPath = join(resortPath, `v${String(version)}`);
+    const statusPath = join(versionPath, "status.json");
+    const status = await readJsonFile<ResortStatusLike>(statusPath).catch(() => null);
+    if (status?.manualValidation?.validated === true) {
+      selectedVersion = version;
+      selectedStatus = status;
+      break;
+    }
+  }
+
+  if (selectedVersion === null || !selectedStatus) {
+    throw new Error(`No manually validated version found for resort '${args.resortKey}'.`);
+  }
+
+  const version = `v${String(selectedVersion)}`;
+  const versionPath = join(resortPath, version);
+  const workspacePath = join(versionPath, "resort.json");
+  const workspace = await readJsonFile<ResortWorkspaceLike>(workspacePath);
+
+  const boundary = await readLayerArtifactJson(versionPath, workspace.layers?.boundary?.artifactPath);
+  const runs = await readLayerArtifactJson(versionPath, workspace.layers?.runs?.artifactPath);
+  const lifts = await readLayerArtifactJson(versionPath, workspace.layers?.lifts?.artifactPath);
+
+  const exportedAt = args.exportedAt ?? new Date().toISOString();
+  const bundle = {
+    schemaVersion: "1.0.0",
+    export: {
+      resortKey: args.resortKey,
+      version,
+      exportedAt
+    },
+    status: selectedStatus,
+    workspace,
+    layers: {
+      boundary,
+      runs,
+      lifts
+    }
+  };
+
+  const outputPath = resolve(args.outputPath);
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, `${JSON.stringify(bundle, null, 2)}\n`, "utf8");
+
+  return {
+    resortsRoot: resolve(args.resortsRoot),
+    resortKey: args.resortKey,
+    version,
+    validatedAt: selectedStatus.manualValidation?.validatedAt ?? null,
+    outputPath,
+    exportedAt
+  };
+}
+
+export async function publishLatestValidatedResortVersion(args: {
+  resortsRoot: string;
+  appPublicRoot: string;
+  resortKey: string;
+  exportedAt?: string;
+}): Promise<ResortPublishLatestResult> {
+  const publicRoot = resolve(args.appPublicRoot);
+  const packsDir = join(publicRoot, "packs");
+  const catalogDir = join(publicRoot, "resort-packs");
+  const outputFileName = `${args.resortKey}.latest.validated.json`;
+  const outputPath = join(packsDir, outputFileName);
+  const outputUrl = `/packs/${outputFileName}`;
+
+  const exportResult = await exportLatestValidatedResortVersion({
+    resortsRoot: args.resortsRoot,
+    resortKey: args.resortKey,
+    outputPath,
+    exportedAt: args.exportedAt
+  });
+
+  const exportedBundle = await readJsonFile<{
+    workspace?: {
+      resort?: {
+        query?: {
+          name?: string;
+        };
+      };
+    };
+  }>(outputPath);
+
+  const resortName = exportedBundle.workspace?.resort?.query?.name?.trim() || args.resortKey;
+  const catalogPath = join(catalogDir, "index.json");
+
+  await mkdir(catalogDir, { recursive: true });
+
+  const catalog = await readCatalogIndex(catalogPath);
+  const updatedResorts = catalog.resorts.filter((entry) => entry.resortId !== args.resortKey);
+  updatedResorts.push({
+    resortId: args.resortKey,
+    resortName,
+    versions: [
+      {
+        version: exportResult.version,
+        approved: true,
+        packUrl: outputUrl,
+        createdAt: exportResult.exportedAt
+      }
+    ]
+  });
+
+  updatedResorts.sort((left, right) => left.resortName.localeCompare(right.resortName));
+  const nextCatalog: ResortCatalogIndex = {
+    schemaVersion: "1.0.0",
+    resorts: updatedResorts
+  };
+  await writeFile(catalogPath, `${JSON.stringify(nextCatalog, null, 2)}\n`, "utf8");
+
+  return {
+    resortKey: args.resortKey,
+    version: exportResult.version,
+    outputPath,
+    outputUrl,
+    catalogPath,
+    exportedAt: exportResult.exportedAt
+  };
+}
+
+async function readLayerArtifactJson(versionPath: string, artifactPath: string | undefined): Promise<unknown | null> {
+  if (!artifactPath || artifactPath.trim().length === 0) {
+    return null;
+  }
+  const resolvedPath = artifactPath.startsWith("/") ? artifactPath : resolve(versionPath, artifactPath);
+  return readJsonFile<unknown>(resolvedPath).catch(() => null);
+}
+
+async function readVersionFolders(resortPath: string): Promise<number[]> {
+  let entries;
+  try {
+    entries = await readdir(resortPath, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => parseVersionFolder(entry.name))
+    .filter((value): value is number => value !== null);
+}
+
+function parseVersionFolder(name: string): number | null {
+  const match = /^v([1-9]\d*)$/.exec(name);
+  if (!match) {
+    return null;
+  }
+  const parsed = Number(match[1]);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return null;
+  }
+  return parsed;
+}
+
+async function readJsonFile<T>(path: string): Promise<T> {
+  const raw = await readFile(path, "utf8");
+  return JSON.parse(raw) as T;
+}
+
+async function readCatalogIndex(path: string): Promise<ResortCatalogIndex> {
+  try {
+    const parsed = await readJsonFile<unknown>(path);
+    if (!isCatalogIndex(parsed)) {
+      return {
+        schemaVersion: "1.0.0",
+        resorts: []
+      };
+    }
+    return parsed;
+  } catch {
+    return {
+      schemaVersion: "1.0.0",
+      resorts: []
+    };
+  }
+}
+
+function isCatalogIndex(input: unknown): input is ResortCatalogIndex {
+  if (typeof input !== "object" || input === null) {
+    return false;
+  }
+  const value = input as { schemaVersion?: unknown; resorts?: unknown };
+  if (value.schemaVersion !== "1.0.0" || !Array.isArray(value.resorts)) {
+    return false;
+  }
+  return value.resorts.every((entry) => {
+    if (typeof entry !== "object" || entry === null) {
+      return false;
+    }
+    const resort = entry as { resortId?: unknown; resortName?: unknown; versions?: unknown };
+    if (typeof resort.resortId !== "string" || typeof resort.resortName !== "string" || !Array.isArray(resort.versions)) {
+      return false;
+    }
+    return resort.versions.every((version) => {
+      if (typeof version !== "object" || version === null) {
+        return false;
+      }
+      const data = version as { version?: unknown; approved?: unknown; packUrl?: unknown; createdAt?: unknown };
+      return (
+        typeof data.version === "string" &&
+        typeof data.approved === "boolean" &&
+        typeof data.packUrl === "string" &&
+        typeof data.createdAt === "string"
+      );
+    });
+  });
+}
+
 export function formatCliError(error: unknown, command: string | null): CliErrorJson {
   if (error instanceof CliCommandError) {
     return {
@@ -1053,7 +1467,7 @@ export function formatCliError(error: unknown, command: string | null): CliError
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  menu [--resorts-root <path>]\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs|all> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--dry-run] [--require-complete] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
+    `ptk-extractor commands:\n\n  menu [--resorts-root <path>] [--app-public-root <path>]\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs|all> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--dry-run] [--require-complete] [--json]\n  resort-export-latest --resort-key <value> --output <path> [--resorts-root <path>] [--exported-at <ISO-8601>] [--json]\n  resort-publish-latest --resort-key <value> [--resorts-root <path>] [--app-public-root <path>] [--exported-at <ISO-8601>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
   );
 }
 

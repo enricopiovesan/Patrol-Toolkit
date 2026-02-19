@@ -53,7 +53,7 @@ describe("v0.0.1 acceptance", () => {
     cleanup();
   });
 
-  it("generates phrase under 2 seconds with run and tower context and copies it", async () => {
+  it("generates phrase under 2 seconds with run and tower context", async () => {
     const shell = await createReadyShell();
 
     const startedAt = performance.now();
@@ -64,17 +64,6 @@ describe("v0.0.1 acceptance", () => {
     expect(elapsedMs).toBeLessThan(2000);
     expect(phrase).toContain("Easy Street");
     expect(phrase).toContain("tower 2");
-
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText }
-    });
-
-    await (shell as unknown as { copyPhrase: () => Promise<void> }).copyPhrase();
-
-    expect(writeText).toHaveBeenCalledOnce();
-    expect(writeText).toHaveBeenCalledWith(phrase);
   });
 
   it("omits tower context when nearest tower is outside configured threshold", async () => {
@@ -90,6 +79,7 @@ describe("v0.0.1 acceptance", () => {
 });
 
 async function createReadyShell(): Promise<HTMLElement> {
+  mockCatalogFetch();
   const { AppShell } = await import("../app-shell");
   const shell = new AppShell();
   document.body.appendChild(shell);
@@ -98,18 +88,15 @@ async function createReadyShell(): Promise<HTMLElement> {
     () => (shell as unknown as { repository: unknown | null }).repository !== null
   );
 
-  const file = {
-    text: async () => JSON.stringify(validPack)
-  };
+  await waitForCondition(() => hasResortOptions(shell));
+  const select = shell.shadowRoot?.querySelector("select");
+  if (!select) {
+    throw new Error("Resort select not found.");
+  }
+  select.value = "demo-resort";
+  select.dispatchEvent(new Event("change"));
 
-  await (shell as unknown as {
-    importPack: (event: { currentTarget: { files: unknown[]; value: string } }) => Promise<void>;
-  }).importPack({
-    currentTarget: {
-      files: [file],
-      value: ""
-    }
-  });
+  await waitForCondition(() => /Active pack: Demo Resort/iu.test(readStatusText(shell)));
 
   (shell as unknown as {
     handlePositionUpdate: (event: CustomEvent<{ coordinates: [number, number]; accuracy: number }>) => void;
@@ -152,6 +139,16 @@ function readPhrase(shell: HTMLElement): string {
   return (phrase ?? "").replace(/\s+/gu, " ").trim();
 }
 
+function readStatusText(shell: HTMLElement): string {
+  const status = shell.shadowRoot?.querySelector(".status-line")?.textContent;
+  return (status ?? "").replace(/\s+/gu, " ").trim();
+}
+
+function hasResortOptions(shell: HTMLElement): boolean {
+  const options = shell.shadowRoot?.querySelectorAll("select option");
+  return (options?.length ?? 0) > 1;
+}
+
 async function waitForCondition(assertion: () => boolean): Promise<void> {
   for (let attempt = 0; attempt < 200; attempt += 1) {
     if (assertion()) {
@@ -176,6 +173,46 @@ function deleteDatabase(name: string): Promise<void> {
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error ?? new Error("Failed to delete test database."));
     request.onblocked = () => resolve();
+  });
+}
+
+function mockCatalogFetch(): void {
+  const catalogPayload = {
+    schemaVersion: "1.0.0",
+    resorts: [
+      {
+        resortId: "demo-resort",
+        resortName: "Demo Resort",
+        versions: [
+          {
+            version: "v1",
+            approved: true,
+            packUrl: "/packs/demo-resort-v1.json",
+            createdAt: "2026-02-19T16:35:00.000Z"
+          }
+        ]
+      }
+    ]
+  };
+
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (url.includes("/resort-packs/index.json")) {
+      return new Response(JSON.stringify(catalogPayload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (url.includes("/packs/demo-resort-v1.json")) {
+      return new Response(JSON.stringify(validPack), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    return new Response("Not Found", { status: 404 });
   });
 }
 

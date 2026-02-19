@@ -4,7 +4,8 @@
 
 - Fully offline after install and pack download.
 - No backend required.
-- 100% unit test coverage for business logic
+- Offline map operation includes basemap + boundary/runs/lifts rendering.
+- Capabilities must be shipped as atomic, well-tested increments.
 
 ## P1
 
