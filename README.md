@@ -52,7 +52,7 @@ The current MVP focus is:
 - Not ready: runs rendered in app map.
 - Not ready: lifts rendered in app map.
 - Not ready: fully local basemap path for offline map (no network tile dependency).
-- Planned removal: copy phrase action (generate phrase remains primary).
+- Ready: generate phrase is the primary radio action (copy phrase removed).
 
 ---
 
@@ -121,7 +121,6 @@ This architecture allows Patrol Toolkit to scale across multiple resorts without
 ### 0.0.2 (Current Focus, In Progress)
 - Render boundary, runs, and lifts from active resort pack
 - Fully offline map path for basemap + overlays
-- Remove copy phrase from the app flow
 
 ### 0.1.x (Next)
 - Operational support tools such as sweep reference overlays and terrain knowledge layers

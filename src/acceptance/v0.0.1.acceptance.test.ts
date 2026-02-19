@@ -53,7 +53,7 @@ describe("v0.0.1 acceptance", () => {
     cleanup();
   });
 
-  it("generates phrase under 2 seconds with run and tower context and copies it", async () => {
+  it("generates phrase under 2 seconds with run and tower context", async () => {
     const shell = await createReadyShell();
 
     const startedAt = performance.now();
@@ -64,17 +64,6 @@ describe("v0.0.1 acceptance", () => {
     expect(elapsedMs).toBeLessThan(2000);
     expect(phrase).toContain("Easy Street");
     expect(phrase).toContain("tower 2");
-
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText }
-    });
-
-    await (shell as unknown as { copyPhrase: () => Promise<void> }).copyPhrase();
-
-    expect(writeText).toHaveBeenCalledOnce();
-    expect(writeText).toHaveBeenCalledWith(phrase);
   });
 
   it("omits tower context when nearest tower is outside configured threshold", async () => {

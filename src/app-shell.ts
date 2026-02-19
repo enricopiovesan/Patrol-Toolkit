@@ -102,7 +102,7 @@ export class AppShell extends LitElement {
 
     .radio-actions {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr);
       gap: 0.6rem;
     }
 
@@ -313,28 +313,6 @@ export class AppShell extends LitElement {
     this.phraseStatus = "Phrase generated.";
   }
 
-  private async copyPhrase(): Promise<void> {
-    if (!this.generatedPhrase) {
-      this.phraseStatus = "Generate a phrase before copying.";
-      return;
-    }
-
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(this.generatedPhrase);
-        this.phraseStatus = "Phrase copied to clipboard.";
-        return;
-      } catch {
-        // Fallback below.
-      }
-    }
-
-    const copied = copyViaExecCommand(this.generatedPhrase);
-    this.phraseStatus = copied
-      ? "Phrase copied to clipboard."
-      : "Clipboard unavailable on this device/browser.";
-  }
-
   render() {
     return html`
       <main class="layout">
@@ -372,7 +350,6 @@ export class AppShell extends LitElement {
           <section class="radio-panel" aria-label="Radio phrase generator">
             <div class="radio-actions">
               <button class="primary" @click=${this.generatePhrase}>Generate Phrase</button>
-              <button class="secondary" @click=${this.copyPhrase}>Copy Phrase</button>
             </div>
             <div class="phrase-card">${this.generatedPhrase || "No phrase generated yet."}</div>
             <div class="phrase-hint">${this.phraseStatus}</div>
@@ -382,29 +359,4 @@ export class AppShell extends LitElement {
       </main>
     `;
   }
-}
-
-function copyViaExecCommand(text: string): boolean {
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  textarea.style.pointerEvents = "none";
-  textarea.style.left = "-9999px";
-
-  document.body.appendChild(textarea);
-  textarea.select();
-  textarea.setSelectionRange(0, text.length);
-
-  let copied = false;
-  try {
-    copied = document.execCommand("copy");
-  } catch {
-    copied = false;
-  } finally {
-    document.body.removeChild(textarea);
-  }
-
-  return copied;
 }
