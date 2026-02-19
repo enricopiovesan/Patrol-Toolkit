@@ -1,12 +1,24 @@
 import maplibregl, { type GeoJSONSource } from "maplibre-gl";
 import { LitElement, css, html } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import { LocationTracker, type GeoPosition } from "../location/location-tracker";
+import { buildResortOverlayData } from "./overlays";
+import type { ResortPack } from "../resort-pack/types";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 const LOCATION_SOURCE_ID = "current-location";
 const LOCATION_ACCURACY_LAYER = "current-location-accuracy";
 const LOCATION_DOT_LAYER = "current-location-dot";
+const RESORT_BOUNDARY_SOURCE_ID = "resort-boundary";
+const RESORT_RUNS_SOURCE_ID = "resort-runs";
+const RESORT_LIFTS_SOURCE_ID = "resort-lifts";
+const RESORT_LIFT_TOWERS_SOURCE_ID = "resort-lift-towers";
+const RESORT_BOUNDARY_FILL_LAYER = "resort-boundary-fill";
+const RESORT_BOUNDARY_LINE_LAYER = "resort-boundary-line";
+const RESORT_RUNS_FILL_LAYER = "resort-runs-fill";
+const RESORT_RUNS_LINE_LAYER = "resort-runs-line";
+const RESORT_LIFTS_LINE_LAYER = "resort-lifts-line";
+const RESORT_LIFT_TOWERS_LAYER = "resort-lift-towers";
 const DEFAULT_CENTER: [number, number] = [7.2, 45.1];
 
 export type PositionUpdateDetail = {
@@ -97,6 +109,9 @@ export class MapView extends LitElement {
   private locationTracker: LocationTracker | null = null;
   private lastPosition: GeoPosition | null = null;
 
+  @property({ attribute: false })
+  accessor pack: ResortPack | null = null;
+
   @state()
   private accessor status = "Waiting for GPS lock...";
 
@@ -127,6 +142,8 @@ export class MapView extends LitElement {
 
     this.map.on("load", () => {
       this.initializeLocationLayers();
+      this.initializeResortLayers();
+      this.syncResortLayers();
       this.startTracking();
     });
 
@@ -157,6 +174,12 @@ export class MapView extends LitElement {
         this.status = message;
       }
     });
+  }
+
+  protected override updated(changedProperties: Map<string, unknown>): void {
+    if (changedProperties.has("pack")) {
+      this.syncResortLayers();
+    }
   }
 
   disconnectedCallback(): void {
@@ -262,6 +285,101 @@ export class MapView extends LitElement {
     }
 
     source.setData(this.buildLocationFeature(position));
+  }
+
+  private initializeResortLayers(): void {
+    if (!this.map || this.map.getSource(RESORT_BOUNDARY_SOURCE_ID)) {
+      return;
+    }
+
+    const empty = buildResortOverlayData(null);
+    this.map.addSource(RESORT_BOUNDARY_SOURCE_ID, { type: "geojson", data: empty.boundary });
+    this.map.addSource(RESORT_RUNS_SOURCE_ID, { type: "geojson", data: empty.runs });
+    this.map.addSource(RESORT_LIFTS_SOURCE_ID, { type: "geojson", data: empty.lifts });
+    this.map.addSource(RESORT_LIFT_TOWERS_SOURCE_ID, { type: "geojson", data: empty.liftTowers });
+
+    this.map.addLayer({
+      id: RESORT_BOUNDARY_FILL_LAYER,
+      type: "fill",
+      source: RESORT_BOUNDARY_SOURCE_ID,
+      paint: {
+        "fill-color": "#0ea5a5",
+        "fill-opacity": 0.08
+      }
+    });
+
+    this.map.addLayer({
+      id: RESORT_BOUNDARY_LINE_LAYER,
+      type: "line",
+      source: RESORT_BOUNDARY_SOURCE_ID,
+      paint: {
+        "line-color": "#0f4c5c",
+        "line-width": 2,
+        "line-dasharray": [2, 2]
+      }
+    });
+
+    this.map.addLayer({
+      id: RESORT_RUNS_FILL_LAYER,
+      type: "fill",
+      source: RESORT_RUNS_SOURCE_ID,
+      paint: {
+        "fill-color": "#2563eb",
+        "fill-opacity": 0.14
+      }
+    });
+
+    this.map.addLayer({
+      id: RESORT_RUNS_LINE_LAYER,
+      type: "line",
+      source: RESORT_RUNS_SOURCE_ID,
+      paint: {
+        "line-color": "#1d4ed8",
+        "line-width": 1.5
+      }
+    });
+
+    this.map.addLayer({
+      id: RESORT_LIFTS_LINE_LAYER,
+      type: "line",
+      source: RESORT_LIFTS_SOURCE_ID,
+      paint: {
+        "line-color": "#b91c1c",
+        "line-width": 2.2
+      }
+    });
+
+    this.map.addLayer({
+      id: RESORT_LIFT_TOWERS_LAYER,
+      type: "circle",
+      source: RESORT_LIFT_TOWERS_SOURCE_ID,
+      paint: {
+        "circle-color": "#7f1d1d",
+        "circle-radius": 3.5,
+        "circle-stroke-color": "#fee2e2",
+        "circle-stroke-width": 1
+      }
+    });
+  }
+
+  private syncResortLayers(): void {
+    if (!this.map) {
+      return;
+    }
+
+    const boundarySource = this.map.getSource(RESORT_BOUNDARY_SOURCE_ID) as GeoJSONSource | undefined;
+    const runsSource = this.map.getSource(RESORT_RUNS_SOURCE_ID) as GeoJSONSource | undefined;
+    const liftsSource = this.map.getSource(RESORT_LIFTS_SOURCE_ID) as GeoJSONSource | undefined;
+    const towersSource = this.map.getSource(RESORT_LIFT_TOWERS_SOURCE_ID) as GeoJSONSource | undefined;
+    if (!boundarySource || !runsSource || !liftsSource || !towersSource) {
+      return;
+    }
+
+    const overlays = buildResortOverlayData(this.pack);
+    boundarySource.setData(overlays.boundary);
+    runsSource.setData(overlays.runs);
+    liftsSource.setData(overlays.lifts);
+    towersSource.setData(overlays.liftTowers);
   }
 
   private dispatchPositionUpdate(position: GeoPosition): void {

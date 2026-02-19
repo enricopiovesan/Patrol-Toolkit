@@ -25,6 +25,18 @@ describe("AppShell", () => {
     expect(heading).toBe("Patrol Toolkit");
   });
 
+  it("auto-activates first available resort pack on startup", async () => {
+    mockCatalogFetch();
+    const { AppShell } = await import("./app-shell");
+
+    const shell = new AppShell();
+    document.body.appendChild(shell);
+
+    await waitForCondition(() =>
+      /Active pack: Demo Resort/iu.test(readStatusText(shell))
+    );
+  });
+
   it("selects a resort from catalog and restores active pack on next app load", async () => {
     mockCatalogFetch();
     const { AppShell } = await import("./app-shell");

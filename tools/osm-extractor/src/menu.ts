@@ -1568,13 +1568,18 @@ async function readLayerArtifactJson(versionPath: string, artifactPath: string |
   if (!artifactPath || artifactPath.trim().length === 0) {
     return null;
   }
-  const resolvedPath = artifactPath.startsWith("/") ? artifactPath : resolve(versionPath, artifactPath);
-  try {
-    const raw = await readFile(resolvedPath, "utf8");
-    return JSON.parse(raw) as unknown;
-  } catch {
-    return null;
+  const candidates = artifactPath.startsWith("/")
+    ? [artifactPath]
+    : [resolve(versionPath, artifactPath), resolve(artifactPath)];
+  for (const candidate of candidates) {
+    try {
+      const raw = await readFile(candidate, "utf8");
+      return JSON.parse(raw) as unknown;
+    } catch {
+      // Try next candidate.
+    }
   }
+  return null;
 }
 
 async function readCatalogIndex(path: string): Promise<ResortCatalogIndex> {

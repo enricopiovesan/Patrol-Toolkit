@@ -38,6 +38,7 @@ export type ResortPack = {
     name: string;
     timezone: string;
   };
+  boundary?: GeoPolygon;
   basemap: {
     pmtilesPath: string;
     stylePath: string;

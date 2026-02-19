@@ -173,6 +173,8 @@ export class AppShell extends LitElement {
   @state()
   private accessor phraseStatus = "Waiting for GPS and active pack.";
 
+  private isAutoActivating = false;
+
   protected override async firstUpdated(): Promise<void> {
     try {
       const repository = await ResortPackRepository.open();
@@ -184,6 +186,7 @@ export class AppShell extends LitElement {
       this.repository = repository;
       await this.loadCatalogOptions();
       await this.refreshPackState();
+      await this.ensureAutoActiveSelection();
     } catch {
       this.hasStorage = false;
       this.statusMessage = "IndexedDB unavailable: pack persistence disabled.";
@@ -230,6 +233,19 @@ export class AppShell extends LitElement {
     } catch {
       this.resortOptions = [];
       this.statusMessage = "Resort catalog unavailable.";
+    }
+  }
+
+  private async ensureAutoActiveSelection(): Promise<void> {
+    if (this.isAutoActivating || this.activePack || !this.selectedPackId) {
+      return;
+    }
+
+    this.isAutoActivating = true;
+    try {
+      await this.activateSelectedResort(this.selectedPackId);
+    } finally {
+      this.isAutoActivating = false;
     }
   }
 
@@ -331,7 +347,7 @@ export class AppShell extends LitElement {
             <div class="phrase-hint">${this.phraseStatus}</div>
           </section>
         </section>
-        <map-view @position-update=${this.handlePositionUpdate}></map-view>
+        <map-view .pack=${this.activePack} @position-update=${this.handlePositionUpdate}></map-view>
       </main>
     `;
   }

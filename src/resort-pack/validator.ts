@@ -65,6 +65,17 @@ function validateSemanticRules(pack: ResortPack): ResortPackValidationIssue[] {
     });
   }
 
+  if (pack.boundary) {
+    const boundaryRing = pack.boundary.coordinates[0] ?? [];
+    if (!isClosedRing(boundaryRing)) {
+      errors.push({
+        code: "invalid_geometry",
+        path: "#/boundary/coordinates/0",
+        message: "Boundary polygon outer ring must be closed."
+      });
+    }
+  }
+
   for (let index = 0; index < pack.runs.length; index += 1) {
     const run = pack.runs[index];
     const runPath = `#/runs/${index}`;
