@@ -34,11 +34,25 @@ describe("menu known resort listing", () => {
       await mkdir(join(resortPath, "v2"), { recursive: true });
       await writeFile(
         join(resortPath, "v2", "status.json"),
-        JSON.stringify({
-          manualValidation: {
-            validated: true
-          }
-        }),
+        JSON.stringify(
+          {
+            createdAt: "2026-02-21T12:00:00.000Z",
+            readiness: {
+              overall: "incomplete",
+              issues: ["runs pending"]
+            },
+            layers: {
+              boundary: { status: "complete", featureCount: 1, checksumSha256: "abc123", updatedAt: "2026-02-21T12:01:00.000Z" },
+              runs: { status: "pending", featureCount: null, checksumSha256: null, updatedAt: null },
+              lifts: { status: "complete", featureCount: 7, checksumSha256: "def456", updatedAt: "2026-02-21T12:02:00.000Z" }
+            },
+            manualValidation: {
+              validated: true
+            }
+          },
+          null,
+          2
+        ),
         "utf8"
       );
 
@@ -48,7 +62,30 @@ describe("menu known resort listing", () => {
           resortKey: "CA_Golden_Kicking_Horse",
           latestVersion: "v2",
           latestVersionNumber: 2,
-          manuallyValidated: true
+          manuallyValidated: true,
+          readinessOverall: "incomplete",
+          readinessIssueCount: 1,
+          createdAt: "2026-02-21T12:00:00.000Z",
+          layers: {
+            boundary: {
+              status: "complete",
+              featureCount: 1,
+              checksumSha256: "abc123",
+              updatedAt: "2026-02-21T12:01:00.000Z"
+            },
+            runs: {
+              status: "pending",
+              featureCount: null,
+              checksumSha256: null,
+              updatedAt: null
+            },
+            lifts: {
+              status: "complete",
+              featureCount: 7,
+              checksumSha256: "def456",
+              updatedAt: "2026-02-21T12:02:00.000Z"
+            }
+          }
         }
       ]);
     } finally {
@@ -92,14 +129,40 @@ describe("menu layer selection parsing", () => {
 });
 
 describe("menu output formatting", () => {
-  it("formats known resort summary in compact labeled format", () => {
+  it("formats known resort summary with detail lines", () => {
     const line = formatKnownResortSummary(1, {
       resortKey: "CA_Golden_Kicking_Horse",
       latestVersion: "v2",
       latestVersionNumber: 2,
-      manuallyValidated: true
+      manuallyValidated: true,
+      readinessOverall: "incomplete",
+      readinessIssueCount: 2,
+      createdAt: "2026-02-21T12:00:00.000Z",
+      layers: {
+        boundary: {
+          status: "complete",
+          featureCount: 1,
+          checksumSha256: "1234567890abcdef",
+          updatedAt: "2026-02-21T12:01:00.000Z"
+        },
+        runs: {
+          status: "pending",
+          featureCount: null,
+          checksumSha256: null,
+          updatedAt: null
+        },
+        lifts: {
+          status: "complete",
+          featureCount: 7,
+          checksumSha256: "abcdef1234567890",
+          updatedAt: "2026-02-21T12:02:00.000Z"
+        }
+      }
     });
-    expect(line).toBe("1. CA_Golden_Kicking_Horse | latest=v2 | validated=yes");
+    expect(line).toContain("1. CA_Golden_Kicking_Horse | latest=v2 | validated=yes | readiness=incomplete");
+    expect(line).toContain("Boundary: status=complete features=1 checksum=1234567890ab");
+    expect(line).toContain("Runs: status=pending features=? checksum=n/a");
+    expect(line).toContain("Readiness issues: 2");
   });
 
   it("formats search candidate with labeled metadata", () => {
@@ -256,7 +319,30 @@ describe("menu resort persistence", () => {
           resortKey: "CA_Golden_Kicking_Horse",
           latestVersion: "v2",
           latestVersionNumber: 2,
-          manuallyValidated: false
+          manuallyValidated: false,
+          readinessOverall: "incomplete",
+          readinessIssueCount: 0,
+          createdAt: "2026-02-20T11:00:00.000Z",
+          layers: {
+            boundary: {
+              status: "pending",
+              featureCount: null,
+              checksumSha256: null,
+              updatedAt: null
+            },
+            runs: {
+              status: "pending",
+              featureCount: null,
+              checksumSha256: null,
+              updatedAt: null
+            },
+            lifts: {
+              status: "pending",
+              featureCount: null,
+              checksumSha256: null,
+              updatedAt: null
+            }
+          }
         }
       ]);
     } finally {

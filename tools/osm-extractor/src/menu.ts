@@ -19,6 +19,21 @@ export type KnownResortSummary = {
   latestVersion: string | null;
   latestVersionNumber: number | null;
   manuallyValidated: boolean | null;
+  readinessOverall: "ready" | "incomplete" | "unknown";
+  readinessIssueCount: number;
+  createdAt: string | null;
+  layers: {
+    boundary: KnownResortLayerSummary;
+    runs: KnownResortLayerSummary;
+    lifts: KnownResortLayerSummary;
+  };
+};
+
+export type KnownResortLayerSummary = {
+  status: "pending" | "running" | "complete" | "failed" | "unknown";
+  featureCount: number | null;
+  checksumSha256: string | null;
+  updatedAt: string | null;
 };
 
 export type PersistedResortVersion = {
@@ -98,18 +113,21 @@ type StatusShape = {
       featureCount?: number | null;
       artifactPath?: string | null;
       checksumSha256?: string | null;
+      updatedAt?: string | null;
     };
     lifts?: {
       status?: "pending" | "running" | "complete" | "failed";
       featureCount?: number | null;
       artifactPath?: string | null;
       checksumSha256?: string | null;
+      updatedAt?: string | null;
     };
     runs?: {
       status?: "pending" | "running" | "complete" | "failed";
       featureCount?: number | null;
       artifactPath?: string | null;
       checksumSha256?: string | null;
+      updatedAt?: string | null;
     };
   };
   readiness?: {
@@ -140,14 +158,22 @@ export async function listKnownResorts(rootPath: string): Promise<KnownResortSum
     const versions = await readVersionFolders(resortPath);
     const latestVersionNumber = versions.length > 0 ? Math.max(...versions) : null;
     const latestVersion = latestVersionNumber === null ? null : `v${String(latestVersionNumber)}`;
-    const manuallyValidated =
-      latestVersion === null ? null : await readManualValidationFlag(join(resortPath, latestVersion, "status.json"));
+    const latestStatus =
+      latestVersion === null ? null : await readLatestStatusSummary(join(resortPath, latestVersion, "status.json"));
 
     resorts.push({
       resortKey: entry.name,
       latestVersion,
       latestVersionNumber,
-      manuallyValidated
+      manuallyValidated: latestStatus?.manuallyValidated ?? null,
+      readinessOverall: latestStatus?.readinessOverall ?? "unknown",
+      readinessIssueCount: latestStatus?.readinessIssueCount ?? 0,
+      createdAt: latestStatus?.createdAt ?? null,
+      layers: latestStatus?.layers ?? {
+        boundary: unknownKnownLayerSummary(),
+        runs: unknownKnownLayerSummary(),
+        lifts: unknownKnownLayerSummary()
+      }
     });
   }
 
@@ -184,18 +210,68 @@ function parseVersionFolder(name: string): number | null {
   return parsed;
 }
 
-async function readManualValidationFlag(statusPath: string): Promise<boolean | null> {
+async function readLatestStatusSummary(statusPath: string): Promise<{
+  manuallyValidated: boolean | null;
+  readinessOverall: "ready" | "incomplete" | "unknown";
+  readinessIssueCount: number;
+  createdAt: string | null;
+  layers: {
+    boundary: KnownResortLayerSummary;
+    runs: KnownResortLayerSummary;
+    lifts: KnownResortLayerSummary;
+  };
+} | null> {
   try {
     const raw = await readFile(statusPath, "utf8");
     const parsed = JSON.parse(raw) as StatusShape;
     const validated = parsed.manualValidation?.validated;
-    return typeof validated === "boolean" ? validated : null;
+    const overall = parsed.readiness?.overall;
+    const issues = Array.isArray(parsed.readiness?.issues) ? parsed.readiness?.issues : [];
+    return {
+      manuallyValidated: typeof validated === "boolean" ? validated : null,
+      readinessOverall: overall === "ready" || overall === "incomplete" ? overall : "unknown",
+      readinessIssueCount: issues.length,
+      createdAt: typeof parsed.createdAt === "string" ? parsed.createdAt : null,
+      layers: {
+        boundary: toKnownLayerSummary(parsed.layers?.boundary),
+        runs: toKnownLayerSummary(parsed.layers?.runs),
+        lifts: toKnownLayerSummary(parsed.layers?.lifts)
+      }
+    };
   } catch (error: unknown) {
     if (isMissingPathError(error)) {
       return null;
     }
     return null;
   }
+}
+
+type StatusLayerShape = NonNullable<StatusShape["layers"]>["boundary"];
+
+function toKnownLayerSummary(layer: StatusLayerShape | undefined): KnownResortLayerSummary {
+  const statusValue = (layer as { status?: unknown } | undefined)?.status;
+  const status =
+    statusValue === "pending" || statusValue === "running" || statusValue === "complete" || statusValue === "failed"
+      ? statusValue
+      : "unknown";
+  const featureCountValue = (layer as { featureCount?: unknown } | undefined)?.featureCount;
+  const checksumValue = (layer as { checksumSha256?: unknown } | undefined)?.checksumSha256;
+  const updatedAtValue = (layer as { updatedAt?: unknown } | undefined)?.updatedAt;
+  return {
+    status,
+    featureCount: typeof featureCountValue === "number" ? featureCountValue : null,
+    checksumSha256: typeof checksumValue === "string" ? checksumValue : null,
+    updatedAt: typeof updatedAtValue === "string" ? updatedAtValue : null
+  };
+}
+
+function unknownKnownLayerSummary(): KnownResortLayerSummary {
+  return {
+    status: "unknown",
+    featureCount: null,
+    checksumSha256: null,
+    updatedAt: null
+  };
 }
 
 export async function runInteractiveMenu(args: {
@@ -352,7 +428,20 @@ export function parseCandidateSelection(value: string, max: number): number | nu
 export function formatKnownResortSummary(index: number, resort: KnownResortSummary): string {
   const validated =
     resort.manuallyValidated === null ? "unknown" : resort.manuallyValidated ? "yes" : "no";
-  return `${index}. ${resort.resortKey} | latest=${resort.latestVersion ?? "none"} | validated=${validated}`;
+  const created = resort.createdAt ?? "unknown";
+  const readiness = resort.readinessOverall;
+  const boundary = formatKnownLayerLine("Boundary", resort.layers.boundary);
+  const runs = formatKnownLayerLine("Runs", resort.layers.runs);
+  const lifts = formatKnownLayerLine("Lifts", resort.layers.lifts);
+  const issues = resort.readinessIssueCount > 0 ? `\n   Readiness issues: ${resort.readinessIssueCount}` : "";
+  return `${index}. ${resort.resortKey} | latest=${resort.latestVersion ?? "none"} | validated=${validated} | readiness=${readiness} | createdAt=${created}\n   ${boundary}\n   ${runs}\n   ${lifts}${issues}`;
+}
+
+function formatKnownLayerLine(label: string, layer: KnownResortLayerSummary): string {
+  const checksum = layer.checksumSha256 ? layer.checksumSha256.slice(0, 12) : "n/a";
+  const updatedAt = layer.updatedAt ?? "n/a";
+  const features = layer.featureCount === null ? "?" : String(layer.featureCount);
+  return `${label}: status=${layer.status} features=${features} checksum=${checksum} updatedAt=${updatedAt}`;
 }
 
 export function formatSearchCandidate(index: number, ranked: RankedSearchCandidate): string {
@@ -560,19 +649,22 @@ async function writeStatusFile(
         status: "pending",
         featureCount: null,
         artifactPath: null,
-        checksumSha256: null
+        checksumSha256: null,
+        updatedAt: null
       },
       lifts: {
         status: "pending",
         featureCount: null,
         artifactPath: null,
-        checksumSha256: null
+        checksumSha256: null,
+        updatedAt: null
       },
       runs: {
         status: "pending",
         featureCount: null,
         artifactPath: null,
-        checksumSha256: null
+        checksumSha256: null,
+        updatedAt: null
       }
     },
     readiness: {
@@ -1157,12 +1249,14 @@ function toStatusLayer(layer: ResortWorkspace["layers"]["boundary"]): {
   featureCount: number | null;
   artifactPath: string | null;
   checksumSha256: string | null;
+  updatedAt: string | null;
 } {
   return {
     status: layer.status,
     featureCount: layer.featureCount ?? null,
     artifactPath: layer.artifactPath ?? null,
-    checksumSha256: layer.checksumSha256 ?? null
+    checksumSha256: layer.checksumSha256 ?? null,
+    updatedAt: layer.updatedAt ?? null
   };
 }
 
