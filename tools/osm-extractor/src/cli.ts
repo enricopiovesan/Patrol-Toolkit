@@ -15,7 +15,7 @@ import { setResortBoundary } from "./resort-boundary-set.js";
 import { syncResortLifts } from "./resort-sync-lifts.js";
 import { syncResortRuns } from "./resort-sync-runs.js";
 import { readResortSyncStatus } from "./resort-sync-status.js";
-import { updateResortLayer, type ResortUpdateLayer } from "./resort-update.js";
+import { updateResortLayers, type ResortUpdateLayerSelection } from "./resort-update.js";
 
 type CliErrorJson = {
   ok: false;
@@ -29,7 +29,7 @@ type CliErrorJson = {
 
 export type ResortUpdateCliOptions = {
   workspacePath: string;
-  layer: ResortUpdateLayer;
+  layer: ResortUpdateLayerSelection;
   outputPath?: string;
   index?: number;
   searchLimit?: number;
@@ -646,7 +646,7 @@ async function main(): Promise<void> {
 
     let result;
     try {
-      result = await updateResortLayer({
+      result = await updateResortLayers({
         workspacePath: updateOptions.workspacePath,
         layer: updateOptions.layer,
         index: updateOptions.index,
@@ -666,38 +666,70 @@ async function main(): Promise<void> {
       });
     }
 
-    if (updateOptions.requireComplete && !result.readiness.ready) {
-      throw new CliCommandError(
-        "UPDATE_INCOMPLETE",
-        `Layer '${result.layer}' is not complete after update.`,
-        {
-          workspacePath: result.workspacePath,
-          layer: result.layer,
-          issues: result.readiness.issues
+    if (updateOptions.requireComplete && !result.overallReady) {
+      if (result.results.length === 1) {
+        const only = result.results[0];
+        if (only && !only.readiness.ready) {
+          throw new CliCommandError(
+            "UPDATE_INCOMPLETE",
+            `Layer '${only.layer}' is not complete after update.`,
+            {
+              workspacePath: result.workspacePath,
+              layer: only.layer,
+              issues: only.readiness.issues
+            }
+          );
         }
-      );
+      }
+      throw new CliCommandError("UPDATE_INCOMPLETE", "One or more layers are not complete after update.", {
+        workspacePath: result.workspacePath,
+        layerSelection: result.layerSelection,
+        issues: result.issues
+      });
     }
 
     if (outputJson) {
       console.log(
         JSON.stringify({
           ok: true,
-          resortUpdate: result
+          resortUpdate: result.results.length === 1 ? result.results[0] : result
         })
       );
       return;
     }
 
+    if (result.results.length === 1) {
+      const only = result.results[0];
+      if (only) {
+        console.log(
+          `RESORT_UPDATED workspace=${only.workspacePath} layer=${only.layer} dryRun=${only.dryRun ? "yes" : "no"} changed=${only.changed ? "yes" : "no"} fields=${
+            only.changedFields.length > 0 ? only.changedFields.join(",") : "none"
+          } ready=${only.readiness.ready ? "yes" : "no"} features=${only.after.featureCount ?? "?"} output=${
+            only.after.artifactPath ?? "?"
+          }`
+        );
+        if (only.readiness.issues.length > 0) {
+          console.log("  readiness issues:");
+          for (const issue of only.readiness.issues) {
+            console.log(`    - ${issue}`);
+          }
+        }
+      }
+      return;
+    }
+
     console.log(
-      `RESORT_UPDATED workspace=${result.workspacePath} layer=${result.layer} dryRun=${result.dryRun ? "yes" : "no"} changed=${result.changed ? "yes" : "no"} fields=${
-        result.changedFields.length > 0 ? result.changedFields.join(",") : "none"
-      } ready=${result.readiness.ready ? "yes" : "no"} features=${result.after.featureCount ?? "?"} output=${
-        result.after.artifactPath ?? "?"
+      `RESORT_UPDATED_BATCH workspace=${result.workspacePath} layers=boundary,lifts,runs dryRun=${result.dryRun ? "yes" : "no"} ready=${
+        result.overallReady ? "yes" : "no"
       }`
     );
-    if (result.readiness.issues.length > 0) {
-      console.log("  readiness issues:");
-      for (const issue of result.readiness.issues) {
+    for (const layerResult of result.results) {
+      console.log(
+        `  ${layerResult.layer} changed=${layerResult.changed ? "yes" : "no"} ready=${
+          layerResult.readiness.ready ? "yes" : "no"
+        } features=${layerResult.after.featureCount ?? "?"}`
+      );
+      for (const issue of layerResult.readiness.issues) {
         console.log(`    - ${issue}`);
       }
     }
@@ -850,20 +882,20 @@ export function parseResortUpdateOptions(args: string[]): ResortUpdateCliOptions
   const requireComplete = hasFlag(args, "--require-complete");
 
   if (!workspacePath || !layerRaw) {
-    throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --workspace <path> and --layer <boundary|lifts|runs> arguments.", {
+    throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --workspace <path> and --layer <boundary|lifts|runs|all> arguments.", {
       command: "resort-update",
       required: ["--workspace", "--layer"]
     });
   }
-  if (layerRaw !== "boundary" && layerRaw !== "lifts" && layerRaw !== "runs") {
-    throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --layer expects one of: boundary, lifts, runs.", {
+  if (layerRaw !== "boundary" && layerRaw !== "lifts" && layerRaw !== "runs" && layerRaw !== "all") {
+    throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --layer expects one of: boundary, lifts, runs, all.", {
       flag: "--layer",
-      expected: "boundary|lifts|runs",
+      expected: "boundary|lifts|runs|all",
       value: layerRaw
     });
   }
 
-  const layer = layerRaw as ResortUpdateLayer;
+  const layer = layerRaw as ResortUpdateLayerSelection;
   if (index !== undefined && index < 1) {
     throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --index expects an integer >= 1.", {
       flag: "--index",
@@ -925,6 +957,26 @@ export function parseResortUpdateOptions(args: string[]): ResortUpdateCliOptions
     );
   }
 
+  if (layer === "all") {
+    if (!dryRun && index === undefined) {
+      throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Layer 'all' update requires --index <n> for boundary selection.", {
+        command: "resort-update",
+        required: ["--index"]
+      });
+    }
+    if (outputPath !== undefined) {
+      throw new CliCommandError(
+        "INVALID_FLAG_COMBINATION",
+        "Layer 'all' does not accept --output because each layer writes its own artifact path.",
+        {
+          command: "resort-update",
+          layer,
+          invalid: ["--output"]
+        }
+      );
+    }
+  }
+
   return {
     workspacePath,
     layer,
@@ -965,7 +1017,7 @@ export function formatCliError(error: unknown, command: string | null): CliError
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--dry-run] [--require-complete] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
+    `ptk-extractor commands:\n\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs|all> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--dry-run] [--require-complete] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
   );
 }
 

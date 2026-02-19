@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { updateResortLayer } from "./resort-update.js";
+import { updateResortLayer, updateResortLayers } from "./resort-update.js";
 import type { ResortWorkspace } from "./resort-workspace.js";
 
 function createWorkspace(layer: "boundary" | "lifts" | "runs", state: Partial<ResortWorkspace["layers"]["boundary"]>): ResortWorkspace {
@@ -191,5 +191,92 @@ describe("resort update", () => {
     expect(result.readiness.ready).toBe(false);
     expect(result.readiness.issues.join(" | ")).toMatch(/status is 'pending'/);
     expect(result.readiness.issues.join(" | ")).toMatch(/featureCount is missing/);
+  });
+
+  it("updates all layers in deterministic boundary-lifts-runs order", async () => {
+    const updateLayerFn = vi
+      .fn()
+      .mockImplementation(async (args: { layer: "boundary" | "lifts" | "runs"; workspacePath: string }) => ({
+        workspacePath: args.workspacePath,
+        layer: args.layer,
+        dryRun: false,
+        before: {
+          status: "pending" as const,
+          artifactPath: null,
+          featureCount: null,
+          checksumSha256: null,
+          updatedAt: null,
+          error: null
+        },
+        after: {
+          status: "complete" as const,
+          artifactPath: `/tmp/${args.layer}.geojson`,
+          featureCount: args.layer === "boundary" ? 1 : 2,
+          checksumSha256: `${args.layer}-sha`,
+          updatedAt: "2026-02-19T10:00:00.000Z",
+          error: null
+        },
+        readiness: { ready: true, issues: [] },
+        changed: true,
+        changedFields: ["status", "artifactPath"],
+        operation: { kind: args.layer }
+      }));
+
+    const result = await updateResortLayers(
+      {
+        workspacePath: "/tmp/resort.json",
+        layer: "all",
+        index: 1
+      },
+      { updateLayerFn }
+    );
+
+    expect(updateLayerFn).toHaveBeenCalledTimes(3);
+    expect(updateLayerFn.mock.calls.map((call) => call[0].layer)).toEqual(["boundary", "lifts", "runs"]);
+    expect(result.results.map((entry) => entry.layer)).toEqual(["boundary", "lifts", "runs"]);
+    expect(result.overallReady).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
+  it("aggregates readiness issues across all layers", async () => {
+    const updateLayerFn = vi
+      .fn()
+      .mockImplementation(async (args: { layer: "boundary" | "lifts" | "runs"; workspacePath: string }) => ({
+        workspacePath: args.workspacePath,
+        layer: args.layer,
+        dryRun: false,
+        before: {
+          status: "pending" as const,
+          artifactPath: null,
+          featureCount: null,
+          checksumSha256: null,
+          updatedAt: null,
+          error: null
+        },
+        after: {
+          status: "complete" as const,
+          artifactPath: `/tmp/${args.layer}.geojson`,
+          featureCount: args.layer === "boundary" ? 1 : 0,
+          checksumSha256: `${args.layer}-sha`,
+          updatedAt: "2026-02-19T10:00:00.000Z",
+          error: null
+        },
+        readiness: args.layer === "runs" ? { ready: false, issues: ["featureCount must be >= 1"] } : { ready: true, issues: [] },
+        changed: true,
+        changedFields: ["status"],
+        operation: { kind: args.layer }
+      }));
+
+    const result = await updateResortLayers(
+      {
+        workspacePath: "/tmp/resort.json",
+        layer: "all",
+        index: 1
+      },
+      { updateLayerFn }
+    );
+
+    expect(result.overallReady).toBe(false);
+    expect(result.issues).toEqual(["runs: featureCount must be >= 1"]);
   });
 });

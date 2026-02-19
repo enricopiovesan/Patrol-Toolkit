@@ -124,6 +124,50 @@ describe("resort-update option parsing", () => {
     });
   });
 
+  it("parses layer all with required boundary index", () => {
+    const result = parseResortUpdateOptions([
+      "--workspace",
+      "/tmp/resort.json",
+      "--layer",
+      "all",
+      "--index",
+      "2",
+      "--search-limit",
+      "6",
+      "--buffer-meters",
+      "100",
+      "--timeout-seconds",
+      "40"
+    ]);
+
+    expect(result).toEqual({
+      workspacePath: "/tmp/resort.json",
+      layer: "all",
+      outputPath: undefined,
+      index: 2,
+      searchLimit: 6,
+      bufferMeters: 100,
+      timeoutSeconds: 40,
+      updatedAt: undefined,
+      dryRun: false,
+      requireComplete: false
+    });
+  });
+
+  it("allows layer all dry-run without boundary index", () => {
+    const result = parseResortUpdateOptions([
+      "--workspace",
+      "/tmp/resort.json",
+      "--layer",
+      "all",
+      "--dry-run"
+    ]);
+
+    expect(result.layer).toBe("all");
+    expect(result.index).toBeUndefined();
+    expect(result.dryRun).toBe(true);
+  });
+
   it("rejects boundary layer when index is missing", () => {
     expect(() =>
       parseResortUpdateOptions([
@@ -179,5 +223,31 @@ describe("resort-update option parsing", () => {
       const commandError = error as CliCommandError;
       expect(commandError.code).toBe("INVALID_FLAG_COMBINATION");
     }
+  });
+
+  it("rejects layer all without boundary index in non-dry-run mode", () => {
+    expect(() =>
+      parseResortUpdateOptions([
+        "--workspace",
+        "/tmp/resort.json",
+        "--layer",
+        "all"
+      ])
+    ).toThrow(/requires --index/i);
+  });
+
+  it("rejects layer all with --output", () => {
+    expect(() =>
+      parseResortUpdateOptions([
+        "--workspace",
+        "/tmp/resort.json",
+        "--layer",
+        "all",
+        "--index",
+        "1",
+        "--output",
+        "/tmp/file.geojson"
+      ])
+    ).toThrow(/does not accept --output/i);
   });
 });
