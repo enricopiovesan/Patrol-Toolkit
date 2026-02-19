@@ -132,6 +132,53 @@ describe("validateResortPack", () => {
     expect(result.errors.some((error) => error.code === "invalid_geometry")).toBe(true);
   });
 
+  it("accepts optional boundary polygon", () => {
+    const pack = clonePack();
+    pack.boundary = {
+      type: "Polygon",
+      coordinates: [
+        [
+          [-106.952, 39.194],
+          [-106.948, 39.194],
+          [-106.948, 39.191],
+          [-106.952, 39.194]
+        ]
+      ]
+    };
+
+    const result = validateResortPack(pack);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects unclosed boundary polygon ring", () => {
+    const pack = clonePack();
+    pack.boundary = {
+      type: "Polygon",
+      coordinates: [
+        [
+          [-106.952, 39.194],
+          [-106.948, 39.194],
+          [-106.948, 39.191],
+          [-106.952, 39.191]
+        ]
+      ]
+    };
+
+    const result = validateResortPack(pack);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("Expected semantic validation failure");
+    }
+
+    expect(
+      result.errors.some(
+        (error) =>
+          error.code === "invalid_geometry" && error.path === "#/boundary/coordinates/0"
+      )
+    ).toBe(true);
+  });
+
   it("rejects invalid IANA timezone", () => {
     const pack = clonePack();
     pack.resort.timezone = "Mars/Olympus";

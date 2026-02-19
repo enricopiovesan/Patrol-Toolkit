@@ -18,6 +18,32 @@ export const resortPackSchema = {
         timezone: { type: "string", minLength: 1 }
       }
     },
+    boundary: {
+      type: "object",
+      additionalProperties: false,
+      required: ["type", "coordinates"],
+      properties: {
+        type: { const: "Polygon" },
+        coordinates: {
+          type: "array",
+          minItems: 1,
+          items: {
+            type: "array",
+            minItems: 4,
+            items: {
+              type: "array",
+              minItems: 2,
+              maxItems: 2,
+              items: [
+                { type: "number", minimum: -180, maximum: 180 },
+                { type: "number", minimum: -90, maximum: 90 }
+              ],
+              additionalItems: false
+            }
+          }
+        }
+      }
+    },
     basemap: {
       type: "object",
       additionalProperties: false,

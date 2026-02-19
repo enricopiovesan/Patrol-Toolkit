@@ -1358,8 +1358,19 @@ async function readLayerArtifactJson(versionPath: string, artifactPath: string |
   if (!artifactPath || artifactPath.trim().length === 0) {
     return null;
   }
-  const resolvedPath = artifactPath.startsWith("/") ? artifactPath : resolve(versionPath, artifactPath);
-  return readJsonFile<unknown>(resolvedPath).catch(() => null);
+  const candidates = artifactPath.startsWith("/")
+    ? [artifactPath]
+    : [resolve(versionPath, artifactPath), resolve(artifactPath)];
+
+  for (const candidate of candidates) {
+    try {
+      return await readJsonFile<unknown>(candidate);
+    } catch {
+      // Try next candidate.
+    }
+  }
+
+  return null;
 }
 
 async function readVersionFolders(resortPath: string): Promise<number[]> {
