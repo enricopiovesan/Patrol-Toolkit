@@ -27,18 +27,24 @@
 npm --prefix tools/osm-extractor install
 ```
 
-## Quick Start
+## Get Started
 
-Install dependencies:
+1. Install dependencies:
 
 ```bash
 npm --prefix tools/osm-extractor install
 ```
 
-Open the CLI menu with all commands and flags:
+2. Open the CLI menu (shows all commands and flags):
 
 ```bash
 npm --prefix tools/osm-extractor run run:menu
+```
+
+3. Run quality checks before real extraction:
+
+```bash
+npm --prefix tools/osm-extractor run check
 ```
 
 ## Quality Gate
@@ -57,6 +63,102 @@ Run the compiled CLI from repository root:
 
 ```bash
 node tools/osm-extractor/dist/src/cli.js --help
+```
+
+## Step-By-Step: Resort Workspace Flow
+
+This is the fastest end-to-end way to use the CLI for one resort.
+
+1. Search resort candidates by name + country:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-search \
+  --name "Kicking Horse" \
+  --country CA
+```
+
+2. Select one candidate into a workspace file:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-select \
+  --workspace ./work/kicking-horse/resort.json \
+  --name "Kicking Horse" \
+  --country CA \
+  --index 1
+```
+
+3. Detect and review boundary candidates:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-boundary-detect \
+  --workspace ./work/kicking-horse/resort.json
+```
+
+4. Persist selected boundary:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-boundary-set \
+  --workspace ./work/kicking-horse/resort.json \
+  --index 1
+```
+
+5. Sync lifts and runs:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-sync-lifts \
+  --workspace ./work/kicking-horse/resort.json \
+  --buffer-meters 50
+
+node tools/osm-extractor/dist/src/cli.js resort-sync-runs \
+  --workspace ./work/kicking-horse/resort.json \
+  --buffer-meters 50
+```
+
+6. Verify readiness:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-sync-status \
+  --workspace ./work/kicking-horse/resort.json
+```
+
+7. Use orchestrated updates for incremental refresh:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-update \
+  --workspace ./work/kicking-horse/resort.json \
+  --layer runs \
+  --buffer-meters 50 \
+  --require-complete
+```
+
+8. Refresh all layers in one command (`boundary -> lifts -> runs`):
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-update \
+  --workspace ./work/kicking-horse/resort.json \
+  --layer all \
+  --index 1 \
+  --require-complete
+```
+
+9. Preview changes without modifying files:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-update \
+  --workspace ./work/kicking-horse/resort.json \
+  --layer all \
+  --dry-run
+```
+
+10. For automation, use JSON output:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-update \
+  --workspace ./work/kicking-horse/resort.json \
+  --layer all \
+  --index 1 \
+  --require-complete \
+  --json
 ```
 
 ## Command Reference
@@ -168,97 +270,7 @@ JSON success fields:
 
 ### Resort Acquisition (Name -> Boundary -> Lifts/Runs)
 
-Search candidates by resort name and country:
-
-```bash
-node tools/osm-extractor/dist/src/cli.js resort-search \
-  --name "Kicking Horse" \
-  --country CA
-```
-
-Select one candidate into a workspace:
-
-```bash
-node tools/osm-extractor/dist/src/cli.js resort-select \
-  --workspace ./work/kicking-horse/resort.json \
-  --name "Kicking Horse" \
-  --country CA \
-  --index 1
-```
-
-Detect boundary candidates:
-
-```bash
-node tools/osm-extractor/dist/src/cli.js resort-boundary-detect \
-  --workspace ./work/kicking-horse/resort.json
-```
-
-Set the boundary:
-
-```bash
-node tools/osm-extractor/dist/src/cli.js resort-boundary-set \
-  --workspace ./work/kicking-horse/resort.json \
-  --index 1
-```
-
-Sync lifts or runs independently:
-
-```bash
-node tools/osm-extractor/dist/src/cli.js resort-sync-lifts \
-  --workspace ./work/kicking-horse/resort.json \
-  --buffer-meters 50
-
-node tools/osm-extractor/dist/src/cli.js resort-sync-runs \
-  --workspace ./work/kicking-horse/resort.json \
-  --buffer-meters 50
-```
-
-Check workspace sync readiness:
-
-```bash
-node tools/osm-extractor/dist/src/cli.js resort-sync-status \
-  --workspace ./work/kicking-horse/resort.json
-```
-
-Update one layer through the orchestration command:
-
-```bash
-node tools/osm-extractor/dist/src/cli.js resort-update \
-  --workspace ./work/kicking-horse/resort.json \
-  --layer runs \
-  --buffer-meters 50 \
-  --require-complete
-```
-
-Update all layers in order (`boundary -> lifts -> runs`):
-
-```bash
-node tools/osm-extractor/dist/src/cli.js resort-update \
-  --workspace ./work/kicking-horse/resort.json \
-  --layer all \
-  --index 1 \
-  --require-complete
-```
-
-Preview without mutating artifacts/workspace:
-
-```bash
-node tools/osm-extractor/dist/src/cli.js resort-update \
-  --workspace ./work/kicking-horse/resort.json \
-  --layer all \
-  --dry-run
-```
-
-JSON mode for automation:
-
-```bash
-node tools/osm-extractor/dist/src/cli.js resort-update \
-  --workspace ./work/kicking-horse/resort.json \
-  --layer all \
-  --index 1 \
-  --require-complete \
-  --json
-```
+Use the step-by-step workflow above for this flow. The command reference here documents all supported commands and flags.
 
 ### extract-resort
 
