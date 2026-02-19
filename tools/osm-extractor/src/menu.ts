@@ -921,6 +921,10 @@ async function runKnownResortMenu(args: {
         statusPath = cloned.statusPath;
         console.log(`Created version ${cloned.version} for boundary update.`);
         console.log(`Boundary updated: ${result.selectedOsm.displayName} checksum=${result.checksumSha256}`);
+        await promptAndAttachBasemapAssets({
+          rl: args.rl,
+          versionPath: cloned.versionPath
+        });
       } catch (error: unknown) {
         if (cloned) {
           await rm(cloned.versionPath, { recursive: true, force: true });
@@ -1215,6 +1219,46 @@ async function runKnownResortMenu(args: {
 
     console.log("Invalid option. Please select 1, 2, 3, 4, 5, 6, 7, 8, 9, or 10.");
   }
+}
+
+async function promptAndAttachBasemapAssets(args: { rl: MenuReadline; versionPath: string }): Promise<void> {
+  const answer = (await args.rl.question("Attach basemap assets to this version now? (y/N): ")).trim().toLowerCase();
+  if (answer !== "y" && answer !== "yes") {
+    return;
+  }
+
+  const pmtilesSourcePath = (await args.rl.question("PMTiles source path: ")).trim();
+  const styleSourcePath = (await args.rl.question("Style JSON source path: ")).trim();
+  if (pmtilesSourcePath.length === 0 || styleSourcePath.length === 0) {
+    console.log("Basemap attach skipped: both PMTiles and style paths are required.");
+    return;
+  }
+
+  try {
+    await attachBasemapAssetsToVersion({
+      versionPath: args.versionPath,
+      pmtilesSourcePath,
+      styleSourcePath
+    });
+    console.log(`Basemap assets attached under ${join(args.versionPath, "basemap")}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`Basemap attach failed: ${message}`);
+  }
+}
+
+export async function attachBasemapAssetsToVersion(args: {
+  versionPath: string;
+  pmtilesSourcePath: string;
+  styleSourcePath: string;
+}): Promise<void> {
+  await assertRegularFile(args.pmtilesSourcePath, "Missing basemap PMTiles");
+  await assertRegularFile(args.styleSourcePath, "Missing basemap style");
+
+  const basemapDir = join(args.versionPath, "basemap");
+  await mkdir(basemapDir, { recursive: true });
+  await cp(args.pmtilesSourcePath, join(basemapDir, "base.pmtiles"));
+  await cp(args.styleSourcePath, join(basemapDir, "style.json"));
 }
 
 export function parseLayerSelection(value: string): ResortLayer[] | null {

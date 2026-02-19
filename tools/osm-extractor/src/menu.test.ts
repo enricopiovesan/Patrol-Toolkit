@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  attachBasemapAssetsToVersion,
   buildResortKey,
   canonicalizeResortKeys,
   createNextVersionClone,
@@ -72,6 +73,33 @@ describe("offline basemap metrics", () => {
         publishedPmtiles: true,
         publishedStyle: true
       });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("attach basemap assets", () => {
+  it("copies basemap files into version basemap directory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-attach-basemap-"));
+    try {
+      const versionPath = join(root, "resorts", "CA_Golden_Kicking_Horse", "v1");
+      const sourcePath = join(root, "sources");
+      await mkdir(versionPath, { recursive: true });
+      await mkdir(sourcePath, { recursive: true });
+      await writeFile(join(sourcePath, "source.pmtiles"), new Uint8Array([11, 22]));
+      await writeFile(join(sourcePath, "source-style.json"), "{\"version\":8}");
+
+      await attachBasemapAssetsToVersion({
+        versionPath,
+        pmtilesSourcePath: join(sourcePath, "source.pmtiles"),
+        styleSourcePath: join(sourcePath, "source-style.json")
+      });
+
+      const copiedPmtiles = await readFile(join(versionPath, "basemap", "base.pmtiles"));
+      const copiedStyle = await readFile(join(versionPath, "basemap", "style.json"), "utf8");
+      expect([...copiedPmtiles]).toEqual([11, 22]);
+      expect(copiedStyle).toBe("{\"version\":8}");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
