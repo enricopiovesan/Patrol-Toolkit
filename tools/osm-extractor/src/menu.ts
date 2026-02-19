@@ -626,15 +626,10 @@ async function runKnownResortMenu(args: {
     }
 
     if (selected === "2") {
-      const cloned = await createNextVersionClone({
-        resortsRoot: args.resortsRoot,
-        resortKey: args.resortKey,
-        workspacePath,
-        statusPath
-      });
+      let cloned: ClonedResortVersion | null = null;
       try {
         const detection = await detectResortBoundaryCandidates({
-          workspacePath: cloned.workspacePath,
+          workspacePath,
           searchLimit: 5
         });
         const polygonCandidates = detection.candidates.filter((candidate) => candidate.ring !== null);
@@ -688,6 +683,13 @@ async function runKnownResortMenu(args: {
           continue;
         }
 
+        cloned = await createNextVersionClone({
+          resortsRoot: args.resortsRoot,
+          resortKey: args.resortKey,
+          workspacePath,
+          statusPath
+        });
+
         const result = await setResortBoundary({
           workspacePath: cloned.workspacePath,
           index: pickedIndexInDetection + 1
@@ -701,7 +703,9 @@ async function runKnownResortMenu(args: {
         console.log(`Created version ${cloned.version} for boundary update.`);
         console.log(`Boundary updated: ${result.selectedOsm.displayName} checksum=${result.checksumSha256}`);
       } catch (error: unknown) {
-        await rm(cloned.versionPath, { recursive: true, force: true });
+        if (cloned) {
+          await rm(cloned.versionPath, { recursive: true, force: true });
+        }
         const message = error instanceof Error ? error.message : String(error);
         console.log(`Boundary update failed: ${message}`);
       }
