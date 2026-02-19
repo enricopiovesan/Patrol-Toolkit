@@ -2,9 +2,6 @@
 
 `osm-extractor` is an offline-capable CLI that transforms local OpenStreetMap JSON into deterministic Patrol Toolkit artifacts.
 
-Quick start:
-- `tools/osm-extractor/GET_STARTED.md`
-
 ## What It Produces
 
 - Single-resort artifacts:
@@ -21,12 +18,27 @@ Quick start:
 ## Prerequisites
 
 - Node.js 20+
-- Local OSM JSON input files (no network fetch is performed by this tool)
+- Local OSM JSON input files for `ingest-osm`/`build-pack`/`extract-*` workflows
+- Network access for resort acquisition commands (`resort-search`, `resort-boundary-*`, `resort-sync-*`, `resort-update`)
 
 ## Install
 
 ```bash
 npm --prefix tools/osm-extractor install
+```
+
+## Quick Start
+
+Install dependencies:
+
+```bash
+npm --prefix tools/osm-extractor install
+```
+
+Open the CLI menu with all commands and flags:
+
+```bash
+npm --prefix tools/osm-extractor run run:menu
 ```
 
 ## Quality Gate
@@ -153,6 +165,100 @@ JSON success fields:
 - `build.counts.runs|lifts|towers`
 - `build.boundaryGate`
 - `build.artifacts.packPath|reportPath`
+
+### Resort Acquisition (Name -> Boundary -> Lifts/Runs)
+
+Search candidates by resort name and country:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-search \
+  --name "Kicking Horse" \
+  --country CA
+```
+
+Select one candidate into a workspace:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-select \
+  --workspace ./work/kicking-horse/resort.json \
+  --name "Kicking Horse" \
+  --country CA \
+  --index 1
+```
+
+Detect boundary candidates:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-boundary-detect \
+  --workspace ./work/kicking-horse/resort.json
+```
+
+Set the boundary:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-boundary-set \
+  --workspace ./work/kicking-horse/resort.json \
+  --index 1
+```
+
+Sync lifts or runs independently:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-sync-lifts \
+  --workspace ./work/kicking-horse/resort.json \
+  --buffer-meters 50
+
+node tools/osm-extractor/dist/src/cli.js resort-sync-runs \
+  --workspace ./work/kicking-horse/resort.json \
+  --buffer-meters 50
+```
+
+Check workspace sync readiness:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-sync-status \
+  --workspace ./work/kicking-horse/resort.json
+```
+
+Update one layer through the orchestration command:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-update \
+  --workspace ./work/kicking-horse/resort.json \
+  --layer runs \
+  --buffer-meters 50 \
+  --require-complete
+```
+
+Update all layers in order (`boundary -> lifts -> runs`):
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-update \
+  --workspace ./work/kicking-horse/resort.json \
+  --layer all \
+  --index 1 \
+  --require-complete
+```
+
+Preview without mutating artifacts/workspace:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-update \
+  --workspace ./work/kicking-horse/resort.json \
+  --layer all \
+  --dry-run
+```
+
+JSON mode for automation:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-update \
+  --workspace ./work/kicking-horse/resort.json \
+  --layer all \
+  --index 1 \
+  --require-complete \
+  --json
+```
 
 ### extract-resort
 
@@ -299,7 +405,10 @@ Known stable error codes:
 - `UNKNOWN_COMMAND`
 - `MISSING_REQUIRED_FLAGS`
 - `INVALID_FLAG_VALUE`
+- `INVALID_FLAG_COMBINATION`
 - `PACK_VALIDATION_FAILED`
+- `RESORT_UPDATE_FAILED`
+- `UPDATE_INCOMPLETE`
 - `COMMAND_FAILED`
 
 ## Troubleshooting
