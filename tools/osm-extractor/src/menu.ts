@@ -37,6 +37,8 @@ export type RankedSearchCandidate = {
   hasPolygonGeometry: boolean;
 };
 
+export type ResortLayer = "boundary" | "runs" | "lifts";
+
 export type ClonedResortVersion = {
   version: string;
   versionNumber: number;
@@ -627,9 +629,10 @@ async function runKnownResortMenu(args: {
     console.log("2. Fetch/update boundary");
     console.log("3. Fetch/update runs");
     console.log("4. Fetch/update lifts");
-    console.log("5. Re-select resort identity");
-    console.log("6. Back");
-    const selected = (await args.rl.question("Select option (1-6): ")).trim();
+    console.log("5. Update resort (select layers)");
+    console.log("6. Re-select resort identity");
+    console.log("7. Back");
+    const selected = (await args.rl.question("Select option (1-7): ")).trim();
 
     if (selected === "1") {
       const syncStatus = await readResortSyncStatus(workspacePath);
@@ -653,61 +656,6 @@ async function runKnownResortMenu(args: {
     if (selected === "2") {
       let cloned: ClonedResortVersion | null = null;
       try {
-        const detection = await detectResortBoundaryCandidates({
-          workspacePath,
-          searchLimit: 5
-        });
-        const polygonCandidates = detection.candidates.filter((candidate) => candidate.ring !== null);
-        if (polygonCandidates.length === 0) {
-          console.log("No valid boundary candidates with polygon geometry were found.");
-          continue;
-        }
-
-        console.log(`Boundary candidates (${polygonCandidates.length}):`);
-        for (let index = 0; index < polygonCandidates.length; index += 1) {
-          const candidate = polygonCandidates[index];
-          if (!candidate) {
-            continue;
-          }
-          console.log(
-            `${index + 1}. ${candidate.displayName} [${candidate.osmType}/${candidate.osmId}] score=${candidate.validation.score} containsCenter=${candidate.validation.containsSelectionCenter ? "yes" : "no"}`
-          );
-        }
-        const rawIndex = (await args.rl.question(`Select boundary (1-${polygonCandidates.length}, 0 to cancel): `)).trim();
-        const selectedIndex = parseCandidateSelection(rawIndex, polygonCandidates.length);
-        if (selectedIndex === null) {
-          console.log("Boundary update cancelled.");
-          continue;
-        }
-        if (selectedIndex === -1) {
-          console.log("Invalid boundary selection.");
-          continue;
-        }
-
-        const picked = polygonCandidates[selectedIndex - 1];
-        if (!picked) {
-          console.log("Invalid boundary selection.");
-          continue;
-        }
-
-        if (!picked.validation.containsSelectionCenter) {
-          const confirm = (await args.rl.question("Warning: boundary does not contain selected resort center. Continue? (y/N): "))
-            .trim()
-            .toLowerCase();
-          if (confirm !== "y" && confirm !== "yes") {
-            console.log("Boundary update cancelled.");
-            continue;
-          }
-        }
-
-        const pickedIndexInDetection = detection.candidates.findIndex(
-          (candidate) => candidate.osmType === picked.osmType && candidate.osmId === picked.osmId
-        );
-        if (pickedIndexInDetection < 0) {
-          console.log("Boundary candidate mapping failed.");
-          continue;
-        }
-
         cloned = await createNextVersionClone({
           resortsRoot: args.resortsRoot,
           resortKey: args.resortKey,
@@ -715,10 +663,15 @@ async function runKnownResortMenu(args: {
           statusPath
         });
 
-        const result = await setResortBoundary({
-          workspacePath: cloned.workspacePath,
-          index: pickedIndexInDetection + 1
+        const result = await runBoundaryUpdateForWorkspace({
+          rl: args.rl,
+          workspacePath: cloned.workspacePath
         });
+        if (result === null) {
+          await rm(cloned.versionPath, { recursive: true, force: true });
+          console.log("Boundary update cancelled.");
+          continue;
+        }
         await syncStatusFileFromWorkspace({
           workspacePath: cloned.workspacePath,
           statusPath: cloned.statusPath
@@ -810,6 +763,85 @@ async function runKnownResortMenu(args: {
     }
 
     if (selected === "5") {
+      const selectionRaw = (
+        await args.rl.question("Select layers to update (boundary,runs,lifts | b,r,l | all | 0 cancel): ")
+      ).trim();
+      if (selectionRaw === "0") {
+        console.log("Update cancelled.");
+        continue;
+      }
+      const layers = parseLayerSelection(selectionRaw);
+      if (layers === null || layers.length === 0) {
+        console.log("Invalid layer selection. Use boundary,runs,lifts or all.");
+        continue;
+      }
+
+      const currentWorkspace = await readResortWorkspace(workspacePath);
+      if ((layers.includes("runs") || layers.includes("lifts")) && !layers.includes("boundary")) {
+        if (!isBoundaryReadyForSync(currentWorkspace)) {
+          console.log("Cannot sync runs/lifts without a ready boundary. Include boundary or update boundary first.");
+          continue;
+        }
+      }
+
+      let cloned: ClonedResortVersion | null = null;
+      try {
+        cloned = await createNextVersionClone({
+          resortsRoot: args.resortsRoot,
+          resortKey: args.resortKey,
+          workspacePath,
+          statusPath
+        });
+
+        const stepLogs: string[] = [];
+        for (const layer of layers) {
+          if (layer === "boundary") {
+            const boundary = await runBoundaryUpdateForWorkspace({
+              rl: args.rl,
+              workspacePath: cloned.workspacePath
+            });
+            if (boundary === null) {
+              throw new Error("Boundary update cancelled by user.");
+            }
+            stepLogs.push(`boundary: ${boundary.selectedOsm.displayName}`);
+            continue;
+          }
+          if (layer === "runs") {
+            const runs = await syncResortRuns({
+              workspacePath: cloned.workspacePath,
+              bufferMeters: 50
+            });
+            stepLogs.push(`runs: count=${runs.runCount}`);
+            continue;
+          }
+          const lifts = await syncResortLifts({
+            workspacePath: cloned.workspacePath,
+            bufferMeters: 50
+          });
+          stepLogs.push(`lifts: count=${lifts.liftCount}`);
+        }
+
+        await syncStatusFileFromWorkspace({
+          workspacePath: cloned.workspacePath,
+          statusPath: cloned.statusPath
+        });
+        workspacePath = cloned.workspacePath;
+        statusPath = cloned.statusPath;
+        console.log(`Created version ${cloned.version} for resort update.`);
+        for (const step of stepLogs) {
+          console.log(`Updated ${step}`);
+        }
+      } catch (error: unknown) {
+        if (cloned) {
+          await rm(cloned.versionPath, { recursive: true, force: true });
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        console.log(`Resort update failed: ${message}`);
+      }
+      continue;
+    }
+
+    if (selected === "6") {
       const existingStatus = await readStatusShape(statusPath);
       const defaultName = existingStatus.query?.name ?? "";
       const defaultCountryCode = existingStatus.query?.countryCode ?? "";
@@ -881,13 +913,117 @@ async function runKnownResortMenu(args: {
       continue;
     }
 
-    if (selected === "6") {
+    if (selected === "7") {
       keepRunning = false;
       continue;
     }
 
-    console.log("Invalid option. Please select 1, 2, 3, 4, 5, or 6.");
+    console.log("Invalid option. Please select 1, 2, 3, 4, 5, 6, or 7.");
   }
+}
+
+export function parseLayerSelection(value: string): ResortLayer[] | null {
+  const raw = value.trim().toLowerCase();
+  if (raw.length === 0) {
+    return null;
+  }
+  if (raw === "all" || raw === "a") {
+    return ["boundary", "runs", "lifts"];
+  }
+
+  const tokens = raw.split(/[,\s]+/).filter((part) => part.length > 0);
+  if (tokens.length === 0) {
+    return null;
+  }
+
+  const selected = new Set<ResortLayer>();
+  for (const token of tokens) {
+    if (token === "boundary" || token === "b") {
+      selected.add("boundary");
+      continue;
+    }
+    if (token === "runs" || token === "r") {
+      selected.add("runs");
+      continue;
+    }
+    if (token === "lifts" || token === "l") {
+      selected.add("lifts");
+      continue;
+    }
+    return null;
+  }
+
+  const ordered: ResortLayer[] = [];
+  if (selected.has("boundary")) {
+    ordered.push("boundary");
+  }
+  if (selected.has("runs")) {
+    ordered.push("runs");
+  }
+  if (selected.has("lifts")) {
+    ordered.push("lifts");
+  }
+  return ordered;
+}
+
+async function runBoundaryUpdateForWorkspace(args: {
+  rl: ReturnType<typeof createInterface>;
+  workspacePath: string;
+}): Promise<Awaited<ReturnType<typeof setResortBoundary>> | null> {
+  const detection = await detectResortBoundaryCandidates({
+    workspacePath: args.workspacePath,
+    searchLimit: 5
+  });
+  const polygonCandidates = detection.candidates.filter((candidate) => candidate.ring !== null);
+  if (polygonCandidates.length === 0) {
+    throw new Error("No valid boundary candidates with polygon geometry were found.");
+  }
+
+  console.log(`Boundary candidates (${polygonCandidates.length}):`);
+  for (let index = 0; index < polygonCandidates.length; index += 1) {
+    const candidate = polygonCandidates[index];
+    if (!candidate) {
+      continue;
+    }
+    console.log(
+      `${index + 1}. ${candidate.displayName} [${candidate.osmType}/${candidate.osmId}] score=${candidate.validation.score} containsCenter=${candidate.validation.containsSelectionCenter ? "yes" : "no"}`
+    );
+  }
+
+  const rawIndex = (await args.rl.question(`Select boundary (1-${polygonCandidates.length}, 0 to cancel): `)).trim();
+  const selectedIndex = parseCandidateSelection(rawIndex, polygonCandidates.length);
+  if (selectedIndex === null) {
+    return null;
+  }
+  if (selectedIndex === -1) {
+    throw new Error("Invalid boundary selection.");
+  }
+
+  const picked = polygonCandidates[selectedIndex - 1];
+  if (!picked) {
+    throw new Error("Invalid boundary selection.");
+  }
+
+  if (!picked.validation.containsSelectionCenter) {
+    const confirm = (await args.rl.question("Warning: boundary does not contain selected resort center. Continue? (y/N): "))
+      .trim()
+      .toLowerCase();
+    if (confirm !== "y" && confirm !== "yes") {
+      return null;
+    }
+  }
+
+  const pickedIndexInDetection = detection.candidates.findIndex(
+    (candidate) => candidate.osmType === picked.osmType && candidate.osmId === picked.osmId
+  );
+  if (pickedIndexInDetection < 0) {
+    throw new Error("Boundary candidate mapping failed.");
+  }
+
+  return setResortBoundary({
+    workspacePath: args.workspacePath,
+    index: pickedIndexInDetection + 1
+  });
 }
 
 async function syncStatusFileFromWorkspace(args: { workspacePath: string; statusPath: string }): Promise<void> {

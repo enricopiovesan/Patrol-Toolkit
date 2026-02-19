@@ -10,6 +10,7 @@ import {
   formatSearchCandidate,
   isBoundaryReadyForSync,
   listKnownResorts,
+  parseLayerSelection,
   parseCandidateSelection,
   persistResortVersion,
   rankSearchCandidates,
@@ -69,6 +70,22 @@ describe("menu candidate selection parsing", () => {
     expect(parseCandidateSelection("4", 3)).toBe(-1);
     expect(parseCandidateSelection("abc", 3)).toBe(-1);
     expect(parseCandidateSelection("1.2", 3)).toBe(-1);
+  });
+});
+
+describe("menu layer selection parsing", () => {
+  it("parses canonical and shorthand layer selections", () => {
+    expect(parseLayerSelection("all")).toEqual(["boundary", "runs", "lifts"]);
+    expect(parseLayerSelection("a")).toEqual(["boundary", "runs", "lifts"]);
+    expect(parseLayerSelection("boundary,runs")).toEqual(["boundary", "runs"]);
+    expect(parseLayerSelection("r l")).toEqual(["runs", "lifts"]);
+    expect(parseLayerSelection("l,b,r")).toEqual(["boundary", "runs", "lifts"]);
+  });
+
+  it("returns null for invalid layer selections", () => {
+    expect(parseLayerSelection("")).toBeNull();
+    expect(parseLayerSelection("unknown")).toBeNull();
+    expect(parseLayerSelection("boundary,unknown")).toBeNull();
   });
 });
 
