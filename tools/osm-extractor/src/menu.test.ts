@@ -14,6 +14,8 @@ import {
   parseCandidateSelection,
   persistResortVersion,
   rankSearchCandidates,
+  setLayerManualValidation,
+  toManualValidationState,
   toCanonicalResortKey
 } from "./menu.js";
 
@@ -339,6 +341,11 @@ describe("menu immutable version cloning", () => {
           validatedAt: string | null;
           validatedBy: string | null;
           notes: string | null;
+          layers: {
+            boundary: { validated: boolean };
+            runs: { validated: boolean };
+            lifts: { validated: boolean };
+          };
         };
       };
       expect(v2Status.version).toBe("v2");
@@ -347,7 +354,12 @@ describe("menu immutable version cloning", () => {
         validated: false,
         validatedAt: null,
         validatedBy: null,
-        notes: null
+        notes: null,
+        layers: {
+          boundary: { validated: false, validatedAt: null, validatedBy: null, notes: null },
+          runs: { validated: false, validatedAt: null, validatedBy: null, notes: null },
+          lifts: { validated: false, validatedAt: null, validatedBy: null, notes: null }
+        }
       });
 
       const v1StatusRaw = await readFile(statusPath, "utf8");
@@ -420,5 +432,60 @@ describe("menu sync preflight", () => {
         }
       })
     ).toBe(true);
+  });
+});
+
+describe("menu manual layer validation", () => {
+  it("normalizes manual validation defaults with layer states", () => {
+    const normalized = toManualValidationState(undefined);
+    expect(normalized.validated).toBe(false);
+    expect(normalized.layers.boundary.validated).toBe(false);
+    expect(normalized.layers.runs.validated).toBe(false);
+    expect(normalized.layers.lifts.validated).toBe(false);
+  });
+
+  it("updates layer validation and computes overall validation", () => {
+    const afterBoundary = setLayerManualValidation({
+      current: undefined,
+      layer: "boundary",
+      validated: true,
+      validatedAt: "2026-02-21T12:00:00.000Z",
+      validatedBy: "qa",
+      notes: "ok"
+    });
+    expect(afterBoundary.layers.boundary.validated).toBe(true);
+    expect(afterBoundary.validated).toBe(false);
+
+    const afterRuns = setLayerManualValidation({
+      current: afterBoundary,
+      layer: "runs",
+      validated: true,
+      validatedAt: "2026-02-21T12:05:00.000Z",
+      validatedBy: "qa",
+      notes: "ok"
+    });
+    expect(afterRuns.validated).toBe(false);
+
+    const afterLifts = setLayerManualValidation({
+      current: afterRuns,
+      layer: "lifts",
+      validated: true,
+      validatedAt: "2026-02-21T12:10:00.000Z",
+      validatedBy: "qa",
+      notes: "ok"
+    });
+    expect(afterLifts.validated).toBe(true);
+    expect(afterLifts.validatedAt).toBe("2026-02-21T12:10:00.000Z");
+
+    const afterInvalidateRuns = setLayerManualValidation({
+      current: afterLifts,
+      layer: "runs",
+      validated: false,
+      validatedAt: null,
+      validatedBy: null,
+      notes: null
+    });
+    expect(afterInvalidateRuns.validated).toBe(false);
+    expect(afterInvalidateRuns.validatedAt).toBeNull();
   });
 });

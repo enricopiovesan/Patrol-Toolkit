@@ -47,6 +47,35 @@ export type ClonedResortVersion = {
   statusPath: string;
 };
 
+export type ValidatableLayer = "boundary" | "runs" | "lifts";
+
+export type LayerManualValidationState = {
+  validated: boolean;
+  validatedAt: string | null;
+  validatedBy: string | null;
+  notes: string | null;
+};
+
+export type ManualValidationState = {
+  validated: boolean;
+  validatedAt: string | null;
+  validatedBy: string | null;
+  notes: string | null;
+  layers: Record<ValidatableLayer, LayerManualValidationState>;
+};
+
+export type ManualValidationInput = {
+  validated?: boolean;
+  validatedAt?: string | null;
+  validatedBy?: string | null;
+  notes?: string | null;
+  layers?: {
+    boundary?: Partial<LayerManualValidationState>;
+    runs?: Partial<LayerManualValidationState>;
+    lifts?: Partial<LayerManualValidationState>;
+  };
+};
+
 type StatusShape = {
   schemaVersion?: string;
   resortKey?: string;
@@ -87,12 +116,7 @@ type StatusShape = {
     overall?: "ready" | "incomplete";
     issues?: string[];
   };
-  manualValidation?: {
-    validated?: boolean;
-    validatedAt?: string | null;
-    validatedBy?: string | null;
-    notes?: string | null;
-  };
+  manualValidation?: ManualValidationInput;
 };
 
 export async function listKnownResorts(rootPath: string): Promise<KnownResortSummary[]> {
@@ -559,7 +583,27 @@ async function writeStatusFile(
       validated: false,
       validatedAt: null,
       validatedBy: null,
-      notes: null
+      notes: null,
+      layers: {
+        boundary: {
+          validated: false,
+          validatedAt: null,
+          validatedBy: null,
+          notes: null
+        },
+        runs: {
+          validated: false,
+          validatedAt: null,
+          validatedBy: null,
+          notes: null
+        },
+        lifts: {
+          validated: false,
+          validatedAt: null,
+          validatedBy: null,
+          notes: null
+        }
+      }
     }
   };
   await writeFile(path, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
@@ -630,9 +674,12 @@ async function runKnownResortMenu(args: {
     console.log("3. Fetch/update runs");
     console.log("4. Fetch/update lifts");
     console.log("5. Update resort (select layers)");
-    console.log("6. Re-select resort identity");
-    console.log("7. Back");
-    const selected = (await args.rl.question("Select option (1-7): ")).trim();
+    console.log("6. Validate boundary");
+    console.log("7. Validate runs");
+    console.log("8. Validate lifts");
+    console.log("9. Re-select resort identity");
+    console.log("10. Back");
+    const selected = (await args.rl.question("Select option (1-10): ")).trim();
 
     if (selected === "1") {
       const syncStatus = await readResortSyncStatus(workspacePath);
@@ -640,6 +687,8 @@ async function runKnownResortMenu(args: {
         workspacePath,
         statusPath
       });
+      const status = await readStatusShape(statusPath);
+      const manualValidation = toManualValidationState(status.manualValidation);
       console.log(`Sync overall: ${syncStatus.overall}`);
       console.log(
         `Boundary: status=${syncStatus.layers.boundary.status} features=${syncStatus.layers.boundary.featureCount ?? "?"} ready=${syncStatus.layers.boundary.ready ? "yes" : "no"}`
@@ -649,6 +698,18 @@ async function runKnownResortMenu(args: {
       );
       console.log(
         `Lifts: status=${syncStatus.layers.lifts.status} features=${syncStatus.layers.lifts.featureCount ?? "?"} ready=${syncStatus.layers.lifts.ready ? "yes" : "no"}`
+      );
+      console.log(
+        `Boundary validation: ${formatLayerValidationSummary(manualValidation.layers.boundary)}`
+      );
+      console.log(
+        `Runs validation: ${formatLayerValidationSummary(manualValidation.layers.runs)}`
+      );
+      console.log(
+        `Lifts validation: ${formatLayerValidationSummary(manualValidation.layers.lifts)}`
+      );
+      console.log(
+        `Manual validation overall: ${manualValidation.validated ? "yes" : "no"}`
       );
       continue;
     }
@@ -841,7 +902,45 @@ async function runKnownResortMenu(args: {
       continue;
     }
 
-    if (selected === "6") {
+    if (selected === "6" || selected === "7" || selected === "8") {
+      const layer: ValidatableLayer = selected === "6" ? "boundary" : selected === "7" ? "runs" : "lifts";
+      const workspace = await readResortWorkspace(workspacePath);
+      if (workspace.layers[layer].status !== "complete") {
+        console.log(`Cannot validate ${layer}. Layer is not complete yet.`);
+        continue;
+      }
+      const existingStatus = await readStatusShape(statusPath);
+      const existingManualValidation = toManualValidationState(existingStatus.manualValidation);
+      console.log(`Current ${layer} validation: ${formatLayerValidationSummary(existingManualValidation.layers[layer])}`);
+      const validatedAnswer = (await args.rl.question(`Mark ${layer} as validated? (y/N): `)).trim().toLowerCase();
+      const validated = validatedAnswer === "y" || validatedAnswer === "yes";
+      let validatedBy: string | null = null;
+      let notes: string | null = null;
+      if (validated) {
+        const validatedByRaw = (await args.rl.question("Validated by (optional): ")).trim();
+        const notesRaw = (await args.rl.question("Validation notes (optional): ")).trim();
+        validatedBy = validatedByRaw.length > 0 ? validatedByRaw : null;
+        notes = notesRaw.length > 0 ? notesRaw : null;
+      }
+
+      const nextManualValidation = setLayerManualValidation({
+        current: existingStatus.manualValidation,
+        layer,
+        validated,
+        validatedAt: validated ? new Date().toISOString() : null,
+        validatedBy,
+        notes
+      });
+      const payload: StatusShape = {
+        ...existingStatus,
+        manualValidation: nextManualValidation
+      };
+      await writeFile(statusPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+      console.log(`Updated ${layer} validation: ${formatLayerValidationSummary(nextManualValidation.layers[layer])}`);
+      continue;
+    }
+
+    if (selected === "9") {
       const existingStatus = await readStatusShape(statusPath);
       const defaultName = existingStatus.query?.name ?? "";
       const defaultCountryCode = existingStatus.query?.countryCode ?? "";
@@ -913,12 +1012,12 @@ async function runKnownResortMenu(args: {
       continue;
     }
 
-    if (selected === "7") {
+    if (selected === "10") {
       keepRunning = false;
       continue;
     }
 
-    console.log("Invalid option. Please select 1, 2, 3, 4, 5, 6, or 7.");
+    console.log("Invalid option. Please select 1, 2, 3, 4, 5, 6, 7, 8, 9, or 10.");
   }
 }
 
@@ -1047,12 +1146,7 @@ async function syncStatusFileFromWorkspace(args: { workspacePath: string; status
       overall: sync.overall,
       issues: sync.issues
     },
-    manualValidation: {
-      validated: existing.manualValidation?.validated ?? false,
-      validatedAt: existing.manualValidation?.validatedAt ?? null,
-      validatedBy: existing.manualValidation?.validatedBy ?? null,
-      notes: existing.manualValidation?.notes ?? null
-    }
+    manualValidation: toManualValidationState(existing.manualValidation)
   };
 
   await writeFile(args.statusPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
@@ -1109,12 +1203,7 @@ export async function createNextVersionClone(args: {
     ...existingStatus,
     version,
     createdAt,
-    manualValidation: {
-      validated: false,
-      validatedAt: null,
-      validatedBy: null,
-      notes: null
-    }
+    manualValidation: toManualValidationState(undefined)
   };
   await writeFile(statusPath, `${JSON.stringify(updatedStatus, null, 2)}\n`, "utf8");
 
@@ -1132,6 +1221,73 @@ export async function createNextVersionClone(args: {
 
 export function isBoundaryReadyForSync(workspace: ResortWorkspace): boolean {
   return workspace.layers.boundary.status === "complete" && typeof workspace.layers.boundary.artifactPath === "string";
+}
+
+export function toManualValidationState(
+  value: ManualValidationInput | undefined
+): ManualValidationState {
+  const boundary = toLayerManualValidationState(value?.layers?.boundary);
+  const runs = toLayerManualValidationState(value?.layers?.runs);
+  const lifts = toLayerManualValidationState(value?.layers?.lifts);
+  const defaultOverall = boundary.validated && runs.validated && lifts.validated;
+
+  return {
+    validated: typeof value?.validated === "boolean" ? value.validated : defaultOverall,
+    validatedAt: typeof value?.validatedAt === "string" ? value.validatedAt : null,
+    validatedBy: typeof value?.validatedBy === "string" ? value.validatedBy : null,
+    notes: typeof value?.notes === "string" ? value.notes : null,
+    layers: {
+      boundary,
+      runs,
+      lifts
+    }
+  };
+}
+
+export function setLayerManualValidation(args: {
+  current: ManualValidationInput | undefined;
+  layer: ValidatableLayer;
+  validated: boolean;
+  validatedAt: string | null;
+  validatedBy: string | null;
+  notes: string | null;
+}): ManualValidationState {
+  const current = toManualValidationState(args.current);
+  const layers: Record<ValidatableLayer, LayerManualValidationState> = {
+    ...current.layers,
+    [args.layer]: {
+      validated: args.validated,
+      validatedAt: args.validatedAt,
+      validatedBy: args.validatedBy,
+      notes: args.notes
+    }
+  };
+  const validated = layers.boundary.validated && layers.runs.validated && layers.lifts.validated;
+  return {
+    validated,
+    validatedAt: validated ? args.validatedAt : null,
+    validatedBy: validated ? args.validatedBy : null,
+    notes: validated ? args.notes : null,
+    layers
+  };
+}
+
+function toLayerManualValidationState(value: Partial<LayerManualValidationState> | undefined): LayerManualValidationState {
+  return {
+    validated: value?.validated === true,
+    validatedAt: typeof value?.validatedAt === "string" ? value.validatedAt : null,
+    validatedBy: typeof value?.validatedBy === "string" ? value.validatedBy : null,
+    notes: typeof value?.notes === "string" ? value.notes : null
+  };
+}
+
+function formatLayerValidationSummary(value: LayerManualValidationState): string {
+  if (!value.validated) {
+    return "no";
+  }
+  const at = value.validatedAt ?? "unknown-time";
+  const by = value.validatedBy ?? "unknown";
+  return `yes (at=${at}, by=${by})`;
 }
 export function toCanonicalResortKey(resortKey: string): string {
   const parts = resortKey.split("_").filter((part) => part.length > 0);
