@@ -91,6 +91,11 @@ export type ManualValidationInput = {
   };
 };
 
+export type MenuReadline = {
+  question: (query: string) => Promise<string>;
+  close: () => void;
+};
+
 type StatusShape = {
   schemaVersion?: string;
   resortKey?: string;
@@ -277,8 +282,11 @@ function unknownKnownLayerSummary(): KnownResortLayerSummary {
 export async function runInteractiveMenu(args: {
   resortsRoot: string;
   searchFn: (query: { name: string; country: string; limit: number }) => Promise<ResortSearchResult>;
+  rl?: MenuReadline;
+  rankCandidatesFn?: (candidates: ResortSearchCandidate[], options: { town: string }) => Promise<RankedSearchCandidate[]>;
 }): Promise<void> {
-  const rl = createInterface({ input, output });
+  const rl = args.rl ?? createInterface({ input, output });
+  const ownsReadline = !args.rl;
   try {
     await canonicalizeResortKeys(args.resortsRoot);
 
@@ -348,7 +356,9 @@ export async function runInteractiveMenu(args: {
           country: countryCode,
           limit: 5
         });
-        const rankedCandidates = await rankSearchCandidates(search.candidates, { town });
+        const rankedCandidates = args.rankCandidatesFn
+          ? await args.rankCandidatesFn(search.candidates, { town })
+          : await rankSearchCandidates(search.candidates, { town });
         console.log(`Search results (${rankedCandidates.length}):`);
         for (let index = 0; index < rankedCandidates.length; index += 1) {
           const ranked = rankedCandidates[index];
@@ -425,7 +435,9 @@ export async function runInteractiveMenu(args: {
       console.log("Invalid option. Please select 1, 2, or 3.");
     }
   } finally {
-    rl.close();
+    if (ownsReadline) {
+      rl.close();
+    }
   }
 }
 
@@ -786,7 +798,7 @@ function getKnownResortContext(resortsRoot: string, resortKey: string, version: 
 }
 
 async function runKnownResortMenu(args: {
-  rl: ReturnType<typeof createInterface>;
+  rl: MenuReadline;
   resortsRoot: string;
   resortKey: string;
   workspacePath: string;
@@ -1195,7 +1207,7 @@ export function parseLayerSelection(value: string): ResortLayer[] | null {
 }
 
 async function runBoundaryUpdateForWorkspace(args: {
-  rl: ReturnType<typeof createInterface>;
+  rl: MenuReadline;
   workspacePath: string;
 }): Promise<Awaited<ReturnType<typeof setResortBoundary>> | null> {
   const detection = await detectResortBoundaryCandidates({
