@@ -79,6 +79,18 @@ describe("AppShell", () => {
     expect(readPhrase(shell)).toBe("Easy Street, Mid, skier's left, below Summit Express tower 2");
     expect(readPhraseHint(shell)).toBe("Phrase generated.");
   });
+
+  it("shows basemap warning when style or pmtiles assets are missing", async () => {
+    mockCatalogFetch();
+    const { AppShell } = await import("./app-shell");
+
+    const shell = new AppShell();
+    document.body.appendChild(shell);
+
+    await waitForCondition(() =>
+      /Basemap assets missing/iu.test(readWarningText(shell))
+    );
+  });
 });
 
 function readStatusText(shell: HTMLElement): string {
@@ -94,6 +106,11 @@ function readPhrase(shell: HTMLElement): string {
 function readPhraseHint(shell: HTMLElement): string {
   const hint = shell.shadowRoot?.querySelector(".phrase-hint")?.textContent;
   return (hint ?? "").replace(/\s+/gu, " ").trim();
+}
+
+function readWarningText(shell: HTMLElement): string {
+  const warning = shell.shadowRoot?.querySelector(".warning-line")?.textContent;
+  return (warning ?? "").replace(/\s+/gu, " ").trim();
 }
 
 async function createReadyShell(): Promise<HTMLElement> {

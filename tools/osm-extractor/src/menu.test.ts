@@ -728,6 +728,7 @@ describe("menu interactive flows", () => {
     const publicRoot = join(root, "public");
     const resortKey = "CA_Golden_Kicking_Horse";
     const versionPath = join(root, resortKey, "v1");
+    const basemapDir = join(versionPath, "basemap");
     const workspacePath = join(versionPath, "resort.json");
     const statusPath = join(versionPath, "status.json");
     const rl = createFakeReadline([
@@ -796,6 +797,13 @@ describe("menu interactive flows", () => {
       await writeFile(join(versionPath, "boundary.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
       await writeFile(join(versionPath, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
       await writeFile(join(versionPath, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await mkdir(basemapDir, { recursive: true });
+      await writeFile(join(basemapDir, "base.pmtiles"), new Uint8Array([7, 8, 9]));
+      await writeFile(
+        join(basemapDir, "style.json"),
+        JSON.stringify({ version: 8, sources: {}, layers: [{ id: "bg", type: "background" }] }),
+        "utf8"
+      );
 
       await runInteractiveMenu({
         resortsRoot: root,
@@ -823,6 +831,14 @@ describe("menu interactive flows", () => {
       expect(catalog.resorts[0]?.resortId).toBe(resortKey);
       expect(catalog.resorts[0]?.versions[0]?.approved).toBe(true);
       expect(catalog.resorts[0]?.versions[0]?.packUrl).toBe(`/packs/${resortKey}.latest.validated.json`);
+      const publishedPmtiles = await readFile(join(publicRoot, "packs", resortKey, "base.pmtiles"));
+      const publishedStyle = await readFile(join(publicRoot, "packs", resortKey, "style.json"), "utf8");
+      expect([...publishedPmtiles]).toEqual([7, 8, 9]);
+      expect(JSON.parse(publishedStyle)).toEqual({
+        version: 8,
+        sources: {},
+        layers: [{ id: "bg", type: "background" }]
+      });
     } finally {
       await rm(root, { recursive: true, force: true });
     }

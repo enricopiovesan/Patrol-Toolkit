@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "basemap:install": "node ./tools/install-basemap-assets.mjs"
   },
   "keywords": [],
   "author": "",

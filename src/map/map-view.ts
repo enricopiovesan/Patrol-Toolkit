@@ -5,7 +5,7 @@ import { LocationTracker, type GeoPosition } from "../location/location-tracker"
 import type { ResortPack } from "../resort-pack/types";
 import { buildResortOverlayData } from "./overlays";
 import { ensurePackPmtilesArchiveLoaded, ensurePmtilesProtocolRegistered } from "./pmtiles-protocol";
-import { resolveStyleForPack } from "./style-loader";
+import { OFFLINE_FALLBACK_STYLE, resolveStyleForPack } from "./style-loader";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 const LOCATION_SOURCE_ID = "current-location";
@@ -92,6 +92,7 @@ export class MapView extends LitElement {
   private lastPosition: GeoPosition | null = null;
   private currentStyleKey = "";
   private styleApplyToken = 0;
+  private runtimeFallbackApplied = false;
 
   @property({ attribute: false })
   accessor pack: ResortPack | null = null;
@@ -140,7 +141,13 @@ export class MapView extends LitElement {
       this.startTracking();
     });
 
-    this.map.on("error", () => {
+    this.map.on("error", (event) => {
+      const message = this.extractMapErrorMessage(event);
+      if (this.shouldApplyRuntimeOfflineFallback(message)) {
+        this.applyRuntimeOfflineFallback();
+        return;
+      }
+
       this.status = "Map rendering error.";
     });
 
@@ -396,8 +403,50 @@ export class MapView extends LitElement {
     }
 
     this.currentStyleKey = key;
+    this.runtimeFallbackApplied = false;
     this.map.setStyle(style, { diff: false });
     this.rebindLayersWhenStyleReady(token);
+  }
+
+  private extractMapErrorMessage(event: unknown): string {
+    const candidate = event as { error?: unknown } | undefined;
+    const rawError = candidate?.error;
+    if (rawError instanceof Error) {
+      return rawError.message;
+    }
+
+    if (typeof rawError === "string") {
+      return rawError;
+    }
+
+    return "";
+  }
+
+  private shouldApplyRuntimeOfflineFallback(message: string): boolean {
+    if (!this.map || this.runtimeFallbackApplied) {
+      return false;
+    }
+
+    if (!this.currentStyleKey.startsWith("pack:")) {
+      return false;
+    }
+
+    return /asset unavailable offline|tile unavailable offline|failed to fetch|gateway timeout|pmtiles|504/iu.test(
+      message
+    );
+  }
+
+  private applyRuntimeOfflineFallback(): void {
+    if (!this.map || this.runtimeFallbackApplied) {
+      return;
+    }
+
+    this.runtimeFallbackApplied = true;
+    const token = ++this.styleApplyToken;
+    this.currentStyleKey = "runtime-offline-fallback";
+    this.map.setStyle(OFFLINE_FALLBACK_STYLE, { diff: false });
+    this.rebindLayersWhenStyleReady(token);
+    this.status = "Offline basemap unavailable. Showing local overlay view.";
   }
 
   private rebindLayersWhenStyleReady(token: number, remainingAttempts = 60): void {

@@ -18,7 +18,11 @@ describe("resolveStyleForPack", () => {
   });
 
   it("returns offline fallback when pack is null", async () => {
-    const result = await resolveStyleForPack(null);
+    const result = await resolveStyleForPack(
+      null,
+      undefined,
+      () => false
+    );
     expect(result.key).toBe("fallback");
     expect(result.style).toEqual(OFFLINE_FALLBACK_STYLE);
   });
@@ -45,7 +49,7 @@ describe("resolveStyleForPack", () => {
       })
     );
 
-    const result = await resolveStyleForPack(pack, fetchMock);
+    const result = await resolveStyleForPack(pack, fetchMock, () => false);
     expect(fetchMock).toHaveBeenCalledWith("/packs/demo/style.json");
     expect(result.key).toBe("pack:demo-resort:/packs/demo/style.json");
     expect(result.style).toEqual({
@@ -64,7 +68,7 @@ describe("resolveStyleForPack", () => {
     pack.basemap.stylePath = "https://example.com/style.json";
 
     const fetchMock = vi.fn();
-    const result = await resolveStyleForPack(pack, fetchMock);
+    const result = await resolveStyleForPack(pack, fetchMock, () => false);
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.key).toBe("fallback:demo-resort");
@@ -93,7 +97,7 @@ describe("resolveStyleForPack", () => {
       })
     );
 
-    const result = await resolveStyleForPack(pack, fetchMock);
+    const result = await resolveStyleForPack(pack, fetchMock, () => false);
     expect(result.style).toEqual({
       ...stylePayload,
       sources: {
@@ -102,6 +106,33 @@ describe("resolveStyleForPack", () => {
           url: "pmtiles:///packs/demo/custom.pmtiles"
         }
       }
+    });
+  });
+
+  it("uses network fallback style when online and pack style is unavailable", async () => {
+    const pack = structuredClone(validPack) as ResortPack;
+    pack.basemap.stylePath = "https://example.com/style.json";
+
+    const result = await resolveStyleForPack(pack, vi.fn(), () => true);
+    expect(result.key).toBe("fallback:demo-resort");
+    expect(result.style).toEqual({
+      version: 8,
+      name: "Patrol Toolkit Network Fallback",
+      sources: {
+        "osm-raster": {
+          type: "raster",
+          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+          tileSize: 256,
+          attribution: "© OpenStreetMap contributors"
+        }
+      },
+      layers: [
+        {
+          id: "osm-raster-layer",
+          type: "raster",
+          source: "osm-raster"
+        }
+      ]
     });
   });
 });

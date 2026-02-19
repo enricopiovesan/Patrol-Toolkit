@@ -16,14 +16,37 @@ export const OFFLINE_FALLBACK_STYLE: maplibregl.StyleSpecification = {
   ]
 };
 
+const NETWORK_FALLBACK_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  name: "Patrol Toolkit Network Fallback",
+  sources: {
+    "osm-raster": {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors"
+    }
+  },
+  layers: [
+    {
+      id: "osm-raster-layer",
+      type: "raster",
+      source: "osm-raster"
+    }
+  ]
+};
+
 export async function resolveStyleForPack(
   pack: ResortPack | null,
-  fetchFn: typeof fetch = fetch
+  fetchFn: typeof fetch = fetch,
+  isOnlineFn: () => boolean = defaultIsOnline
 ): Promise<{ key: string; style: maplibregl.StyleSpecification }> {
+  const fallbackStyle = isOnlineFn() ? NETWORK_FALLBACK_STYLE : OFFLINE_FALLBACK_STYLE;
+
   if (!pack) {
     return {
       key: "fallback",
-      style: OFFLINE_FALLBACK_STYLE
+      style: fallbackStyle
     };
   }
 
@@ -31,7 +54,7 @@ export async function resolveStyleForPack(
   if (!isLocalRelativePath(stylePath)) {
     return {
       key: `fallback:${pack.resort.id}`,
-      style: OFFLINE_FALLBACK_STYLE
+      style: fallbackStyle
     };
   }
 
@@ -56,9 +79,13 @@ export async function resolveStyleForPack(
   } catch {
     return {
       key: `fallback:${pack.resort.id}`,
-      style: OFFLINE_FALLBACK_STYLE
+      style: fallbackStyle
     };
   }
+}
+
+function defaultIsOnline(): boolean {
+  return typeof navigator !== "undefined" && navigator.onLine === true;
 }
 
 function injectPmtilesSourceUrls(

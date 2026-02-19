@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { basename, dirname, join, resolve } from "node:path";
@@ -1509,6 +1509,11 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
   const outputFileName = `${args.resortKey}.latest.validated.json`;
   const outputPath = join(packsDir, outputFileName);
   const outputUrl = `/packs/${outputFileName}`;
+  await publishBasemapAssetsForVersion({
+    versionPath,
+    publicRoot,
+    resortKey: args.resortKey
+  });
 
   const boundary = await readLayerArtifactJson(versionPath, workspace.layers.boundary.artifactPath);
   const runs = await readLayerArtifactJson(versionPath, workspace.layers.runs.artifactPath);
@@ -1562,6 +1567,40 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
     outputPath,
     catalogPath
   };
+}
+
+async function publishBasemapAssetsForVersion(args: {
+  versionPath: string;
+  publicRoot: string;
+  resortKey: string;
+}): Promise<void> {
+  const basemapSourceDir = join(args.versionPath, "basemap");
+  const pmtilesSourcePath = join(basemapSourceDir, "base.pmtiles");
+  const styleSourcePath = join(basemapSourceDir, "style.json");
+
+  await assertRegularFile(pmtilesSourcePath, "Missing basemap PMTiles");
+  await assertRegularFile(styleSourcePath, "Missing basemap style");
+
+  const destinationDir = join(args.publicRoot, "packs", args.resortKey);
+  const pmtilesDestinationPath = join(destinationDir, "base.pmtiles");
+  const styleDestinationPath = join(destinationDir, "style.json");
+
+  await mkdir(destinationDir, { recursive: true });
+  await cp(pmtilesSourcePath, pmtilesDestinationPath);
+  await cp(styleSourcePath, styleDestinationPath);
+}
+
+async function assertRegularFile(path: string, label: string): Promise<void> {
+  let metadata;
+  try {
+    metadata = await stat(path);
+  } catch {
+    throw new Error(`${label}: ${path}`);
+  }
+
+  if (!metadata.isFile()) {
+    throw new Error(`${label}: ${path}`);
+  }
 }
 
 async function readLayerArtifactJson(versionPath: string, artifactPath: string | undefined): Promise<unknown | null> {

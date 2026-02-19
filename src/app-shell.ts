@@ -1,6 +1,7 @@
 import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import "./map/map-view";
+import { requestPackAssetPrecache } from "./pwa/precache-pack-assets";
 import { composeRadioPhrase } from "./radio/phrase";
 import {
   loadPackFromCatalogEntry,
@@ -91,6 +92,19 @@ export class AppShell extends LitElement {
       color: #0f172a;
     }
 
+    .warning-line {
+      font-size: 0.9rem;
+      color: #7c2d12;
+      background: #ffedd5;
+      border: 1px solid #fdba74;
+      border-radius: 10px;
+      padding: 0.55rem 0.7rem;
+    }
+
+    .warning-line strong {
+      color: #9a3412;
+    }
+
     .radio-panel {
       margin-top: 0.25rem;
       border: 1px solid #dbe3ea;
@@ -173,7 +187,11 @@ export class AppShell extends LitElement {
   @state()
   private accessor phraseStatus = "Waiting for GPS and active pack.";
 
+  @state()
+  private accessor basemapWarning = "";
+
   private isAutoActivating = false;
+  private basemapProbeToken = 0;
 
   protected override async firstUpdated(): Promise<void> {
     try {
@@ -219,6 +237,8 @@ export class AppShell extends LitElement {
         : fallbackSelection;
 
     this.activePack = activePack;
+    requestPackAssetPrecache(activePack);
+    void this.refreshBasemapWarning(activePack);
     this.statusMessage = activePack
       ? `Active pack: ${activePack.resort.name}`
       : this.resortOptions.length > 0
@@ -283,9 +303,74 @@ export class AppShell extends LitElement {
       }
 
       await this.refreshPackState();
+      requestPackAssetPrecache(pack);
+      void this.refreshBasemapWarning(pack);
       this.statusMessage = `Active pack: ${pack.resort.name} (${selectedEntry.version})`;
     } catch (error) {
       this.statusMessage = error instanceof Error ? error.message : "Failed to load selected resort.";
+    }
+  }
+
+  private async refreshBasemapWarning(pack: ResortPack | null): Promise<void> {
+    const token = ++this.basemapProbeToken;
+    if (!pack) {
+      this.basemapWarning = "";
+      return;
+    }
+
+    const [styleOk, pmtilesOk] = await Promise.all([
+      this.probeStyleAsset(pack.basemap.stylePath),
+      this.probePmtilesAsset(pack.basemap.pmtilesPath)
+    ]);
+    if (token !== this.basemapProbeToken) {
+      return;
+    }
+
+    if (styleOk && pmtilesOk) {
+      this.basemapWarning = "";
+      return;
+    }
+
+    const missing: string[] = [];
+    if (!styleOk) {
+      missing.push(normalizeRelativePath(pack.basemap.stylePath));
+    }
+    if (!pmtilesOk) {
+      missing.push(normalizeRelativePath(pack.basemap.pmtilesPath));
+    }
+
+    this.basemapWarning = `Basemap assets missing for ${pack.resort.name}: ${missing.join(", ")}.`;
+  }
+
+  private async probeStyleAsset(path: string): Promise<boolean> {
+    try {
+      const response = await fetch(normalizeRelativePath(path), { method: "GET" });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  private async probePmtilesAsset(path: string): Promise<boolean> {
+    const url = normalizeRelativePath(path);
+
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: { Range: "bytes=0-0" }
+      });
+      if (response.status === 206 || response.ok) {
+        return true;
+      }
+    } catch {
+      // Retry below with a HEAD probe for servers that reject range.
+    }
+
+    try {
+      const headResponse = await fetch(url, { method: "HEAD" });
+      return headResponse.ok;
+    } catch {
+      return false;
     }
   }
 
@@ -341,6 +426,9 @@ export class AppShell extends LitElement {
                 : html`<div class="empty-state">No resort packs available.</div>`}
             </div>
             <div class="status-line"><strong>Status:</strong> ${this.statusMessage}</div>
+            ${this.basemapWarning
+              ? html`<div class="warning-line"><strong>Warning:</strong> ${this.basemapWarning}</div>`
+              : null}
           </section>
           <section class="radio-panel" aria-label="Radio phrase generator">
             <div class="radio-actions">
@@ -354,4 +442,13 @@ export class AppShell extends LitElement {
       </main>
     `;
   }
+}
+
+function normalizeRelativePath(path: string): string {
+  const trimmed = path.trim();
+  if (trimmed.startsWith("/")) {
+    return trimmed;
+  }
+
+  return `/${trimmed.replace(/^\.\/+/, "")}`;
 }

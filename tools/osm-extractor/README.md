@@ -60,6 +60,7 @@ npm --prefix tools/osm-extractor run run:menu
 - `5` for immutable multi-layer update in one new version.
 - `6/7/8` to mark layer manual validation.
   - when all three are validated, the menu auto-publishes latest validated bundle to app catalog (`public/packs` + `public/resort-packs/index.json`).
+  - auto-publish also copies basemap assets from `resorts/<resortKey>/<version>/basemap/base.pmtiles` and `resorts/<resortKey>/<version>/basemap/style.json` into `public/packs/<resortKey>/`.
 - `1` to verify readiness/metrics.
 
 4. Optional explicit publish command (same output as auto-publish):
@@ -353,6 +354,12 @@ Export latest manually validated immutable version and upsert app catalog in one
 Writes:
 - `/packs/<resortKey>.latest.validated.json`
 - `/resort-packs/index.json` (upsert by `resortId`)
+- `/packs/<resortKey>/base.pmtiles`
+- `/packs/<resortKey>/style.json`
+
+Required source files in the selected validated version directory:
+- `basemap/base.pmtiles`
+- `basemap/style.json`
 
 ```bash
 node tools/osm-extractor/dist/src/cli.js resort-publish-latest \
