@@ -201,6 +201,43 @@ describe("attach basemap assets", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("upgrades legacy generated placeholder style when basemap already exists", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-generate-basemap-upgrade-"));
+    try {
+      const resortsRoot = join(root, "resorts");
+      const publicRoot = join(root, "public");
+      const resortKey = "CA_Golden_Kicking_Horse";
+      const currentVersionPath = join(resortsRoot, resortKey, "v4");
+      await mkdir(join(currentVersionPath, "basemap"), { recursive: true });
+      await writeFile(join(currentVersionPath, "basemap", "base.pmtiles"), new Uint8Array([80, 84, 75]));
+      await writeFile(
+        join(currentVersionPath, "basemap", "style.json"),
+        JSON.stringify({
+          version: 8,
+          name: "Patrol Toolkit CLI Generated Basemap",
+          sources: {},
+          layers: [{ id: "cli-generated-background", type: "background" }]
+        }),
+        "utf8"
+      );
+
+      const result = await generateBasemapAssetsForVersion({
+        resortsRoot,
+        appPublicRoot: publicRoot,
+        resortKey,
+        versionPath: currentVersionPath
+      });
+
+      expect(result.generatedNow).toBe(true);
+      expect(result.sourceLabel).toBe("upgraded CLI-generated placeholder basemap");
+      const generatedStyleRaw = await readFile(join(currentVersionPath, "basemap", "style.json"), "utf8");
+      const generatedStyle = JSON.parse(generatedStyleRaw) as { sources: Record<string, { type?: string }> };
+      expect(generatedStyle.sources["osm-raster"]?.type).toBe("raster");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("menu known resort listing", () => {

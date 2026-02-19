@@ -1294,6 +1294,11 @@ export async function generateBasemapAssetsForVersion(args: {
   const targetStyle = join(args.versionPath, "basemap", "style.json");
   const alreadyGenerated = (await isRegularFile(targetPmtiles)) && (await isRegularFile(targetStyle));
   if (alreadyGenerated) {
+    const needsUpgrade = await isLegacyGeneratedPlaceholderStyle(targetStyle);
+    if (needsUpgrade) {
+      await generatePlaceholderBasemapAssets(args.versionPath);
+      return { generatedNow: true, sourceLabel: "upgraded CLI-generated placeholder basemap" };
+    }
     return { generatedNow: false, sourceLabel: "current version basemap" };
   }
 
@@ -1316,6 +1321,35 @@ export async function generateBasemapAssetsForVersion(args: {
     generatedNow: true,
     sourceLabel: sourcePaths.sourceLabel
   };
+}
+
+async function isLegacyGeneratedPlaceholderStyle(stylePath: string): Promise<boolean> {
+  let parsed: unknown;
+  try {
+    const raw = await readFile(stylePath, "utf8");
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return false;
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    return false;
+  }
+
+  const candidate = parsed as {
+    name?: unknown;
+    sources?: unknown;
+  };
+  if (candidate.name !== "Patrol Toolkit CLI Generated Basemap") {
+    return false;
+  }
+
+  const sources = candidate.sources;
+  if (typeof sources !== "object" || sources === null) {
+    return true;
+  }
+
+  return !Object.prototype.hasOwnProperty.call(sources, "osm-raster");
 }
 
 async function resolveBasemapSourcePaths(args: {
