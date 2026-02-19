@@ -6,7 +6,7 @@
 - On mountain
 - Low connectivity possible
 - Wearing gloves
-- Needs precise radio phrasing
+- Needs precise radio phrasing and immediate terrain context
 
 ### Core Need
-Generate concise patrol-grade radio location phrase in under 3 seconds.
+Know current position inside the active resort boundary and produce a clear radio call quickly.

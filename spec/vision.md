@@ -4,7 +4,7 @@
 Patrol Toolkit aims to become a modular, data-driven mountain patrol operations platform.
 
 ## Horizon 1 (0.0.x)
-Core location intelligence.
+Core location intelligence with offline boundary/run/lift map context.
 
 ## Horizon 2 (0.1.x)
 Operational assistance without shared state.

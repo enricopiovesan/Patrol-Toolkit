@@ -1,4 +1,3 @@
-                                
 # Patrol Toolkit
 
 **Patrol Toolkit** is an offline-first, data-driven web platform designed to support mountain patrol operations in complex alpine environments.
@@ -36,32 +35,24 @@ All built on portable, structured Resort Packs that separate terrain data from a
 
 ---
 
-## Current Scope — Version 0.0.1
+## Current Scope — App MVP (Map + Phrase)
 
-Version 0.0.1 focuses on one capability.
+The current MVP focus is:
+- one active resort at a time
+- offline map context
+- boundary/run/lift representation
+- deterministic phrase generation for radio callouts
 
-### Where Am I
+### Status Snapshot
 
-Convert current GPS location into a concise, patrol-grade radio location phrase, fully offline.
-
-### Included
-
-- Offline Progressive Web App
-- Resort Pack architecture
-- GPS location display
-- Deterministic geometry-based phrase generation
-- One-tap copy of concise radio callout
-
-### Explicitly Not Included
-
-- Sweep workflows
-- Shared tracking
-- Dispatch integration
-- Incident logging
-- Backend services
-- AI-generated phrasing
-
-The objective is clarity under pressure. Nothing more.
+- Ready: single active resort selection from local packs.
+- Ready: deterministic phrase generation from GPS + run/lift geometry.
+- Ready: offline app shell and local pack persistence.
+- Not ready: resort boundary rendered in app map.
+- Not ready: runs rendered in app map.
+- Not ready: lifts rendered in app map.
+- Not ready: fully local basemap path for offline map (no network tile dependency).
+- Planned removal: copy phrase action (generate phrase remains primary).
 
 ---
 
@@ -79,6 +70,9 @@ No AI-generated text is used for location output.
 ### Data Driven
 Resort-specific behavior is defined via structured Resort Packs.  
 The application contains no hard-coded resort logic.
+
+### One Resort Context
+The app operates against one active resort at a time to reduce ambiguity during radio operations.
 
 ### Assistive Only
 Patrol Toolkit supports decision-making.  
@@ -98,7 +92,7 @@ It never replaces radio, protocol, or operational judgment.
 
 All terrain intelligence is computed locally on device.
 
-No backend is required for v0.0.1.
+No backend is required for the MVP.
 
 ---
 
@@ -106,10 +100,10 @@ No backend is required for v0.0.1.
 
 Each resort is defined through a portable data pack containing:
 
+- Boundary
 - Runs
 - Lifts
 - Lift towers
-- Patrol places
 - Threshold rules
 - Basemap tiles
 
@@ -119,17 +113,24 @@ This architecture allows Patrol Toolkit to scale across multiple resorts without
 
 ## Roadmap Overview
 
-### 0.0.x
-Core location intelligence stabilization and real-world validation.
+### 0.0.1 (Baseline, Ready)
+- Offline app shell
+- Resort pack import/select/active persistence
+- GPS-driven deterministic phrase generation
 
-### 0.1.x
-Operational assistance tools such as sweep reference overlays and terrain knowledge layers.
+### 0.0.2 (Current Focus, In Progress)
+- Render boundary, runs, and lifts from active resort pack
+- Fully offline map path for basemap + overlays
+- Remove copy phrase from the app flow
+
+### 0.1.x (Next)
+- Operational support tools such as sweep reference overlays and terrain knowledge layers
 
 ### 0.2.x
-Optional shared situational awareness capabilities.
+- Optional shared situational awareness capabilities
 
 ### 1.0.0
-Stable, multi-resort operational platform.
+- Stable multi-resort operational platform
 
 Roadmap evolves based on real field feedback from patrol use.
 
@@ -152,8 +153,7 @@ Radio remains the authoritative communication channel at all times.
 
 ## Status
 
-Early-stage development.  
-Focused on field validation within real patrol operations.
+Active MVP refocus on map-first offline capabilities for radio clarity.
 
 ---
 
@@ -172,12 +172,13 @@ Quality gate:
 npm run check
 ```
 
-Offline shell verification:
+Offline verification:
 
 1. Build and preview with `npm run build && npm run preview`.
 2. Open the app once online to allow service worker install and asset caching.
 3. Disable network in browser devtools and reload.
 4. Confirm the app shell still loads.
+5. Confirm active resort geometry (boundary/runs/lifts) renders with no network access.
 
 Field validation and release resources:
 

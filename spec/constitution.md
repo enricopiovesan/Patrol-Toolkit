@@ -17,3 +17,4 @@ This application must never:
 - Data Driven
 - Simplicity under pressure
 - Assistive only, never authoritative
+- One active resort context per session
