@@ -1,5 +1,6 @@
 import { readResortWorkspace } from "./resort-workspace.js";
 import { searchResortCandidates, type ResortSearchCandidate, type ResortSearchResult } from "./resort-search.js";
+import { defaultCacheDir, resilientFetchJson } from "./network-resilience.js";
 
 type GeoJsonPolygon = {
   type: "Polygon";
@@ -71,6 +72,7 @@ export async function detectResortBoundaryCandidates(
   const fetchFn = deps?.fetchFn ?? fetch;
   const searchFn = deps?.searchFn ?? searchResortCandidates;
   const userAgent = deps?.userAgent ?? "patrol-toolkit-osm-extractor/0.1";
+  const throttleMs = deps?.fetchFn ? 0 : 1100;
 
   const fallbackSearch = await searchFn({
     name: workspace.resort.query.name,
@@ -113,7 +115,8 @@ export async function detectResortBoundaryCandidates(
 
     const lookup = await lookupBoundary(seed.candidate, {
       fetchFn,
-      userAgent
+      userAgent,
+      throttleMs
     });
     resolved.push(
       scoreBoundaryCandidate({
@@ -142,18 +145,28 @@ async function lookupBoundary(
   deps: {
     fetchFn: typeof fetch;
     userAgent: string;
+    throttleMs: number;
   }
 ): Promise<LookupRecord | null> {
-  const response = await deps.fetchFn(buildNominatimLookupUrl(candidate), {
+  const url = buildNominatimLookupUrl(candidate);
+  const raw = await resilientFetchJson({
+    url,
+    method: "GET",
     headers: {
       accept: "application/json",
       "user-agent": deps.userAgent
+    },
+    fetchFn: deps.fetchFn,
+    throttleMs: deps.throttleMs,
+    cache: {
+      dir: defaultCacheDir(),
+      ttlMs: 60 * 60 * 1000,
+      key: `boundary-lookup:${candidate.osmType}:${candidate.osmId}:${url}`
     }
-  });
-  if (!response.ok) {
+  }).catch(() => null);
+  if (raw === null) {
     return null;
   }
-  const raw = (await response.json()) as unknown;
   if (!Array.isArray(raw)) {
     return null;
   }

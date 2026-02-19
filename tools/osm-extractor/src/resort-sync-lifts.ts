@@ -3,6 +3,7 @@ import { readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { sha256File } from "./provenance.js";
 import { readResortWorkspace, writeResortWorkspace, type ResortWorkspace } from "./resort-workspace.js";
+import { resilientFetchJson } from "./network-resilience.js";
 
 type OverpassElement = {
   type?: string;
@@ -85,20 +86,24 @@ export async function syncResortLifts(
   );
 
   try {
-    const response = await fetchFn("https://overpass-api.de/api/interpreter", {
+    const raw = (await resilientFetchJson({
+      url: "https://overpass-api.de/api/interpreter",
       method: "POST",
       headers: {
         "content-type": "text/plain",
         accept: "application/json",
         "user-agent": "patrol-toolkit-osm-extractor/0.1"
       },
-      body: query
-    });
-    if (!response.ok) {
-      throw new Error(`Lifts sync failed: Overpass returned HTTP ${response.status}.`);
-    }
+      body: query,
+      fetchFn,
+      throttleMs: deps?.fetchFn ? 0 : 1100,
+      cache: {
+        dir: join(dirname(args.workspacePath), ".cache"),
+        ttlMs: 60 * 60 * 1000,
+        key: `lifts:${queryHash}`
+      }
+    })) as { elements?: OverpassElement[] };
 
-    const raw = (await response.json()) as { elements?: OverpassElement[] };
     const features = toLiftFeatures(raw.elements ?? []);
     await writeJsonFileAtomic(outputPath, {
       type: "FeatureCollection",
