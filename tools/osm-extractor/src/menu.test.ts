@@ -801,7 +801,7 @@ describe("menu interactive flows", () => {
           candidates: [candidate]
         })
       });
-      expect(rl.prompts.some((prompt) => prompt.includes("Select option (1-10):"))).toBe(true);
+      expect(rl.prompts.some((prompt) => prompt.includes("Select option (1-11):"))).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
