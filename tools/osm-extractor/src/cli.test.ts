@@ -1,5 +1,15 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { CliCommandError, formatCliError, isCliEntryPointUrl, parseResortUpdateOptions, runResortUpdateCommand } from "./cli.js";
+import {
+  CliCommandError,
+  exportLatestValidatedResortVersion,
+  formatCliError,
+  isCliEntryPointUrl,
+  parseResortUpdateOptions,
+  runResortUpdateCommand
+} from "./cli.js";
 
 describe("CLI error JSON format", () => {
   it("formats explicit command errors with code and details", () => {
@@ -368,5 +378,103 @@ describe("resort-update command behavior", () => {
         { updateResortLayersFn, log: vi.fn() }
       )
     ).rejects.toMatchObject({ code: "UPDATE_INCOMPLETE" });
+  });
+});
+
+describe("resort-export-latest command helpers", () => {
+  it("exports latest manually validated resort version bundle", async () => {
+    const root = await mkdtemp(join(tmpdir(), "resort-export-"));
+    const resortKey = "CA_Golden_Kicking_Horse";
+    const v1 = join(root, resortKey, "v1");
+    const v2 = join(root, resortKey, "v2");
+    const outputPath = join(root, "exports", "bundle.json");
+
+    try {
+      await mkdir(v1, { recursive: true });
+      await mkdir(v2, { recursive: true });
+      await writeFile(
+        join(v1, "status.json"),
+        JSON.stringify({
+          manualValidation: { validated: false }
+        }),
+        "utf8"
+      );
+      await writeFile(
+        join(v2, "status.json"),
+        JSON.stringify({
+          manualValidation: { validated: true, validatedAt: "2026-02-21T10:00:00.000Z" }
+        }),
+        "utf8"
+      );
+      await writeFile(
+        join(v2, "resort.json"),
+        JSON.stringify({
+          schemaVersion: "2.0.0",
+          resort: {
+            query: { name: "Kicking Horse", country: "CA" }
+          },
+          layers: {
+            boundary: { status: "complete", artifactPath: "boundary.geojson" },
+            lifts: { status: "complete", artifactPath: "lifts.geojson" },
+            runs: { status: "complete", artifactPath: "runs.geojson" }
+          }
+        }),
+        "utf8"
+      );
+      await writeFile(join(v2, "boundary.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(v2, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(v2, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+
+      const result = await exportLatestValidatedResortVersion({
+        resortsRoot: root,
+        resortKey,
+        outputPath,
+        exportedAt: "2026-02-21T10:30:00.000Z"
+      });
+
+      expect(result.version).toBe("v2");
+      expect(result.validatedAt).toBe("2026-02-21T10:00:00.000Z");
+
+      const exportedRaw = await readFile(outputPath, "utf8");
+      const exported = JSON.parse(exportedRaw) as {
+        export: { version: string; resortKey: string };
+        layers: { boundary: unknown; runs: unknown; lifts: unknown };
+      };
+      expect(exported.export.version).toBe("v2");
+      expect(exported.export.resortKey).toBe(resortKey);
+      expect(exported.layers.boundary).not.toBeNull();
+      expect(exported.layers.runs).not.toBeNull();
+      expect(exported.layers.lifts).not.toBeNull();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("throws when no manually validated version exists", async () => {
+    const root = await mkdtemp(join(tmpdir(), "resort-export-none-"));
+    const resortKey = "CA_Golden_Kicking_Horse";
+    const v1 = join(root, resortKey, "v1");
+    const outputPath = join(root, "bundle.json");
+
+    try {
+      await mkdir(v1, { recursive: true });
+      await writeFile(
+        join(v1, "status.json"),
+        JSON.stringify({
+          manualValidation: { validated: false }
+        }),
+        "utf8"
+      );
+
+      await expect(
+        exportLatestValidatedResortVersion({
+          resortsRoot: root,
+          resortKey,
+          outputPath
+        })
+      ).rejects.toThrow(/No manually validated version found/i);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
