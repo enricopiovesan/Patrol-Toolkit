@@ -172,4 +172,80 @@ describe("resort catalog selection", () => {
     expect(pack.runs).toHaveLength(1);
     expect(pack.lifts).toHaveLength(1);
   });
+
+  it("prefers export resort key when status resort key casing differs", async () => {
+    const entry: SelectableResortPack = {
+      resortId: "CA_Golden_Kicking_Horse",
+      resortName: "Kicking Horse",
+      version: "v1",
+      packUrl: "/packs/CA_Golden_Kicking_Horse.latest.validated.json"
+    };
+
+    const bundlePayload = {
+      schemaVersion: "1.0.0",
+      export: {
+        resortKey: "CA_Golden_Kicking_Horse"
+      },
+      status: {
+        resortKey: "CA_golden_kicking_horse",
+        query: {
+          name: "Kicking Horse",
+          countryCode: "CA"
+        }
+      },
+      layers: {
+        runs: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "LineString",
+                coordinates: [
+                  [-116.96, 51.293],
+                  [-116.955, 51.289]
+                ]
+              },
+              properties: {
+                id: "run-1",
+                name: "Pioneer",
+                difficulty: "blue"
+              }
+            }
+          ]
+        },
+        lifts: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "LineString",
+                coordinates: [
+                  [-116.961, 51.294],
+                  [-116.957, 51.29]
+                ]
+              },
+              properties: {
+                id: "lift-1",
+                name: "Stairway"
+              }
+            }
+          ]
+        }
+      }
+    };
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(bundlePayload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+
+    const pack = await loadPackFromCatalogEntry(entry);
+    expect(pack.resort.id).toBe("CA_Golden_Kicking_Horse");
+    expect(pack.basemap.pmtilesPath).toBe("packs/CA_Golden_Kicking_Horse/base.pmtiles");
+    expect(pack.basemap.stylePath).toBe("packs/CA_Golden_Kicking_Horse/style.json");
+  });
 });
