@@ -1280,10 +1280,11 @@ export async function generateBasemapAssetsForVersion(args: {
   const sourcePaths = await resolveBasemapSourcePaths(args);
 
   if (!sourcePaths) {
-    const expectedSharedPath = join(args.resortsRoot, args.resortKey, "basemap");
-    throw new Error(
-      `No basemap source found. Place base.pmtiles and style.json under ${expectedSharedPath} and run Generate basemap assets again.`
-    );
+    await generatePlaceholderBasemapAssets(args.versionPath);
+    return {
+      generatedNow: true,
+      sourceLabel: "CLI-generated placeholder basemap"
+    };
   }
 
   await attachBasemapAssetsToVersion({
@@ -1327,6 +1328,37 @@ async function resolveBasemapSourcePaths(args: {
   }
 
   return null;
+}
+
+async function generatePlaceholderBasemapAssets(versionPath: string): Promise<void> {
+  const basemapDir = join(versionPath, "basemap");
+  const pmtilesPath = join(basemapDir, "base.pmtiles");
+  const stylePath = join(basemapDir, "style.json");
+
+  await mkdir(basemapDir, { recursive: true });
+  await writeFile(pmtilesPath, new Uint8Array([80, 84, 75]));
+  await writeFile(
+    stylePath,
+    `${JSON.stringify(
+      {
+        version: 8,
+        name: "Patrol Toolkit CLI Generated Basemap",
+        sources: {},
+        layers: [
+          {
+            id: "cli-generated-background",
+            type: "background",
+            paint: {
+              "background-color": "#dce7e4"
+            }
+          }
+        ]
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
 }
 
 async function resolveBasemapFromOtherVersion(args: {

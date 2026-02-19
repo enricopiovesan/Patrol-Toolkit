@@ -165,6 +165,42 @@ describe("attach basemap assets", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("generates placeholder basemap assets when no source exists", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-generate-basemap-placeholder-"));
+    try {
+      const resortsRoot = join(root, "resorts");
+      const publicRoot = join(root, "public");
+      const resortKey = "CA_Golden_Kicking_Horse";
+      const currentVersionPath = join(resortsRoot, resortKey, "v3");
+      await mkdir(currentVersionPath, { recursive: true });
+
+      const result = await generateBasemapAssetsForVersion({
+        resortsRoot,
+        appPublicRoot: publicRoot,
+        resortKey,
+        versionPath: currentVersionPath
+      });
+
+      expect(result.generatedNow).toBe(true);
+      expect(result.sourceLabel).toBe("CLI-generated placeholder basemap");
+
+      const generatedPmtiles = await readFile(join(currentVersionPath, "basemap", "base.pmtiles"));
+      const generatedStyleRaw = await readFile(join(currentVersionPath, "basemap", "style.json"), "utf8");
+      const generatedStyle = JSON.parse(generatedStyleRaw) as {
+        version: number;
+        sources: Record<string, unknown>;
+        layers: Array<{ id: string; type: string }>;
+      };
+
+      expect(generatedPmtiles.length).toBeGreaterThan(0);
+      expect(generatedStyle.version).toBe(8);
+      expect(generatedStyle.sources).toEqual({});
+      expect(generatedStyle.layers[0]?.id).toBe("cli-generated-background");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("menu known resort listing", () => {
