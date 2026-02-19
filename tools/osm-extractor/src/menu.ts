@@ -713,6 +713,11 @@ async function runKnownResortMenu(args: {
     }
 
     if (selected === "3") {
+      const workspace = await readResortWorkspace(workspacePath);
+      if (!isBoundaryReadyForSync(workspace)) {
+        console.log("Cannot sync runs yet. Boundary is not ready. Run 'Fetch/update boundary' first.");
+        continue;
+      }
       const cloned = await createNextVersionClone({
         resortsRoot: args.resortsRoot,
         resortKey: args.resortKey,
@@ -741,6 +746,11 @@ async function runKnownResortMenu(args: {
     }
 
     if (selected === "4") {
+      const workspace = await readResortWorkspace(workspacePath);
+      if (!isBoundaryReadyForSync(workspace)) {
+        console.log("Cannot sync lifts yet. Boundary is not ready. Run 'Fetch/update boundary' first.");
+        continue;
+      }
       const cloned = await createNextVersionClone({
         resortsRoot: args.resortsRoot,
         resortKey: args.resortKey,
@@ -953,6 +963,9 @@ export async function createNextVersionClone(args: {
   };
 }
 
+export function isBoundaryReadyForSync(workspace: ResortWorkspace): boolean {
+  return workspace.layers.boundary.status === "complete" && typeof workspace.layers.boundary.artifactPath === "string";
+}
 export function toCanonicalResortKey(resortKey: string): string {
   const parts = resortKey.split("_").filter((part) => part.length > 0);
   if (parts.length === 0) {
