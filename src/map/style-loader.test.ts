@@ -4,6 +4,19 @@ import type { ResortPack } from "../resort-pack/types";
 import { OFFLINE_FALLBACK_STYLE, resolveStyleForPack } from "./style-loader";
 
 describe("resolveStyleForPack", () => {
+  it("uses a local-only offline fallback style", () => {
+    expect(OFFLINE_FALLBACK_STYLE.sources).toEqual({});
+    expect(OFFLINE_FALLBACK_STYLE.layers).toEqual([
+      {
+        id: "offline-fallback-background",
+        type: "background",
+        paint: {
+          "background-color": "#dce7e4"
+        }
+      }
+    ]);
+  });
+
   it("returns offline fallback when pack is null", async () => {
     const result = await resolveStyleForPack(null);
     expect(result.key).toBe("fallback");

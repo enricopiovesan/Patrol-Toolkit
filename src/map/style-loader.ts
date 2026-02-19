@@ -4,19 +4,14 @@ import type { ResortPack } from "../resort-pack/types";
 export const OFFLINE_FALLBACK_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   name: "Patrol Toolkit Offline Fallback",
-  sources: {
-    "osm-raster": {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors"
-    }
-  },
+  sources: {},
   layers: [
     {
-      id: "osm-raster-layer",
-      type: "raster",
-      source: "osm-raster"
+      id: "offline-fallback-background",
+      type: "background",
+      paint: {
+        "background-color": "#dce7e4"
+      }
     }
   ]
 };
