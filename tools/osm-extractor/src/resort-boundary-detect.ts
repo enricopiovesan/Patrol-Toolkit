@@ -21,6 +21,13 @@ type LookupRecord = {
   geojson?: GeoJsonPolygon | GeoJsonMultiPolygon | Record<string, unknown>;
 };
 
+type OverpassWinterSportsElement = {
+  type?: "way" | "relation" | "node";
+  id?: number;
+  tags?: Record<string, string>;
+  geometry?: Array<{ lon?: number; lat?: number }>;
+};
+
 export type ResortBoundaryCandidate = {
   osmType: "relation" | "way" | "node";
   osmId: number;
@@ -51,6 +58,21 @@ export function buildNominatimLookupUrl(candidate: { osmType: "relation" | "way"
   url.searchParams.set("polygon_geojson", "1");
   url.searchParams.set("addressdetails", "1");
   return url.toString();
+}
+
+export function buildWinterSportsOverpassQuery(args: {
+  minLon: number;
+  minLat: number;
+  maxLon: number;
+  maxLat: number;
+  timeoutSeconds: number;
+}): string {
+  return `[out:json][timeout:${args.timeoutSeconds}];
+(
+  way["landuse"="winter_sports"](${args.minLat},${args.minLon},${args.maxLat},${args.maxLon});
+  relation["landuse"="winter_sports"](${args.minLat},${args.minLon},${args.maxLat},${args.maxLon});
+);
+out geom tags;`;
 }
 
 export async function detectResortBoundaryCandidates(
@@ -104,6 +126,17 @@ export async function detectResortBoundaryCandidates(
     seedCandidates.push({ source: "search", candidate });
   }
 
+  const winterSportsCandidates = await fetchWinterSportsBoundaryCandidates({
+    selectionCenter: selection.center,
+    queryName: workspace.resort.query.name,
+    fetchFn,
+    userAgent,
+    throttleMs
+  });
+  for (const candidate of winterSportsCandidates) {
+    seedCandidates.push({ source: "search", candidate });
+  }
+
   const seen = new Set<string>();
   const resolved: ResortBoundaryCandidate[] = [];
   for (const seed of seedCandidates) {
@@ -138,6 +171,76 @@ export async function detectResortBoundaryCandidates(
       return left.displayName.localeCompare(right.displayName);
     })
   };
+}
+
+async function fetchWinterSportsBoundaryCandidates(args: {
+  selectionCenter: [number, number];
+  queryName: string;
+  fetchFn: typeof fetch;
+  userAgent: string;
+  throttleMs: number;
+}): Promise<ResortSearchCandidate[]> {
+  const bbox = computeCenterBbox(args.selectionCenter, 25_000);
+  const query = buildWinterSportsOverpassQuery({
+    minLon: bbox.minLon,
+    minLat: bbox.minLat,
+    maxLon: bbox.maxLon,
+    maxLat: bbox.maxLat,
+    timeoutSeconds: 30
+  });
+
+  const raw = (await resilientFetchJson({
+    url: "https://overpass-api.de/api/interpreter",
+    method: "POST",
+    headers: {
+      "content-type": "text/plain",
+      accept: "application/json",
+      "user-agent": args.userAgent
+    },
+    body: query,
+    fetchFn: args.fetchFn,
+    throttleMs: args.throttleMs,
+    cache: {
+      dir: defaultCacheDir(),
+      ttlMs: 60 * 60 * 1000,
+      key: `winter-sports-boundary:${query}`
+    }
+  }).catch(() => null)) as { elements?: OverpassWinterSportsElement[] } | null;
+  if (!raw || !Array.isArray(raw.elements)) {
+    return [];
+  }
+
+  const candidates: ResortSearchCandidate[] = [];
+  for (const element of raw.elements) {
+    const elementId = element.id;
+    if ((element.type !== "way" && element.type !== "relation") || typeof elementId !== "number" || !Number.isInteger(elementId)) {
+      continue;
+    }
+
+    const ring = overpassGeometryToRing(element.geometry);
+    if (!ring || ring.length < 4) {
+      continue;
+    }
+    const center = computeRingCenter(ring);
+    const displayName =
+      element.tags?.name?.trim() ||
+      element.tags?.["name:en"]?.trim() ||
+      `${args.queryName} winter sports area ${element.type}/${String(element.id)}`;
+
+    candidates.push({
+      osmType: element.type,
+      osmId: elementId,
+      displayName,
+      center,
+      countryCode: null,
+      country: null,
+      region: null,
+      importance: 1,
+      source: "nominatim"
+    });
+  }
+
+  return candidates;
 }
 
 async function lookupBoundary(
@@ -217,6 +320,9 @@ function scoreBoundaryCandidate(args: {
   if (displayName.toLowerCase().includes(args.queryName.toLowerCase())) {
     score += 10;
   }
+  if (displayName.toLowerCase().includes("winter sports")) {
+    score += 20;
+  }
 
   return {
     osmType: args.candidate.osmType,
@@ -233,6 +339,54 @@ function scoreBoundaryCandidate(args: {
       score,
       issues
     }
+  };
+}
+
+function overpassGeometryToRing(geometry: Array<{ lon?: number; lat?: number }> | undefined): [number, number][] | null {
+  if (!geometry || geometry.length < 4) {
+    return null;
+  }
+  const ring = geometry
+    .map((point) => [Number(point.lon), Number(point.lat)] as [number, number])
+    .filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat));
+  if (ring.length < 4) {
+    return null;
+  }
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (first && last && (first[0] !== last[0] || first[1] !== last[1])) {
+    ring.push([first[0], first[1]]);
+  }
+  return ring;
+}
+
+function computeRingCenter(ring: [number, number][]): [number, number] {
+  let lonSum = 0;
+  let latSum = 0;
+  let count = 0;
+  for (const [lon, lat] of ring) {
+    lonSum += lon;
+    latSum += lat;
+    count += 1;
+  }
+  if (count === 0) {
+    return [0, 0];
+  }
+  return [lonSum / count, latSum / count];
+}
+
+function computeCenterBbox(
+  center: [number, number],
+  radiusMeters: number
+): { minLon: number; minLat: number; maxLon: number; maxLat: number } {
+  const [lon, lat] = center;
+  const latBuffer = radiusMeters / 110_574;
+  const lonBuffer = radiusMeters / (111_320 * Math.cos((lat * Math.PI) / 180) || 1);
+  return {
+    minLon: lon - lonBuffer,
+    minLat: lat - latBuffer,
+    maxLon: lon + lonBuffer,
+    maxLat: lat + latBuffer
   };
 }
 
