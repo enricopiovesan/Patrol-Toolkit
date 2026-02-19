@@ -40,7 +40,9 @@ export type ResortBoundaryCandidate = {
     containsSelectionCenter: boolean;
     ringClosed: boolean;
     areaKm2: number | null;
+    distanceToSelectionCenterKm: number;
     score: number;
+    signals: string[];
     issues: string[];
   };
 };
@@ -292,36 +294,69 @@ function scoreBoundaryCandidate(args: {
   const { geometryType, ring } = extractRing(args.lookup?.geojson);
 
   const issues: string[] = [];
+  const signals: string[] = [];
   const ringClosed = ring ? isRingClosed(ring) : false;
   const areaKm2 = ring ? Math.abs(approximateRingAreaKm2(ring)) : null;
   const containsSelectionCenter = ring ? pointInPolygon(args.selectionCenter, ring) : false;
+  const distanceToSelectionCenterKm = haversineDistanceKm(args.selectionCenter, center);
 
   let score = 0;
   if (ring) {
     score += 40;
+    signals.push("has-polygon");
   } else {
     issues.push("No polygon geometry available from lookup.");
   }
   if (ring && ringClosed) {
     score += 20;
+    signals.push("ring-closed");
   } else if (ring) {
     issues.push("Boundary ring is not closed.");
   }
   if (containsSelectionCenter) {
     score += 30;
+    signals.push("contains-selection-center");
   } else {
     issues.push("Selection center is outside candidate boundary.");
   }
   if (areaKm2 !== null && areaKm2 >= 0.1 && areaKm2 <= 1000) {
     score += 20;
+    signals.push("area-in-range");
   } else if (areaKm2 !== null) {
     issues.push("Boundary area is outside expected ski resort range (0.1-1000 km2).");
   }
-  if (displayName.toLowerCase().includes(args.queryName.toLowerCase())) {
+  const displayNameLower = displayName.toLowerCase();
+  const queryLower = args.queryName.toLowerCase();
+  if (displayNameLower.includes(queryLower)) {
     score += 10;
+    signals.push("name-matches-query");
   }
-  if (displayName.toLowerCase().includes("winter sports")) {
+  if (displayNameLower.includes("winter sports")) {
     score += 20;
+    signals.push("winter-sports-name");
+  }
+  if (args.source === "selection") {
+    score += 6;
+    signals.push("from-current-selection");
+  }
+  if (args.candidate.osmType === "relation") {
+    score += 6;
+    signals.push("relation-geometry");
+  } else if (args.candidate.osmType === "way") {
+    score += 3;
+    signals.push("way-geometry");
+  }
+  if (distanceToSelectionCenterKm <= 2) {
+    score += 15;
+    signals.push("very-close-center");
+  } else if (distanceToSelectionCenterKm <= 10) {
+    score += 8;
+    signals.push("close-center");
+  } else if (distanceToSelectionCenterKm <= 25) {
+    score += 2;
+    signals.push("nearby-center");
+  } else {
+    issues.push("Candidate center is far from selected resort center (>25 km).");
   }
 
   return {
@@ -336,10 +371,25 @@ function scoreBoundaryCandidate(args: {
       containsSelectionCenter,
       ringClosed,
       areaKm2,
+      distanceToSelectionCenterKm,
       score,
+      signals,
       issues
     }
   };
+}
+
+function haversineDistanceKm(from: [number, number], to: [number, number]): number {
+  const [fromLon, fromLat] = from;
+  const [toLon, toLat] = to;
+  const toRad = (degrees: number): number => (degrees * Math.PI) / 180;
+  const dLat = toRad(toLat - fromLat);
+  const dLon = toRad(toLon - fromLon);
+  const lat1 = toRad(fromLat);
+  const lat2 = toRad(toLat);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return 6371 * c;
 }
 
 function overpassGeometryToRing(geometry: Array<{ lon?: number; lat?: number }> | undefined): [number, number][] | null {

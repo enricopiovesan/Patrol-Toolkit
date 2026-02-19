@@ -61,7 +61,9 @@ describe("resort boundary set", () => {
                   containsSelectionCenter: true,
                   ringClosed: true,
                   areaKm2: 250,
+                  distanceToSelectionCenterKm: 0.2,
                   score: 100,
+                  signals: ["has-polygon", "contains-selection-center"],
                   issues: []
                 }
               }

@@ -1085,7 +1085,7 @@ async function runBoundaryUpdateForWorkspace(args: {
       continue;
     }
     console.log(
-      `${index + 1}. ${candidate.displayName} [${candidate.osmType}/${candidate.osmId}] score=${candidate.validation.score} containsCenter=${candidate.validation.containsSelectionCenter ? "yes" : "no"}`
+      `${index + 1}. ${candidate.displayName} [${candidate.osmType}/${candidate.osmId}] score=${candidate.validation.score} containsCenter=${candidate.validation.containsSelectionCenter ? "yes" : "no"} dist=${candidate.validation.distanceToSelectionCenterKm.toFixed(1)}km why=${candidate.validation.signals.slice(0, 3).join(",") || "none"}`
     );
   }
 
