@@ -36,6 +36,15 @@ export type KnownResortLayerSummary = {
   updatedAt: string | null;
 };
 
+export type OfflineBasemapMetrics = {
+  generated: boolean;
+  published: boolean;
+  generatedPmtiles: boolean;
+  generatedStyle: boolean;
+  publishedPmtiles: boolean;
+  publishedStyle: boolean;
+};
+
 export type PersistedResortVersion = {
   resortKey: string;
   resortPath: string;
@@ -852,6 +861,11 @@ async function runKnownResortMenu(args: {
       });
       const status = await readStatusShape(statusPath);
       const manualValidation = toManualValidationState(status.manualValidation);
+      const offlineBasemap = await readOfflineBasemapMetrics({
+        versionPath: dirname(workspacePath),
+        appPublicRoot: args.appPublicRoot,
+        resortKey: args.resortKey
+      });
       console.log("");
       console.log("Metrics");
       console.log(`- Sync overall: ${syncStatus.overall}`);
@@ -870,6 +884,13 @@ async function runKnownResortMenu(args: {
       console.log(`  - Runs    : ${formatLayerValidationSummary(manualValidation.layers.runs)}`);
       console.log(`  - Lifts   : ${formatLayerValidationSummary(manualValidation.layers.lifts)}`);
       console.log(`  - Overall : ${manualValidation.validated ? "yes" : "no"}`);
+      console.log("- Offline basemap");
+      console.log(
+        `  - Generated: ${offlineBasemap.generated ? "yes" : "no"} (pmtiles=${offlineBasemap.generatedPmtiles ? "yes" : "no"}, style=${offlineBasemap.generatedStyle ? "yes" : "no"})`
+      );
+      console.log(
+        `  - Published: ${offlineBasemap.published ? "yes" : "no"} (pmtiles=${offlineBasemap.publishedPmtiles ? "yes" : "no"}, style=${offlineBasemap.publishedStyle ? "yes" : "no"})`
+      );
       continue;
     }
 
@@ -1631,6 +1652,35 @@ async function readCatalogIndex(path: string): Promise<ResortCatalogIndex> {
     return parsed;
   } catch {
     return { schemaVersion: "1.0.0", resorts: [] };
+  }
+}
+
+export async function readOfflineBasemapMetrics(args: {
+  versionPath: string;
+  appPublicRoot: string;
+  resortKey: string;
+}): Promise<OfflineBasemapMetrics> {
+  const generatedPmtiles = await isRegularFile(join(args.versionPath, "basemap", "base.pmtiles"));
+  const generatedStyle = await isRegularFile(join(args.versionPath, "basemap", "style.json"));
+  const publishedPmtiles = await isRegularFile(join(args.appPublicRoot, "packs", args.resortKey, "base.pmtiles"));
+  const publishedStyle = await isRegularFile(join(args.appPublicRoot, "packs", args.resortKey, "style.json"));
+
+  return {
+    generated: generatedPmtiles && generatedStyle,
+    published: publishedPmtiles && publishedStyle,
+    generatedPmtiles,
+    generatedStyle,
+    publishedPmtiles,
+    publishedStyle
+  };
+}
+
+async function isRegularFile(path: string): Promise<boolean> {
+  try {
+    const metadata = await stat(path);
+    return metadata.isFile();
+  } catch {
+    return false;
   }
 }
 

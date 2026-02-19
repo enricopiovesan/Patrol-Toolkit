@@ -15,12 +15,68 @@ import {
   parseCandidateSelection,
   parseDuplicateResortAction,
   persistResortVersion,
+  readOfflineBasemapMetrics,
   rankSearchCandidates,
   runInteractiveMenu,
   setLayerManualValidation,
   toManualValidationState,
   toCanonicalResortKey
 } from "./menu.js";
+
+describe("offline basemap metrics", () => {
+  it("reports missing generated and published basemap files", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-basemap-metrics-empty-"));
+    try {
+      const metrics = await readOfflineBasemapMetrics({
+        versionPath: join(root, "resorts", "CA_Golden_Kicking_Horse", "v1"),
+        appPublicRoot: join(root, "public"),
+        resortKey: "CA_Golden_Kicking_Horse"
+      });
+
+      expect(metrics).toEqual({
+        generated: false,
+        published: false,
+        generatedPmtiles: false,
+        generatedStyle: false,
+        publishedPmtiles: false,
+        publishedStyle: false
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reports generated and published basemap files when present", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-basemap-metrics-full-"));
+    try {
+      const versionPath = join(root, "resorts", "CA_Golden_Kicking_Horse", "v1");
+      const publicRoot = join(root, "public");
+      await mkdir(join(versionPath, "basemap"), { recursive: true });
+      await mkdir(join(publicRoot, "packs", "CA_Golden_Kicking_Horse"), { recursive: true });
+      await writeFile(join(versionPath, "basemap", "base.pmtiles"), new Uint8Array([1]));
+      await writeFile(join(versionPath, "basemap", "style.json"), "{}");
+      await writeFile(join(publicRoot, "packs", "CA_Golden_Kicking_Horse", "base.pmtiles"), new Uint8Array([2]));
+      await writeFile(join(publicRoot, "packs", "CA_Golden_Kicking_Horse", "style.json"), "{}");
+
+      const metrics = await readOfflineBasemapMetrics({
+        versionPath,
+        appPublicRoot: publicRoot,
+        resortKey: "CA_Golden_Kicking_Horse"
+      });
+
+      expect(metrics).toEqual({
+        generated: true,
+        published: true,
+        generatedPmtiles: true,
+        generatedStyle: true,
+        publishedPmtiles: true,
+        publishedStyle: true
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("menu known resort listing", () => {
   it("returns empty list when resorts root does not exist", async () => {
