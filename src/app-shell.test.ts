@@ -13,6 +13,7 @@ describe("AppShell", () => {
   });
 
   it("renders the patrol toolkit heading", async () => {
+    mockCatalogFetch();
     const { AppShell } = await import("./app-shell");
 
     const element = new AppShell();
@@ -24,7 +25,8 @@ describe("AppShell", () => {
     expect(heading).toBe("Patrol Toolkit");
   });
 
-  it("imports a resort pack and restores active pack on next app load", async () => {
+  it("selects a resort from catalog and restores active pack on next app load", async () => {
+    mockCatalogFetch();
     const { AppShell } = await import("./app-shell");
 
     const firstInstance = new AppShell();
@@ -34,21 +36,16 @@ describe("AppShell", () => {
         (firstInstance as unknown as { repository: unknown | null }).repository !== null
     );
 
-    const file = {
-      text: async () => JSON.stringify(validPack)
-    };
-
-    await (firstInstance as unknown as {
-      importPack: (event: { currentTarget: { files: unknown[]; value: string } }) => Promise<void>;
-    }).importPack({
-      currentTarget: {
-        files: [file],
-        value: ""
-      }
-    });
+    await waitForCondition(() => hasResortOptions(firstInstance));
+    const select = firstInstance.shadowRoot?.querySelector("select");
+    if (!select) {
+      throw new Error("Resort select not found.");
+    }
+    select.value = "demo-resort";
+    select.dispatchEvent(new Event("change"));
 
     await waitForCondition(() =>
-      /Pack imported: Demo Resort|Active pack: Demo Resort/iu.test(readStatusText(firstInstance))
+      /Active pack: Demo Resort/iu.test(readStatusText(firstInstance))
     );
 
     firstInstance.remove();
@@ -63,6 +60,7 @@ describe("AppShell", () => {
   });
 
   it("generates phrase from active pack and GPS event", async () => {
+    mockCatalogFetch();
     const shell = await createReadyShell();
 
     await (shell as unknown as { generatePhrase: () => Promise<void> }).generatePhrase();
@@ -94,18 +92,15 @@ async function createReadyShell(): Promise<HTMLElement> {
     () => (shell as unknown as { repository: unknown | null }).repository !== null
   );
 
-  const file = {
-    text: async () => JSON.stringify(validPack)
-  };
+  await waitForCondition(() => hasResortOptions(shell));
+  const select = shell.shadowRoot?.querySelector("select");
+  if (!select) {
+    throw new Error("Resort select not found.");
+  }
+  select.value = "demo-resort";
+  select.dispatchEvent(new Event("change"));
 
-  await (shell as unknown as {
-    importPack: (event: { currentTarget: { files: unknown[]; value: string } }) => Promise<void>;
-  }).importPack({
-    currentTarget: {
-      files: [file],
-      value: ""
-    }
-  });
+  await waitForCondition(() => /Active pack: Demo Resort/iu.test(readStatusText(shell)));
 
   (shell as unknown as {
     handlePositionUpdate: (event: CustomEvent<{ coordinates: [number, number]; accuracy: number }>) => void;
@@ -119,6 +114,11 @@ async function createReadyShell(): Promise<HTMLElement> {
   );
 
   return shell;
+}
+
+function hasResortOptions(shell: HTMLElement): boolean {
+  const options = shell.shadowRoot?.querySelectorAll("select option");
+  return (options?.length ?? 0) > 1;
 }
 
 async function waitForCondition(assertion: () => boolean): Promise<void> {
@@ -145,5 +145,45 @@ function deleteDatabase(name: string): Promise<void> {
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error ?? new Error("Failed to delete test database."));
     request.onblocked = () => resolve();
+  });
+}
+
+function mockCatalogFetch(): void {
+  const catalogPayload = {
+    schemaVersion: "1.0.0",
+    resorts: [
+      {
+        resortId: "demo-resort",
+        resortName: "Demo Resort",
+        versions: [
+          {
+            version: "v1",
+            approved: true,
+            packUrl: "/packs/demo-resort-v1.json",
+            createdAt: "2026-02-19T16:35:00.000Z"
+          }
+        ]
+      }
+    ]
+  };
+
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (url.includes("/resort-packs/index.json")) {
+      return new Response(JSON.stringify(catalogPayload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (url.includes("/packs/demo-resort-v1.json")) {
+      return new Response(JSON.stringify(validPack), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    return new Response("Not Found", { status: 404 });
   });
 }

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0.0",
+  "resort": {
+    "id": "demo-resort",
+    "name": "Demo Resort",
+    "timezone": "America/Denver"
+  },
+  "basemap": {
+    "pmtilesPath": "packs/demo-resort/base.pmtiles",
+    "stylePath": "packs/demo-resort/style.json"
+  },
+  "thresholds": {
+    "liftProximityMeters": 90
+  },
+  "lifts": [
+    {
+      "id": "lift-a",
+      "name": "Summit Express",
+      "towers": [
+        { "number": 1, "coordinates": [-106.9501, 39.1912] },
+        { "number": 2, "coordinates": [-106.9497, 39.1924] }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-easy",
+      "name": "Easy Street",
+      "difficulty": "green",
+      "polygon": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-106.951, 39.193],
+            [-106.95, 39.193],
+            [-106.95, 39.192],
+            [-106.951, 39.193]
+          ]
+        ]
+      },
+      "centerline": {
+        "type": "LineString",
+        "coordinates": [
+          [-106.9509, 39.1929],
+          [-106.9504, 39.1923]
+        ]
+      }
+    }
+  ]
+}
