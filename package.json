@@ -2,6 +2,7 @@
   "name": "patrol-toolkit",
   "version": "0.0.1",
   "scripts": {
+    "menu": "npm --prefix tools/osm-extractor run run:menu",
     "test": "vitest run",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
