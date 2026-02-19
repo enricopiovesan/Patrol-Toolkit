@@ -99,6 +99,33 @@ export type ResortExportLatestResult = {
   exportedAt: string;
 };
 
+export type ResortPublishLatestResult = {
+  resortKey: string;
+  version: string;
+  outputPath: string;
+  outputUrl: string;
+  catalogPath: string;
+  exportedAt: string;
+};
+
+type ResortCatalogIndex = {
+  schemaVersion: "1.0.0";
+  resorts: ResortCatalogEntry[];
+};
+
+type ResortCatalogEntry = {
+  resortId: string;
+  resortName: string;
+  versions: ResortCatalogVersion[];
+};
+
+type ResortCatalogVersion = {
+  version: string;
+  approved: boolean;
+  packUrl: string;
+  createdAt: string;
+};
+
 export class CliCommandError extends Error {
   readonly code: string;
   readonly details?: unknown;
@@ -121,8 +148,10 @@ async function main(): Promise<void> {
 
   if (!command) {
     const resortsRoot = readFlag(args, "--resorts-root") ?? "./resorts";
+    const appPublicRoot = readFlag(args, "--app-public-root") ?? "./public";
     await runInteractiveMenu({
       resortsRoot,
+      appPublicRoot,
       searchFn: searchResortCandidates
     });
     return;
@@ -147,6 +176,7 @@ async function main(): Promise<void> {
     command !== "resort-sync-status" &&
     command !== "resort-update" &&
     command !== "resort-export-latest" &&
+    command !== "resort-publish-latest" &&
     command !== "menu" &&
     command !== "extract-resort" &&
     command !== "extract-fleet"
@@ -166,6 +196,7 @@ async function main(): Promise<void> {
         "resort-sync-status",
         "resort-update",
         "resort-export-latest",
+        "resort-publish-latest",
         "menu",
         "extract-resort",
         "extract-fleet"
@@ -773,10 +804,58 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "resort-publish-latest") {
+    const resortsRoot = readFlag(args, "--resorts-root") ?? "./resorts";
+    const appPublicRoot = readFlag(args, "--app-public-root") ?? "./public";
+    const resortKey = readFlag(args, "--resort-key");
+    const exportedAt = readFlag(args, "--exported-at") ?? undefined;
+    if (!resortKey) {
+      throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --resort-key <value> argument.", {
+        command: "resort-publish-latest",
+        required: ["--resort-key"]
+      });
+    }
+
+    let result: ResortPublishLatestResult;
+    try {
+      result = await publishLatestValidatedResortVersion({
+        resortsRoot,
+        appPublicRoot,
+        resortKey,
+        exportedAt
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CliCommandError("RESORT_PUBLISH_FAILED", message, {
+        command: "resort-publish-latest",
+        resortsRoot,
+        appPublicRoot,
+        resortKey
+      });
+    }
+
+    if (outputJson) {
+      console.log(
+        JSON.stringify({
+          ok: true,
+          resortPublish: result
+        })
+      );
+      return;
+    }
+
+    console.log(
+      `RESORT_PUBLISHED resortKey=${result.resortKey} version=${result.version} output=${result.outputPath} catalog=${result.catalogPath}`
+    );
+    return;
+  }
+
   if (command === "menu") {
     const resortsRoot = readFlag(args, "--resorts-root") ?? "./resorts";
+    const appPublicRoot = readFlag(args, "--app-public-root") ?? "./public";
     await runInteractiveMenu({
       resortsRoot,
+      appPublicRoot,
       searchFn: searchResortCandidates
     });
     return;
@@ -1208,6 +1287,73 @@ export async function exportLatestValidatedResortVersion(args: {
   };
 }
 
+export async function publishLatestValidatedResortVersion(args: {
+  resortsRoot: string;
+  appPublicRoot: string;
+  resortKey: string;
+  exportedAt?: string;
+}): Promise<ResortPublishLatestResult> {
+  const publicRoot = resolve(args.appPublicRoot);
+  const packsDir = join(publicRoot, "packs");
+  const catalogDir = join(publicRoot, "resort-packs");
+  const outputFileName = `${args.resortKey}.latest.validated.json`;
+  const outputPath = join(packsDir, outputFileName);
+  const outputUrl = `/packs/${outputFileName}`;
+
+  const exportResult = await exportLatestValidatedResortVersion({
+    resortsRoot: args.resortsRoot,
+    resortKey: args.resortKey,
+    outputPath,
+    exportedAt: args.exportedAt
+  });
+
+  const exportedBundle = await readJsonFile<{
+    workspace?: {
+      resort?: {
+        query?: {
+          name?: string;
+        };
+      };
+    };
+  }>(outputPath);
+
+  const resortName = exportedBundle.workspace?.resort?.query?.name?.trim() || args.resortKey;
+  const catalogPath = join(catalogDir, "index.json");
+
+  await mkdir(catalogDir, { recursive: true });
+
+  const catalog = await readCatalogIndex(catalogPath);
+  const updatedResorts = catalog.resorts.filter((entry) => entry.resortId !== args.resortKey);
+  updatedResorts.push({
+    resortId: args.resortKey,
+    resortName,
+    versions: [
+      {
+        version: exportResult.version,
+        approved: true,
+        packUrl: outputUrl,
+        createdAt: exportResult.exportedAt
+      }
+    ]
+  });
+
+  updatedResorts.sort((left, right) => left.resortName.localeCompare(right.resortName));
+  const nextCatalog: ResortCatalogIndex = {
+    schemaVersion: "1.0.0",
+    resorts: updatedResorts
+  };
+  await writeFile(catalogPath, `${JSON.stringify(nextCatalog, null, 2)}\n`, "utf8");
+
+  return {
+    resortKey: args.resortKey,
+    version: exportResult.version,
+    outputPath,
+    outputUrl,
+    catalogPath,
+    exportedAt: exportResult.exportedAt
+  };
+}
+
 async function readLayerArtifactJson(versionPath: string, artifactPath: string | undefined): Promise<unknown | null> {
   if (!artifactPath || artifactPath.trim().length === 0) {
     return null;
@@ -1246,6 +1392,55 @@ async function readJsonFile<T>(path: string): Promise<T> {
   return JSON.parse(raw) as T;
 }
 
+async function readCatalogIndex(path: string): Promise<ResortCatalogIndex> {
+  try {
+    const parsed = await readJsonFile<unknown>(path);
+    if (!isCatalogIndex(parsed)) {
+      return {
+        schemaVersion: "1.0.0",
+        resorts: []
+      };
+    }
+    return parsed;
+  } catch {
+    return {
+      schemaVersion: "1.0.0",
+      resorts: []
+    };
+  }
+}
+
+function isCatalogIndex(input: unknown): input is ResortCatalogIndex {
+  if (typeof input !== "object" || input === null) {
+    return false;
+  }
+  const value = input as { schemaVersion?: unknown; resorts?: unknown };
+  if (value.schemaVersion !== "1.0.0" || !Array.isArray(value.resorts)) {
+    return false;
+  }
+  return value.resorts.every((entry) => {
+    if (typeof entry !== "object" || entry === null) {
+      return false;
+    }
+    const resort = entry as { resortId?: unknown; resortName?: unknown; versions?: unknown };
+    if (typeof resort.resortId !== "string" || typeof resort.resortName !== "string" || !Array.isArray(resort.versions)) {
+      return false;
+    }
+    return resort.versions.every((version) => {
+      if (typeof version !== "object" || version === null) {
+        return false;
+      }
+      const data = version as { version?: unknown; approved?: unknown; packUrl?: unknown; createdAt?: unknown };
+      return (
+        typeof data.version === "string" &&
+        typeof data.approved === "boolean" &&
+        typeof data.packUrl === "string" &&
+        typeof data.createdAt === "string"
+      );
+    });
+  });
+}
+
 export function formatCliError(error: unknown, command: string | null): CliErrorJson {
   if (error instanceof CliCommandError) {
     return {
@@ -1272,7 +1467,7 @@ export function formatCliError(error: unknown, command: string | null): CliError
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  menu [--resorts-root <path>]\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs|all> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--dry-run] [--require-complete] [--json]\n  resort-export-latest --resort-key <value> --output <path> [--resorts-root <path>] [--exported-at <ISO-8601>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
+    `ptk-extractor commands:\n\n  menu [--resorts-root <path>] [--app-public-root <path>]\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs|all> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--dry-run] [--require-complete] [--json]\n  resort-export-latest --resort-key <value> --output <path> [--resorts-root <path>] [--exported-at <ISO-8601>] [--json]\n  resort-publish-latest --resort-key <value> [--resorts-root <path>] [--app-public-root <path>] [--exported-at <ISO-8601>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
   );
 }
 

@@ -2,8 +2,13 @@ import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import "./map/map-view";
 import { composeRadioPhrase } from "./radio/phrase";
-import { loadResortPackFromJson } from "./resort-pack/loader";
-import { ResortPackRepository, type ResortPackListItem } from "./resort-pack/repository";
+import {
+  loadPackFromCatalogEntry,
+  loadResortCatalog,
+  selectLatestEligibleVersions,
+  type SelectableResortPack
+} from "./resort-pack/catalog";
+import { ResortPackRepository } from "./resort-pack/repository";
 import type { LngLat, ResortPack } from "./resort-pack/types";
 
 @customElement("app-shell")
@@ -49,15 +54,11 @@ export class AppShell extends LitElement {
     }
 
     .pack-row {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      gap: 0.6rem;
-      align-items: center;
+      display: block;
     }
 
-    .pack-row input[type="file"],
-    .pack-row select,
-    .pack-row button {
+    .pack-row select {
+      width: 100%;
       min-height: 44px;
       border-radius: 10px;
       border: 1px solid #cbd5e1;
@@ -69,21 +70,21 @@ export class AppShell extends LitElement {
       padding: 0 0.75rem;
     }
 
-    .pack-row button {
-      padding: 0 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .pack-row button.primary {
-      background: #0f4c5c;
-      color: #f8fafc;
-      border-color: #0f4c5c;
-    }
-
     .status-line {
       font-size: 0.9rem;
       color: #334155;
+    }
+
+    .empty-state {
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px dashed #cbd5e1;
+      background: #f8fafc;
+      padding: 0.65rem 0.75rem;
+      display: grid;
+      align-items: center;
+      color: #475569;
+      font-size: 0.95rem;
     }
 
     .status-line strong {
@@ -146,7 +147,7 @@ export class AppShell extends LitElement {
   private repository: ResortPackRepository | null = null;
 
   @state()
-  private accessor packs: ResortPackListItem[] = [];
+  private accessor resortOptions: SelectableResortPack[] = [];
 
   @state()
   private accessor selectedPackId: string | null = null;
@@ -181,6 +182,7 @@ export class AppShell extends LitElement {
       }
 
       this.repository = repository;
+      await this.loadCatalogOptions();
       await this.refreshPackState();
     } catch {
       this.hasStorage = false;
@@ -199,90 +201,76 @@ export class AppShell extends LitElement {
       return;
     }
 
-    const [packs, activePackId] = await Promise.all([
-      this.repository.listPacks(),
-      this.repository.getActivePackId()
+    const [activePackId, activePack] = await Promise.all([
+      this.repository.getActivePackId(),
+      this.repository.getActivePack()
     ]);
-
-    this.packs = packs;
     this.activePackId = activePackId;
 
-    const fallbackSelection = packs[0]?.id ?? null;
-    this.selectedPackId = packs.some((pack) => pack.id === this.selectedPackId)
+    const fallbackSelection = this.resortOptions[0]?.resortId ?? null;
+    const activeInOptions = this.resortOptions.some((entry) => entry.resortId === activePackId);
+    this.selectedPackId = this.resortOptions.some((entry) => entry.resortId === this.selectedPackId)
       ? this.selectedPackId
-      : activePackId ?? fallbackSelection;
+      : activeInOptions
+        ? activePackId
+        : fallbackSelection;
 
-    const activePack = packs.find((pack) => pack.id === activePackId);
-    this.activePack = await this.repository.getActivePack();
+    this.activePack = activePack;
     this.statusMessage = activePack
-      ? `Active pack: ${activePack.name}`
-      : "No active pack selected.";
+      ? `Active pack: ${activePack.resort.name}`
+      : this.resortOptions.length > 0
+        ? "Select a resort pack."
+        : "No eligible resort packs available.";
   }
 
-  private async importPack(event: Event): Promise<void> {
-    const input = event.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-
-    if (!file) {
-      return;
+  private async loadCatalogOptions(): Promise<void> {
+    try {
+      const catalog = await loadResortCatalog();
+      this.resortOptions = selectLatestEligibleVersions(catalog);
+    } catch {
+      this.resortOptions = [];
+      this.statusMessage = "Resort catalog unavailable.";
     }
-
-    const json = await file.text();
-    const result = loadResortPackFromJson(json);
-    if (!result.ok) {
-      const firstError = result.errors[0];
-      this.statusMessage = firstError
-        ? `Import failed (${firstError.code}): ${firstError.path} ${firstError.message}`
-        : "Import failed: invalid Resort Pack.";
-      input.value = "";
-      return;
-    }
-
-    if (!this.repository) {
-      this.statusMessage = "Pack import unavailable: IndexedDB not ready.";
-      input.value = "";
-      return;
-    }
-
-    await this.repository.savePack(result.value);
-    const activated = await this.repository.setActivePackId(result.value.resort.id);
-    if (!activated) {
-      this.statusMessage = "Pack import failed: unable to set active pack.";
-      input.value = "";
-      return;
-    }
-    await this.refreshPackState();
-    this.selectedPackId = result.value.resort.id;
-    this.statusMessage = `Pack imported: ${result.value.resort.name}`;
-    input.value = "";
   }
 
-  private async applySelection(): Promise<void> {
-    if (!this.repository || !this.selectedPackId) {
-      return;
-    }
-
-    const activated = await this.repository.setActivePackId(this.selectedPackId);
-    if (!activated) {
-      this.statusMessage = "Unable to set active pack: selection is missing.";
-      await this.refreshPackState();
-      return;
-    }
-    await this.refreshPackState();
-  }
-
-  private async removeSelection(): Promise<void> {
-    if (!this.repository || !this.selectedPackId) {
-      return;
-    }
-
-    await this.repository.deletePack(this.selectedPackId);
-    await this.refreshPackState();
-  }
-
-  private updateSelection(event: Event): void {
+  private async updateSelection(event: Event): Promise<void> {
     const select = event.currentTarget as HTMLSelectElement;
-    this.selectedPackId = select.value || null;
+    const selectedResortId = select.value || null;
+    this.selectedPackId = selectedResortId;
+
+    if (!selectedResortId) {
+      return;
+    }
+
+    await this.activateSelectedResort(selectedResortId);
+  }
+
+  private async activateSelectedResort(resortId: string): Promise<void> {
+    if (!this.repository) {
+      this.statusMessage = "Resort selection unavailable: storage not ready.";
+      return;
+    }
+
+    const selectedEntry = this.resortOptions.find((entry) => entry.resortId === resortId);
+    if (!selectedEntry) {
+      this.statusMessage = "Selected resort is not available.";
+      return;
+    }
+
+    try {
+      const pack = await loadPackFromCatalogEntry(selectedEntry);
+      await this.repository.savePack(pack);
+      const activated = await this.repository.setActivePackId(pack.resort.id);
+      if (!activated) {
+        this.statusMessage = "Unable to activate selected resort pack.";
+        return;
+      }
+
+      await this.refreshPackState();
+      this.statusMessage = `Active pack: ${pack.resort.name} (${selectedEntry.version})`;
+    } catch (error) {
+      this.statusMessage = error instanceof Error ? error.message : "Failed to load selected resort.";
+    }
   }
 
   private handlePositionUpdate(event: CustomEvent<{ coordinates: LngLat; accuracy: number }>): void {
@@ -321,29 +309,17 @@ export class AppShell extends LitElement {
           <p>Map foundation with live GPS dot for on-mountain positioning.</p>
           <section class="pack-panel" aria-label="Resort pack management">
             <div class="pack-row">
-              <input
-                type="file"
-                accept="application/json,.json"
-                @change=${this.importPack}
-                ?disabled=${!this.hasStorage}
-              />
-              <button class="primary" @click=${this.applySelection} ?disabled=${!this.selectedPackId}>
-                Set Active
-              </button>
-              <button @click=${this.removeSelection} ?disabled=${!this.selectedPackId}>
-                Remove
-              </button>
-            </div>
-            <div class="pack-row">
-              <select @change=${this.updateSelection} .value=${this.selectedPackId ?? ""}>
-                <option value="">Select Resort Pack</option>
-                ${this.packs.map(
-                  (pack) =>
-                    html`<option value=${pack.id}>
-                      ${pack.name}${pack.id === this.activePackId ? " (active)" : ""}
-                    </option>`
-                )}
-              </select>
+              ${this.resortOptions.length > 0
+                ? html`<select @change=${this.updateSelection} .value=${this.selectedPackId ?? ""} ?disabled=${!this.hasStorage}>
+                    <option value="">Select Resort Pack</option>
+                    ${this.resortOptions.map(
+                      (entry) =>
+                        html`<option value=${entry.resortId}>
+                          ${entry.resortName} (${entry.version})${entry.resortId === this.activePackId ? " (active)" : ""}
+                        </option>`
+                    )}
+                  </select>`
+                : html`<div class="empty-state">No resort packs available.</div>`}
             </div>
             <div class="status-line"><strong>Status:</strong> ${this.statusMessage}</div>
           </section>

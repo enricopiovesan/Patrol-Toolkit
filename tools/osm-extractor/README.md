@@ -59,14 +59,17 @@ npm --prefix tools/osm-extractor run run:menu
 - `2/3/4` for single-layer sync (`boundary`, `runs`, `lifts`).
 - `5` for immutable multi-layer update in one new version.
 - `6/7/8` to mark layer manual validation.
+  - when all three are validated, the menu auto-publishes latest validated bundle to app catalog (`public/packs` + `public/resort-packs/index.json`).
 - `1` to verify readiness/metrics.
 
-4. Export app-ready bundle from latest manually validated version:
+4. Optional explicit publish command (same output as auto-publish):
 
 ```bash
-node tools/osm-extractor/dist/src/cli.js resort-export-latest \
+node tools/osm-extractor/dist/src/cli.js resort-publish-latest \
+  --resorts-root ./resorts \
+  --app-public-root ./public \
   --resort-key CA_Golden_Kicking_Horse \
-  --output ./out/CA_Golden_Kicking_Horse.latest.validated.json
+  --exported-at 2026-02-19T16:35:00.000Z
 ```
 
 ## Quality Gate
@@ -340,6 +343,31 @@ node tools/osm-extractor/dist/src/cli.js resort-export-latest \
   --resorts-root ./resorts \
   --resort-key CA_Golden_Kicking_Horse \
   --output ./out/CA_Golden_Kicking_Horse.latest.validated.json \
+  --json
+```
+
+### resort-publish-latest
+
+Export latest manually validated immutable version and upsert app catalog in one command.
+
+Writes:
+- `/packs/<resortKey>.latest.validated.json`
+- `/resort-packs/index.json` (upsert by `resortId`)
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-publish-latest \
+  --resorts-root ./resorts \
+  --app-public-root ./public \
+  --resort-key CA_Golden_Kicking_Horse
+```
+
+JSON mode:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-publish-latest \
+  --resorts-root ./resorts \
+  --app-public-root ./public \
+  --resort-key CA_Golden_Kicking_Horse \
   --json
 ```
 

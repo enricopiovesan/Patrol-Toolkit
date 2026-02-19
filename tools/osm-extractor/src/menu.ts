@@ -1,7 +1,7 @@
 import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { buildNominatimLookupUrl } from "./resort-boundary-detect.js";
 import { detectResortBoundaryCandidates } from "./resort-boundary-detect.js";
 import { searchResortCandidates } from "./resort-search.js";
@@ -283,6 +283,7 @@ export async function runInteractiveMenu(args: {
   resortsRoot: string;
   searchFn: (query: { name: string; country: string; limit: number }) => Promise<ResortSearchResult>;
   rl?: MenuReadline;
+  appPublicRoot?: string;
   rankCandidatesFn?: (candidates: ResortSearchCandidate[], options: { town: string }) => Promise<RankedSearchCandidate[]>;
 }): Promise<void> {
   const rl = args.rl ?? createInterface({ input, output });
@@ -292,11 +293,14 @@ export async function runInteractiveMenu(args: {
 
     let running = true;
     while (running) {
-      console.log("Welcome to osm-extractor CLI");
-      console.log("Here are your options:");
+      console.log("");
+      console.log("=== osm-extractor CLI ===");
+      console.log("");
+      console.log("Main menu");
       console.log("1. Resort list");
       console.log("2. New Resort");
       console.log("3. Exit");
+      console.log("");
 
       const selected = (await rl.question("Select option (1-3): ")).trim();
       if (selected === "1") {
@@ -306,13 +310,16 @@ export async function runInteractiveMenu(args: {
           continue;
         }
 
-        console.log(`Known resorts (${resorts.length}):`);
+        console.log("");
+        console.log(`Known resorts (${resorts.length})`);
+        console.log("");
         for (let index = 0; index < resorts.length; index += 1) {
           const resort = resorts[index];
           if (!resort) {
             continue;
           }
           console.log(formatKnownResortSummary(index + 1, resort));
+          console.log("");
         }
         const resortChoice = (await rl.question(`Select resort (1-${resorts.length}, 0 to cancel): `)).trim();
         const selectedResortIndex = parseCandidateSelection(resortChoice, resorts.length);
@@ -335,6 +342,7 @@ export async function runInteractiveMenu(args: {
         await runKnownResortMenu({
           rl,
           resortsRoot: args.resortsRoot,
+          appPublicRoot: args.appPublicRoot ?? "./public",
           resortKey: selectedResort.resortKey,
           workspacePath: context.workspacePath,
           statusPath: context.statusPath
@@ -469,19 +477,29 @@ export function formatKnownResortSummary(index: number, resort: KnownResortSumma
   const validated =
     resort.manuallyValidated === null ? "unknown" : resort.manuallyValidated ? "yes" : "no";
   const created = resort.createdAt ?? "unknown";
-  const readiness = resort.readinessOverall;
+  const readiness =
+    resort.readinessIssueCount > 0 ? `${resort.readinessOverall} (${resort.readinessIssueCount} issue(s))` : resort.readinessOverall;
   const boundary = formatKnownLayerLine("Boundary", resort.layers.boundary);
   const runs = formatKnownLayerLine("Runs", resort.layers.runs);
   const lifts = formatKnownLayerLine("Lifts", resort.layers.lifts);
-  const issues = resort.readinessIssueCount > 0 ? `\n   Readiness issues: ${resort.readinessIssueCount}` : "";
-  return `${index}. ${resort.resortKey} | latest=${resort.latestVersion ?? "none"} | validated=${validated} | readiness=${readiness} | createdAt=${created}\n   ${boundary}\n   ${runs}\n   ${lifts}${issues}`;
+  return [
+    `${index}. ${resort.resortKey}`,
+    `   Latest version : ${resort.latestVersion ?? "none"}`,
+    `   Validated      : ${validated}`,
+    `   Readiness      : ${readiness}`,
+    `   Created at     : ${created}`,
+    "   Layers",
+    `   ${boundary}`,
+    `   ${runs}`,
+    `   ${lifts}`
+  ].join("\n");
 }
 
 function formatKnownLayerLine(label: string, layer: KnownResortLayerSummary): string {
   const checksum = layer.checksumSha256 ? layer.checksumSha256.slice(0, 12) : "n/a";
   const updatedAt = layer.updatedAt ?? "n/a";
   const features = layer.featureCount === null ? "?" : String(layer.featureCount);
-  return `${label}: status=${layer.status} features=${features} checksum=${checksum} updatedAt=${updatedAt}`;
+  return `- ${label.padEnd(8, " ")} status=${layer.status}  features=${features}  checksum=${checksum}  updatedAt=${updatedAt}`;
 }
 
 export function formatSearchCandidate(index: number, ranked: RankedSearchCandidate): string {
@@ -800,6 +818,7 @@ function getKnownResortContext(resortsRoot: string, resortKey: string, version: 
 async function runKnownResortMenu(args: {
   rl: MenuReadline;
   resortsRoot: string;
+  appPublicRoot: string;
   resortKey: string;
   workspacePath: string;
   statusPath: string;
@@ -809,7 +828,10 @@ async function runKnownResortMenu(args: {
 
   let keepRunning = true;
   while (keepRunning) {
-    console.log(`Resort menu: ${args.resortKey}`);
+    console.log("");
+    console.log(`=== Resort: ${args.resortKey} ===`);
+    console.log("");
+    console.log("Resort menu");
     console.log("1. See metrics");
     console.log("2. Fetch/update boundary");
     console.log("3. Fetch/update runs");
@@ -830,28 +852,24 @@ async function runKnownResortMenu(args: {
       });
       const status = await readStatusShape(statusPath);
       const manualValidation = toManualValidationState(status.manualValidation);
-      console.log(`Sync overall: ${syncStatus.overall}`);
+      console.log("");
+      console.log("Metrics");
+      console.log(`- Sync overall: ${syncStatus.overall}`);
+      console.log("- Layers");
       console.log(
-        `Boundary: status=${syncStatus.layers.boundary.status} features=${syncStatus.layers.boundary.featureCount ?? "?"} ready=${syncStatus.layers.boundary.ready ? "yes" : "no"}`
+        `  - Boundary: status=${syncStatus.layers.boundary.status}  features=${syncStatus.layers.boundary.featureCount ?? "?"}  ready=${syncStatus.layers.boundary.ready ? "yes" : "no"}`
       );
       console.log(
-        `Runs: status=${syncStatus.layers.runs.status} features=${syncStatus.layers.runs.featureCount ?? "?"} ready=${syncStatus.layers.runs.ready ? "yes" : "no"}`
+        `  - Runs    : status=${syncStatus.layers.runs.status}  features=${syncStatus.layers.runs.featureCount ?? "?"}  ready=${syncStatus.layers.runs.ready ? "yes" : "no"}`
       );
       console.log(
-        `Lifts: status=${syncStatus.layers.lifts.status} features=${syncStatus.layers.lifts.featureCount ?? "?"} ready=${syncStatus.layers.lifts.ready ? "yes" : "no"}`
+        `  - Lifts   : status=${syncStatus.layers.lifts.status}  features=${syncStatus.layers.lifts.featureCount ?? "?"}  ready=${syncStatus.layers.lifts.ready ? "yes" : "no"}`
       );
-      console.log(
-        `Boundary validation: ${formatLayerValidationSummary(manualValidation.layers.boundary)}`
-      );
-      console.log(
-        `Runs validation: ${formatLayerValidationSummary(manualValidation.layers.runs)}`
-      );
-      console.log(
-        `Lifts validation: ${formatLayerValidationSummary(manualValidation.layers.lifts)}`
-      );
-      console.log(
-        `Manual validation overall: ${manualValidation.validated ? "yes" : "no"}`
-      );
+      console.log("- Validation");
+      console.log(`  - Boundary: ${formatLayerValidationSummary(manualValidation.layers.boundary)}`);
+      console.log(`  - Runs    : ${formatLayerValidationSummary(manualValidation.layers.runs)}`);
+      console.log(`  - Lifts   : ${formatLayerValidationSummary(manualValidation.layers.lifts)}`);
+      console.log(`  - Overall : ${manualValidation.validated ? "yes" : "no"}`);
       continue;
     }
 
@@ -1078,6 +1096,22 @@ async function runKnownResortMenu(args: {
       };
       await writeFile(statusPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
       console.log(`Updated ${layer} validation: ${formatLayerValidationSummary(nextManualValidation.layers[layer])}`);
+      if (nextManualValidation.validated) {
+        try {
+          const published = await publishCurrentValidatedVersionToAppCatalog({
+            resortKey: args.resortKey,
+            workspacePath,
+            statusPath,
+            appPublicRoot: args.appPublicRoot
+          });
+          console.log(
+            `Auto-published resort to app catalog: version=${published.version} pack=${published.outputPath}`
+          );
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.log(`Auto-publish failed: ${message}`);
+        }
+      }
       continue;
     }
 
@@ -1432,6 +1466,161 @@ function formatLayerValidationSummary(value: LayerManualValidationState): string
   const by = value.validatedBy ?? "unknown";
   return `yes (at=${at}, by=${by})`;
 }
+
+type ResortCatalogIndex = {
+  schemaVersion: "1.0.0";
+  resorts: ResortCatalogEntry[];
+};
+
+type ResortCatalogEntry = {
+  resortId: string;
+  resortName: string;
+  versions: ResortCatalogVersion[];
+};
+
+type ResortCatalogVersion = {
+  version: string;
+  approved: boolean;
+  packUrl: string;
+  createdAt: string;
+};
+
+async function publishCurrentValidatedVersionToAppCatalog(args: {
+  resortKey: string;
+  workspacePath: string;
+  statusPath: string;
+  appPublicRoot: string;
+  exportedAt?: string;
+}): Promise<{ version: string; outputPath: string; catalogPath: string }> {
+  const status = await readStatusShape(args.statusPath);
+  const manualValidation = toManualValidationState(status.manualValidation);
+  if (!manualValidation.validated) {
+    throw new Error("Resort version is not manually validated.");
+  }
+
+  const workspace = await readResortWorkspace(args.workspacePath);
+  const versionPath = dirname(args.workspacePath);
+  const version = typeof status.version === "string" && status.version.trim().length > 0 ? status.version : basename(versionPath);
+  const exportedAt = args.exportedAt ?? new Date().toISOString();
+
+  const publicRoot = resolve(args.appPublicRoot);
+  const packsDir = join(publicRoot, "packs");
+  const catalogDir = join(publicRoot, "resort-packs");
+  const outputFileName = `${args.resortKey}.latest.validated.json`;
+  const outputPath = join(packsDir, outputFileName);
+  const outputUrl = `/packs/${outputFileName}`;
+
+  const boundary = await readLayerArtifactJson(versionPath, workspace.layers.boundary.artifactPath);
+  const runs = await readLayerArtifactJson(versionPath, workspace.layers.runs.artifactPath);
+  const lifts = await readLayerArtifactJson(versionPath, workspace.layers.lifts.artifactPath);
+
+  const bundle = {
+    schemaVersion: "1.0.0",
+    export: {
+      resortKey: args.resortKey,
+      version,
+      exportedAt
+    },
+    status,
+    workspace,
+    layers: {
+      boundary,
+      runs,
+      lifts
+    }
+  };
+
+  await mkdir(packsDir, { recursive: true });
+  await mkdir(catalogDir, { recursive: true });
+  await writeFile(outputPath, `${JSON.stringify(bundle, null, 2)}\n`, "utf8");
+
+  const catalogPath = join(catalogDir, "index.json");
+  const catalog = await readCatalogIndex(catalogPath);
+  const resortName = status.query?.name?.trim() || args.resortKey;
+  const updatedResorts = catalog.resorts.filter((entry) => entry.resortId !== args.resortKey);
+  updatedResorts.push({
+    resortId: args.resortKey,
+    resortName,
+    versions: [
+      {
+        version,
+        approved: true,
+        packUrl: outputUrl,
+        createdAt: exportedAt
+      }
+    ]
+  });
+  updatedResorts.sort((left, right) => left.resortName.localeCompare(right.resortName));
+  await writeFile(
+    catalogPath,
+    `${JSON.stringify({ schemaVersion: "1.0.0", resorts: updatedResorts } as ResortCatalogIndex, null, 2)}\n`,
+    "utf8"
+  );
+
+  return {
+    version,
+    outputPath,
+    catalogPath
+  };
+}
+
+async function readLayerArtifactJson(versionPath: string, artifactPath: string | undefined): Promise<unknown | null> {
+  if (!artifactPath || artifactPath.trim().length === 0) {
+    return null;
+  }
+  const resolvedPath = artifactPath.startsWith("/") ? artifactPath : resolve(versionPath, artifactPath);
+  try {
+    const raw = await readFile(resolvedPath, "utf8");
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+async function readCatalogIndex(path: string): Promise<ResortCatalogIndex> {
+  try {
+    const raw = await readFile(path, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isCatalogIndex(parsed)) {
+      return { schemaVersion: "1.0.0", resorts: [] };
+    }
+    return parsed;
+  } catch {
+    return { schemaVersion: "1.0.0", resorts: [] };
+  }
+}
+
+function isCatalogIndex(input: unknown): input is ResortCatalogIndex {
+  if (typeof input !== "object" || input === null) {
+    return false;
+  }
+  const value = input as { schemaVersion?: unknown; resorts?: unknown };
+  if (value.schemaVersion !== "1.0.0" || !Array.isArray(value.resorts)) {
+    return false;
+  }
+  return value.resorts.every((entry) => {
+    if (typeof entry !== "object" || entry === null) {
+      return false;
+    }
+    const resort = entry as { resortId?: unknown; resortName?: unknown; versions?: unknown };
+    if (typeof resort.resortId !== "string" || typeof resort.resortName !== "string" || !Array.isArray(resort.versions)) {
+      return false;
+    }
+    return resort.versions.every((version) => {
+      if (typeof version !== "object" || version === null) {
+        return false;
+      }
+      const data = version as { version?: unknown; approved?: unknown; packUrl?: unknown; createdAt?: unknown };
+      return (
+        typeof data.version === "string" &&
+        typeof data.approved === "boolean" &&
+        typeof data.packUrl === "string" &&
+        typeof data.createdAt === "string"
+      );
+    });
+  });
+}
+
 export function toCanonicalResortKey(resortKey: string): string {
   const parts = resortKey.split("_").filter((part) => part.length > 0);
   if (parts.length === 0) {
