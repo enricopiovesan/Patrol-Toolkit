@@ -4,6 +4,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { LocationTracker, type GeoPosition } from "../location/location-tracker";
 import type { ResortPack } from "../resort-pack/types";
 import { buildResortOverlayData } from "./overlays";
+import { ensurePackPmtilesArchiveLoaded, ensurePmtilesProtocolRegistered } from "./pmtiles-protocol";
 import { resolveStyleForPack } from "./style-loader";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -105,6 +106,9 @@ export class MapView extends LitElement {
   private accessor followGps = true;
 
   protected firstUpdated(): void {
+    ensurePmtilesProtocolRegistered();
+    ensurePackPmtilesArchiveLoaded(this.pack);
+
     const container = this.renderRoot.querySelector<HTMLElement>("#map");
     if (!container) {
       this.status = "Map container unavailable.";
@@ -167,6 +171,7 @@ export class MapView extends LitElement {
 
   protected override updated(changedProperties: Map<string, unknown>): void {
     if (changedProperties.has("pack")) {
+      ensurePackPmtilesArchiveLoaded(this.pack);
       void this.applyStyleForActivePack();
       this.syncResortLayers();
     }

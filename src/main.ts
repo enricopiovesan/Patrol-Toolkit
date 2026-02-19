@@ -1,6 +1,9 @@
 import "./styles.css";
 import "./app-shell";
 import { registerServiceWorker } from "./pwa/register-service-worker";
+import { ensurePmtilesProtocolRegistered } from "./map/pmtiles-protocol";
+
+ensurePmtilesProtocolRegistered();
 
 if (import.meta.env.PROD) {
   void registerServiceWorker().catch((error: unknown) => {

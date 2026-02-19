@@ -52,10 +52,11 @@ export async function resolveStyleForPack(
     if (!isStyleSpecification(payload)) {
       throw new Error("Invalid style payload.");
     }
+    const hydratedStyle = injectPmtilesSourceUrls(payload, pack.basemap.pmtilesPath);
 
     return {
       key: `pack:${pack.resort.id}:${normalized}`,
-      style: payload
+      style: hydratedStyle
     };
   } catch {
     return {
@@ -63,6 +64,53 @@ export async function resolveStyleForPack(
       style: OFFLINE_FALLBACK_STYLE
     };
   }
+}
+
+function injectPmtilesSourceUrls(
+  style: maplibregl.StyleSpecification,
+  pmtilesPath: string
+): maplibregl.StyleSpecification {
+  const nextStyle = structuredClone(style);
+  const vectorSourceNames = Object.entries(nextStyle.sources)
+    .filter(([, source]) => (source as { type?: string }).type === "vector")
+    .map(([name]) => name);
+
+  const pmtilesUrl = `pmtiles://${normalizeRelativePath(pmtilesPath)}`;
+  let hasPmtilesVectorSource = false;
+
+  for (const sourceName of vectorSourceNames) {
+    const source = nextStyle.sources[sourceName] as
+      | { type?: string; url?: string; tiles?: unknown; [key: string]: unknown }
+      | undefined;
+    if (!source || source.type !== "vector") {
+      continue;
+    }
+
+    if (typeof source.url === "string") {
+      if (source.url.startsWith("pmtiles://")) {
+        hasPmtilesVectorSource = true;
+        continue;
+      }
+
+      if (looksLikeLocalPmtilesPath(source.url)) {
+        source.url = `pmtiles://${normalizeRelativePath(source.url)}`;
+        hasPmtilesVectorSource = true;
+      }
+    }
+  }
+
+  if (!hasPmtilesVectorSource && vectorSourceNames.length > 0) {
+    const firstVectorSourceName = vectorSourceNames[0];
+    const firstVectorSource = nextStyle.sources[firstVectorSourceName] as
+      | { url?: string; tiles?: unknown; [key: string]: unknown }
+      | undefined;
+    if (firstVectorSource) {
+      firstVectorSource.url = pmtilesUrl;
+      delete firstVectorSource.tiles;
+    }
+  }
+
+  return nextStyle;
 }
 
 function normalizeRelativePath(path: string): string {
@@ -79,6 +127,18 @@ function isLocalRelativePath(path: string): boolean {
   }
 
   return !path.split(/[\\/]/u).some((segment) => segment === "..");
+}
+
+function looksLikeLocalPmtilesPath(path: string): boolean {
+  if (!path.toLowerCase().endsWith(".pmtiles")) {
+    return false;
+  }
+
+  if (path.startsWith("pmtiles://")) {
+    return false;
+  }
+
+  return !path.includes("://");
 }
 
 function isStyleSpecification(value: unknown): value is maplibregl.StyleSpecification {
