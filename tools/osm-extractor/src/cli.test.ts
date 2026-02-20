@@ -516,10 +516,10 @@ describe("resort-publish-latest command helpers", () => {
       await writeFile(join(v2, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
       await writeFile(join(v2, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
       await mkdir(basemapDir, { recursive: true });
-      await writeFile(join(basemapDir, "base.pmtiles"), new Uint8Array([1, 2, 3]));
+      await writeFile(join(basemapDir, "base.pmtiles"), new Uint8Array([1, 2, 3, 4]));
       await writeFile(
         join(basemapDir, "style.json"),
-        JSON.stringify({ version: 8, sources: {}, layers: [{ id: "bg", type: "background" }] }),
+        JSON.stringify({ version: 8, sources: { basemap: { type: "vector" } }, layers: [{ id: "bg", type: "background" }] }),
         "utf8"
       );
 
@@ -551,10 +551,10 @@ describe("resort-publish-latest command helpers", () => {
       expect(catalog.resorts[0]?.versions[0]?.packUrl).toBe("/packs/CA_Golden_Kicking_Horse.latest.validated.json");
       const publishedPmtiles = await readFile(join(publicRoot, "packs", resortKey, "base.pmtiles"));
       const publishedStyle = await readFile(join(publicRoot, "packs", resortKey, "style.json"), "utf8");
-      expect([...publishedPmtiles]).toEqual([1, 2, 3]);
+      expect([...publishedPmtiles]).toEqual([1, 2, 3, 4]);
       expect(JSON.parse(publishedStyle)).toEqual({
         version: 8,
-        sources: {},
+        sources: { basemap: { type: "vector" } },
         layers: [{ id: "bg", type: "background" }]
       });
     } finally {

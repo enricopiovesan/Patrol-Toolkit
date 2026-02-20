@@ -58,6 +58,7 @@ npm --prefix tools/osm-extractor run run:menu
 3. In resort submenu:
 - `2/3/4` for single-layer sync (`boundary`, `runs`, `lifts`).
 - `5` for immutable multi-layer update in one new version.
+- `9` to generate offline basemap assets for the current version using a local provider command (defaults: buffer `1000m`, max zoom `16`).
 - `6/7/8` to mark layer manual validation.
   - when all three are validated, the menu auto-publishes latest validated bundle to app catalog (`public/packs` + `public/resort-packs/index.json`).
   - auto-publish also copies basemap assets from `resorts/<resortKey>/<version>/basemap/base.pmtiles` and `resorts/<resortKey>/<version>/basemap/style.json` into `public/packs/<resortKey>/`.
@@ -89,6 +90,63 @@ Run the compiled CLI from repository root:
 
 ```bash
 node tools/osm-extractor/dist/src/cli.js --help
+```
+
+## Basemap Provider (Menu Option 9)
+
+Menu option `9` can build shared resort basemap assets automatically with provider `openmaptiles-planetiler`.
+No manual PMTiles/style prompt is required when provider config is set.
+
+Default config file:
+
+- `tools/osm-extractor/config/basemap-provider.json`
+
+```json
+{
+  "provider": "openmaptiles-planetiler",
+  "bufferMeters": 1000,
+  "maxZoom": 16,
+  "planetilerCommand": "REPLACE_WITH_LOCAL_PLANETILER_COMMAND"
+}
+```
+
+Required config field:
+
+- `planetilerCommand`
+  - shell command template executed locally.
+  - it must create:
+    - `resorts/<resortKey>/basemap/base.pmtiles`
+    - `resorts/<resortKey>/basemap/style.json`
+  - supported placeholders:
+    - `{resortKey}`
+    - `{minLon}` `{minLat}` `{maxLon}` `{maxLat}`
+    - `{bboxCsv}`
+    - `{bufferMeters}`
+    - `{maxZoom}`
+    - `{outputPmtiles}`
+    - `{outputStyle}`
+    - `{boundaryGeojson}`
+
+Optional env var overrides:
+
+- `PTK_BASEMAP_PROVIDER` (default: `openmaptiles-planetiler`)
+- `PTK_BASEMAP_BUFFER_METERS` (default: `1000`)
+- `PTK_BASEMAP_MAX_ZOOM` (default: `16`)
+- `PTK_BASEMAP_PLANETILER_CMD`
+- `PTK_BASEMAP_CONFIG_PATH` (default: `tools/osm-extractor/config/basemap-provider.json`)
+
+Example:
+
+```bash
+export PTK_BASEMAP_PROVIDER=openmaptiles-planetiler
+export PTK_BASEMAP_BUFFER_METERS=1000
+export PTK_BASEMAP_MAX_ZOOM=16
+export PTK_BASEMAP_PLANETILER_CMD="planetiler-wrapper \
+  --boundary {boundaryGeojson} \
+  --bbox {bboxCsv} \
+  --max-zoom {maxZoom} \
+  --out {outputPmtiles} \
+  --style-out {outputStyle}"
 ```
 
 ## Step-By-Step: Resort Workspace Flow

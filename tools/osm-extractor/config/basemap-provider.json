@@ -1,0 +1,6 @@
+{
+  "provider": "openmaptiles-planetiler",
+  "bufferMeters": 1000,
+  "maxZoom": 16,
+  "planetilerCommand": "REPLACE_WITH_LOCAL_PLANETILER_COMMAND"
+}

@@ -1,4 +1,6 @@
-import { cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { cp, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { basename, dirname, join, resolve } from "node:path";
@@ -43,12 +45,39 @@ export type OfflineBasemapMetrics = {
   generatedStyle: boolean;
   publishedPmtiles: boolean;
   publishedStyle: boolean;
+  generatedPmtilesBytes: number | null;
+  generatedStyleBytes: number | null;
+  publishedPmtilesBytes: number | null;
+  publishedStyleBytes: number | null;
 };
 
 type BasemapSourcePaths = {
   pmtilesPath: string;
   stylePath: string;
   sourceLabel: string;
+};
+
+type BasemapOfflineReadiness = {
+  pmtilesReady: boolean;
+  styleReady: boolean;
+  offlineReady: boolean;
+  issues: string[];
+};
+
+type BasemapProvider = "openmaptiles-planetiler";
+
+type BasemapProviderConfig = {
+  provider: BasemapProvider;
+  bufferMeters: number;
+  maxZoom: number;
+  planetilerCommand: string;
+};
+
+type BasemapProviderConfigFile = {
+  provider?: string;
+  bufferMeters?: number;
+  maxZoom?: number;
+  planetilerCommand?: string;
 };
 
 export type PersistedResortVersion = {
@@ -893,10 +922,10 @@ async function runKnownResortMenu(args: {
       console.log(`  - Overall : ${manualValidation.validated ? "yes" : "no"}`);
       console.log("- Offline basemap");
       console.log(
-        `  - Generated: ${offlineBasemap.generated ? "yes" : "no"} (pmtiles=${offlineBasemap.generatedPmtiles ? "yes" : "no"}, style=${offlineBasemap.generatedStyle ? "yes" : "no"})`
+        `  - Generated: ${offlineBasemap.generated ? "yes" : "no"} (pmtiles=${offlineBasemap.generatedPmtiles ? "yes" : "no"} ${formatBytes(offlineBasemap.generatedPmtilesBytes)}, style=${offlineBasemap.generatedStyle ? "yes" : "no"} ${formatBytes(offlineBasemap.generatedStyleBytes)})`
       );
       console.log(
-        `  - Published: ${offlineBasemap.published ? "yes" : "no"} (pmtiles=${offlineBasemap.publishedPmtiles ? "yes" : "no"}, style=${offlineBasemap.publishedStyle ? "yes" : "no"})`
+        `  - Published: ${offlineBasemap.published ? "yes" : "no"} (pmtiles=${offlineBasemap.publishedPmtiles ? "yes" : "no"} ${formatBytes(offlineBasemap.publishedPmtilesBytes)}, style=${offlineBasemap.publishedStyle ? "yes" : "no"} ${formatBytes(offlineBasemap.publishedStyleBytes)})`
       );
       continue;
     }
@@ -1156,12 +1185,42 @@ async function runKnownResortMenu(args: {
           appPublicRoot: args.appPublicRoot,
           resortKey: args.resortKey,
           versionPath: dirname(workspacePath)
+        }).catch(async (error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          if (!/No offline-ready basemap source found/iu.test(message)) {
+            throw error;
+          }
+
+          console.log(message);
+          console.log("Attempting local basemap build via provider...");
+          await buildSharedBasemapFromProvider({
+            workspace,
+            versionPath: dirname(workspacePath),
+            resortsRoot: args.resortsRoot,
+            resortKey: args.resortKey
+          });
+          console.log("Provider basemap build complete.");
+
+          return generateBasemapAssetsForVersion({
+            resortsRoot: args.resortsRoot,
+            appPublicRoot: args.appPublicRoot,
+            resortKey: args.resortKey,
+            versionPath: dirname(workspacePath)
+          });
         });
         if (result.generatedNow) {
           console.log(`Basemap assets generated under ${join(dirname(workspacePath), "basemap")} from ${result.sourceLabel}.`);
         } else {
           console.log(`Basemap assets already present under ${join(dirname(workspacePath), "basemap")}.`);
         }
+        await assertBasemapArtifactsExist({
+          label: "Generated basemap artifacts",
+          files: [
+            join(dirname(workspacePath), "basemap", "base.pmtiles"),
+            join(dirname(workspacePath), "basemap", "style.json")
+          ]
+        });
+        console.log("Generated artifact check passed: base.pmtiles, style.json.");
 
         const currentStatus = await readStatusShape(statusPath);
         const manualValidation = toManualValidationState(currentStatus.manualValidation);
@@ -1177,7 +1236,15 @@ async function runKnownResortMenu(args: {
             statusPath,
             appPublicRoot: args.appPublicRoot
           });
+          await assertBasemapArtifactsExist({
+            label: "Published basemap artifacts",
+            files: [
+              join(args.appPublicRoot, "packs", args.resortKey, "base.pmtiles"),
+              join(args.appPublicRoot, "packs", args.resortKey, "style.json")
+            ]
+          });
           console.log(`Published resort assets: version=${published.version} pack=${published.outputPath}`);
+          console.log("Published artifact check passed: base.pmtiles, style.json.");
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : String(error);
           console.log(`Auto-publish after basemap generation failed: ${message}`);
@@ -1277,6 +1344,11 @@ export async function attachBasemapAssetsToVersion(args: {
 }): Promise<void> {
   await assertRegularFile(args.pmtilesSourcePath, "Missing basemap PMTiles");
   await assertRegularFile(args.styleSourcePath, "Missing basemap style");
+  await assertOfflineReadyBasemapAssets({
+    pmtilesPath: args.pmtilesSourcePath,
+    stylePath: args.styleSourcePath,
+    label: "Basemap source is not offline-ready"
+  });
 
   const basemapDir = join(args.versionPath, "basemap");
   await mkdir(basemapDir, { recursive: true });
@@ -1292,24 +1364,21 @@ export async function generateBasemapAssetsForVersion(args: {
 }): Promise<{ generatedNow: boolean; sourceLabel: string }> {
   const targetPmtiles = join(args.versionPath, "basemap", "base.pmtiles");
   const targetStyle = join(args.versionPath, "basemap", "style.json");
-  const alreadyGenerated = (await isRegularFile(targetPmtiles)) && (await isRegularFile(targetStyle));
-  if (alreadyGenerated) {
-    const needsUpgrade = await isLegacyGeneratedPlaceholderStyle(targetStyle);
-    if (needsUpgrade) {
-      await generatePlaceholderBasemapAssets(args.versionPath);
-      return { generatedNow: true, sourceLabel: "upgraded CLI-generated placeholder basemap" };
-    }
+  const currentReadiness = await inspectOfflineBasemapReadiness({
+    pmtilesPath: targetPmtiles,
+    stylePath: targetStyle
+  });
+  if (currentReadiness.offlineReady) {
     return { generatedNow: false, sourceLabel: "current version basemap" };
   }
 
   const sourcePaths = await resolveBasemapSourcePaths(args);
-
   if (!sourcePaths) {
-    await generatePlaceholderBasemapAssets(args.versionPath);
-    return {
-      generatedNow: true,
-      sourceLabel: "CLI-generated placeholder basemap"
-    };
+    const sharedBasemapDir = join(args.resortsRoot, args.resortKey, "basemap");
+    const details = currentReadiness.issues.length > 0 ? ` Existing version basemap issues: ${currentReadiness.issues.join("; ")}.` : "";
+    throw new Error(
+      `No offline-ready basemap source found.${details} Place base.pmtiles and style.json under ${sharedBasemapDir} and run Generate basemap assets again.`
+    );
   }
 
   await attachBasemapAssetsToVersion({
@@ -1323,35 +1392,6 @@ export async function generateBasemapAssetsForVersion(args: {
   };
 }
 
-async function isLegacyGeneratedPlaceholderStyle(stylePath: string): Promise<boolean> {
-  let parsed: unknown;
-  try {
-    const raw = await readFile(stylePath, "utf8");
-    parsed = JSON.parse(raw) as unknown;
-  } catch {
-    return false;
-  }
-
-  if (typeof parsed !== "object" || parsed === null) {
-    return false;
-  }
-
-  const candidate = parsed as {
-    name?: unknown;
-    sources?: unknown;
-  };
-  if (candidate.name !== "Patrol Toolkit CLI Generated Basemap") {
-    return false;
-  }
-
-  const sources = candidate.sources;
-  if (typeof sources !== "object" || sources === null) {
-    return true;
-  }
-
-  return !Object.prototype.hasOwnProperty.call(sources, "osm-raster");
-}
-
 async function resolveBasemapSourcePaths(args: {
   resortsRoot: string;
   appPublicRoot: string;
@@ -1363,7 +1403,7 @@ async function resolveBasemapSourcePaths(args: {
     stylePath: join(args.resortsRoot, args.resortKey, "basemap", "style.json"),
     sourceLabel: "resort shared basemap"
   };
-  if ((await isRegularFile(resortBasemap.pmtilesPath)) && (await isRegularFile(resortBasemap.stylePath))) {
+  if (await isOfflineReadyBasemapAssets(resortBasemap.pmtilesPath, resortBasemap.stylePath)) {
     return resortBasemap;
   }
 
@@ -1377,47 +1417,11 @@ async function resolveBasemapSourcePaths(args: {
     stylePath: join(args.appPublicRoot, "packs", args.resortKey, "style.json"),
     sourceLabel: "published app basemap"
   };
-  if ((await isRegularFile(publishedBasemap.pmtilesPath)) && (await isRegularFile(publishedBasemap.stylePath))) {
+  if (await isOfflineReadyBasemapAssets(publishedBasemap.pmtilesPath, publishedBasemap.stylePath)) {
     return publishedBasemap;
   }
 
   return null;
-}
-
-async function generatePlaceholderBasemapAssets(versionPath: string): Promise<void> {
-  const basemapDir = join(versionPath, "basemap");
-  const pmtilesPath = join(basemapDir, "base.pmtiles");
-  const stylePath = join(basemapDir, "style.json");
-
-  await mkdir(basemapDir, { recursive: true });
-  await writeFile(pmtilesPath, new Uint8Array([80, 84, 75]));
-  await writeFile(
-    stylePath,
-    `${JSON.stringify(
-      {
-        version: 8,
-        name: "Patrol Toolkit CLI Generated Basemap",
-        sources: {
-          "osm-raster": {
-            type: "raster",
-            tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-            tileSize: 256,
-            attribution: "© OpenStreetMap contributors"
-          }
-        },
-        layers: [
-          {
-            id: "cli-generated-osm",
-            type: "raster",
-            source: "osm-raster"
-          }
-        ]
-      },
-      null,
-      2
-    )}\n`,
-    "utf8"
-  );
 }
 
 async function resolveBasemapFromOtherVersion(args: {
@@ -1445,7 +1449,7 @@ async function resolveBasemapFromOtherVersion(args: {
       stylePath: join(resortPath, versionName, "basemap", "style.json"),
       sourceLabel: `existing version ${versionName}`
     };
-    if ((await isRegularFile(candidate.pmtilesPath)) && (await isRegularFile(candidate.stylePath))) {
+    if (await isOfflineReadyBasemapAssets(candidate.pmtilesPath, candidate.stylePath)) {
       return candidate;
     }
   }
@@ -1837,6 +1841,11 @@ async function publishBasemapAssetsForVersion(args: {
 
   await assertRegularFile(pmtilesSourcePath, "Missing basemap PMTiles");
   await assertRegularFile(styleSourcePath, "Missing basemap style");
+  await assertOfflineReadyBasemapAssets({
+    pmtilesPath: pmtilesSourcePath,
+    stylePath: styleSourcePath,
+    label: "Basemap assets are not offline-ready"
+  });
 
   const destinationDir = join(args.publicRoot, "packs", args.resortKey);
   const pmtilesDestinationPath = join(destinationDir, "base.pmtiles");
@@ -1857,6 +1866,22 @@ async function assertRegularFile(path: string, label: string): Promise<void> {
 
   if (!metadata.isFile()) {
     throw new Error(`${label}: ${path}`);
+  }
+}
+
+async function assertBasemapArtifactsExist(args: {
+  label: string;
+  files: string[];
+}): Promise<void> {
+  const missing: string[] = [];
+  for (const filePath of args.files) {
+    if (!(await isRegularFile(filePath))) {
+      missing.push(filePath);
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(`${args.label} missing: ${missing.join(", ")}`);
   }
 }
 
@@ -1896,19 +1921,460 @@ export async function readOfflineBasemapMetrics(args: {
   appPublicRoot: string;
   resortKey: string;
 }): Promise<OfflineBasemapMetrics> {
-  const generatedPmtiles = await isRegularFile(join(args.versionPath, "basemap", "base.pmtiles"));
-  const generatedStyle = await isRegularFile(join(args.versionPath, "basemap", "style.json"));
-  const publishedPmtiles = await isRegularFile(join(args.appPublicRoot, "packs", args.resortKey, "base.pmtiles"));
-  const publishedStyle = await isRegularFile(join(args.appPublicRoot, "packs", args.resortKey, "style.json"));
+  const generatedPmtilesPath = join(args.versionPath, "basemap", "base.pmtiles");
+  const generatedStylePath = join(args.versionPath, "basemap", "style.json");
+  const publishedPmtilesPath = join(args.appPublicRoot, "packs", args.resortKey, "base.pmtiles");
+  const publishedStylePath = join(args.appPublicRoot, "packs", args.resortKey, "style.json");
+
+  const generated = await inspectOfflineBasemapReadiness({
+    pmtilesPath: generatedPmtilesPath,
+    stylePath: generatedStylePath
+  });
+  const published = await inspectOfflineBasemapReadiness({
+    pmtilesPath: publishedPmtilesPath,
+    stylePath: publishedStylePath
+  });
 
   return {
-    generated: generatedPmtiles && generatedStyle,
-    published: publishedPmtiles && publishedStyle,
-    generatedPmtiles,
-    generatedStyle,
-    publishedPmtiles,
-    publishedStyle
+    generated: generated.offlineReady,
+    published: published.offlineReady,
+    generatedPmtiles: generated.pmtilesReady,
+    generatedStyle: generated.styleReady,
+    publishedPmtiles: published.pmtilesReady,
+    publishedStyle: published.styleReady,
+    generatedPmtilesBytes: await readFileSizeBytes(generatedPmtilesPath),
+    generatedStyleBytes: await readFileSizeBytes(generatedStylePath),
+    publishedPmtilesBytes: await readFileSizeBytes(publishedPmtilesPath),
+    publishedStyleBytes: await readFileSizeBytes(publishedStylePath)
   };
+}
+
+async function isOfflineReadyBasemapAssets(pmtilesPath: string, stylePath: string): Promise<boolean> {
+  const readiness = await inspectOfflineBasemapReadiness({ pmtilesPath, stylePath });
+  return readiness.offlineReady;
+}
+
+async function assertOfflineReadyBasemapAssets(args: {
+  pmtilesPath: string;
+  stylePath: string;
+  label: string;
+}): Promise<void> {
+  const readiness = await inspectOfflineBasemapReadiness({
+    pmtilesPath: args.pmtilesPath,
+    stylePath: args.stylePath
+  });
+  if (readiness.offlineReady) {
+    return;
+  }
+
+  throw new Error(`${args.label}: ${readiness.issues.join("; ")}`);
+}
+
+async function buildSharedBasemapFromProvider(args: {
+  workspace: ResortWorkspace;
+  versionPath: string;
+  resortsRoot: string;
+  resortKey: string;
+}): Promise<void> {
+  const provider = await readBasemapProviderConfig();
+  if (provider.provider !== "openmaptiles-planetiler") {
+    throw new Error(`Unsupported basemap provider: ${provider.provider}`);
+  }
+
+  const boundaryArtifactPath = resolveBoundaryArtifactPath(args.workspace, args.versionPath);
+  const boundaryRing = await readBoundaryRingFromArtifact(boundaryArtifactPath);
+  const bbox = computeBufferedBbox(boundaryRing, provider.bufferMeters);
+
+  const sharedBasemapDir = join(args.resortsRoot, args.resortKey, "basemap");
+  await mkdir(sharedBasemapDir, { recursive: true });
+  const targetPmtiles = join(sharedBasemapDir, "base.pmtiles");
+  const targetStyle = join(sharedBasemapDir, "style.json");
+  const tempDir = await mkdtemp(join(tmpdir(), "ptk-basemap-provider-"));
+  const boundaryGeojsonPath = join(tempDir, "boundary.geojson");
+  await writeFile(
+    boundaryGeojsonPath,
+    `${JSON.stringify(
+      {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "Polygon",
+          coordinates: [boundaryRing]
+        }
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+
+  try {
+    const command = renderBasemapProviderCommand(provider.planetilerCommand, {
+      resortKey: args.resortKey,
+      minLon: bbox.minLon,
+      minLat: bbox.minLat,
+      maxLon: bbox.maxLon,
+      maxLat: bbox.maxLat,
+      bboxCsv: `${bbox.minLon},${bbox.minLat},${bbox.maxLon},${bbox.maxLat}`,
+      bufferMeters: provider.bufferMeters,
+      maxZoom: provider.maxZoom,
+      outputPmtiles: targetPmtiles,
+      outputStyle: targetStyle,
+      boundaryGeojson: boundaryGeojsonPath
+    });
+    await runShellCommand(command, { cwd: process.cwd() });
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+
+  await assertOfflineReadyBasemapAssets({
+    pmtilesPath: targetPmtiles,
+    stylePath: targetStyle,
+    label: "Shared resort basemap is not offline-ready"
+  });
+}
+
+function resolveBoundaryArtifactPath(workspace: ResortWorkspace, versionPath: string): string {
+  const boundaryPath = workspace.layers.boundary.artifactPath;
+  if (!boundaryPath) {
+    throw new Error("Boundary artifact path is missing.");
+  }
+  if (boundaryPath.startsWith("/")) {
+    return boundaryPath;
+  }
+
+  return resolve(versionPath, boundaryPath);
+}
+
+async function readBoundaryRingFromArtifact(path: string): Promise<[number, number][]> {
+  const raw = await readFile(path, "utf8");
+  const parsed = JSON.parse(raw) as unknown;
+  return extractBoundaryRing(parsed);
+}
+
+function extractBoundaryRing(input: unknown): [number, number][] {
+  if (typeof input !== "object" || input === null) {
+    throw new Error("Boundary artifact is not valid GeoJSON.");
+  }
+
+  const value = input as {
+    type?: unknown;
+    geometry?: unknown;
+    coordinates?: unknown;
+    features?: unknown;
+  };
+
+  if (value.type === "FeatureCollection" && Array.isArray(value.features) && value.features.length > 0) {
+    const firstFeature = value.features[0];
+    return extractBoundaryRing(firstFeature);
+  }
+
+  if (value.type === "Feature" && typeof value.geometry === "object" && value.geometry !== null) {
+    return extractBoundaryRing(value.geometry);
+  }
+
+  if (value.type === "Polygon" && Array.isArray(value.coordinates)) {
+    const ring = value.coordinates[0];
+    if (!Array.isArray(ring)) {
+      throw new Error("Boundary polygon has no outer ring.");
+    }
+    return normalizeBoundaryRing(ring);
+  }
+
+  if (value.type === "MultiPolygon" && Array.isArray(value.coordinates)) {
+    const polygon = value.coordinates[0];
+    if (!Array.isArray(polygon) || !Array.isArray(polygon[0])) {
+      throw new Error("Boundary multipolygon has no outer ring.");
+    }
+    return normalizeBoundaryRing(polygon[0]);
+  }
+
+  throw new Error("Boundary artifact does not contain a polygon.");
+}
+
+function normalizeBoundaryRing(ring: unknown[]): [number, number][] {
+  const points: [number, number][] = [];
+  for (const point of ring) {
+    if (!Array.isArray(point) || point.length < 2) {
+      continue;
+    }
+    const lon = Number(point[0]);
+    const lat = Number(point[1]);
+    if (Number.isFinite(lon) && Number.isFinite(lat)) {
+      points.push([lon, lat]);
+    }
+  }
+
+  if (points.length < 4) {
+    throw new Error("Boundary polygon ring has insufficient valid coordinates.");
+  }
+
+  return points;
+}
+
+function computeBufferedBbox(
+  ring: [number, number][],
+  bufferMeters: number
+): { minLon: number; minLat: number; maxLon: number; maxLat: number } {
+  let minLon = Number.POSITIVE_INFINITY;
+  let minLat = Number.POSITIVE_INFINITY;
+  let maxLon = Number.NEGATIVE_INFINITY;
+  let maxLat = Number.NEGATIVE_INFINITY;
+
+  for (const [lon, lat] of ring) {
+    minLon = Math.min(minLon, lon);
+    minLat = Math.min(minLat, lat);
+    maxLon = Math.max(maxLon, lon);
+    maxLat = Math.max(maxLat, lat);
+  }
+
+  const centerLat = (minLat + maxLat) / 2;
+  const latBuffer = bufferMeters / 110_574;
+  const lonBuffer = bufferMeters / (111_320 * Math.cos((centerLat * Math.PI) / 180) || 1);
+  return {
+    minLon: minLon - lonBuffer,
+    minLat: minLat - latBuffer,
+    maxLon: maxLon + lonBuffer,
+    maxLat: maxLat + latBuffer
+  };
+}
+
+async function readBasemapProviderConfig(env: NodeJS.ProcessEnv = process.env): Promise<BasemapProviderConfig> {
+  const configPath = (env.PTK_BASEMAP_CONFIG_PATH ?? "tools/osm-extractor/config/basemap-provider.json").trim();
+  const configFile = await readBasemapProviderConfigFile(configPath);
+
+  const providerRaw = String(env.PTK_BASEMAP_PROVIDER ?? configFile.provider ?? "openmaptiles-planetiler")
+    .trim()
+    .toLowerCase();
+  if (providerRaw !== "openmaptiles-planetiler") {
+    throw new Error(`Unsupported PTK_BASEMAP_PROVIDER '${providerRaw}'. Supported: openmaptiles-planetiler.`);
+  }
+
+  const bufferMeters = readIntegerEnv(env.PTK_BASEMAP_BUFFER_METERS, configFile.bufferMeters ?? 1000, "PTK_BASEMAP_BUFFER_METERS");
+  const maxZoom = readIntegerEnv(env.PTK_BASEMAP_MAX_ZOOM, configFile.maxZoom ?? 16, "PTK_BASEMAP_MAX_ZOOM");
+  const planetilerCommand = String(env.PTK_BASEMAP_PLANETILER_CMD ?? configFile.planetilerCommand ?? "").trim();
+  if (!planetilerCommand || /REPLACE_WITH/iu.test(planetilerCommand)) {
+    throw new Error(
+      `PTK_BASEMAP_PLANETILER_CMD is required (env or ${configPath}). It must build base.pmtiles and style.json for option 9.`
+    );
+  }
+
+  return {
+    provider: "openmaptiles-planetiler",
+    bufferMeters,
+    maxZoom,
+    planetilerCommand
+  };
+}
+
+async function readBasemapProviderConfigFile(path: string): Promise<BasemapProviderConfigFile> {
+  let raw: string;
+  try {
+    raw = await readFile(resolve(path), "utf8");
+  } catch (error: unknown) {
+    if (isMissingPathError(error)) {
+      return {};
+    }
+    throw new Error(`Failed to read basemap provider config (${path}).`);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error(`Invalid JSON in basemap provider config (${path}).`);
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    throw new Error(`Basemap provider config must be an object (${path}).`);
+  }
+
+  const candidate = parsed as {
+    provider?: unknown;
+    bufferMeters?: unknown;
+    maxZoom?: unknown;
+    planetilerCommand?: unknown;
+  };
+
+  return {
+    provider: typeof candidate.provider === "string" ? candidate.provider : undefined,
+    bufferMeters: typeof candidate.bufferMeters === "number" ? candidate.bufferMeters : undefined,
+    maxZoom: typeof candidate.maxZoom === "number" ? candidate.maxZoom : undefined,
+    planetilerCommand: typeof candidate.planetilerCommand === "string" ? candidate.planetilerCommand : undefined
+  };
+}
+
+function readIntegerEnv(raw: string | undefined, fallback: number, envName: string): number {
+  const value = raw?.trim();
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${envName} must be an integer >= 0.`);
+  }
+  return parsed;
+}
+
+function renderBasemapProviderCommand(
+  template: string,
+  values: {
+    resortKey: string;
+    minLon: number;
+    minLat: number;
+    maxLon: number;
+    maxLat: number;
+    bboxCsv: string;
+    bufferMeters: number;
+    maxZoom: number;
+    outputPmtiles: string;
+    outputStyle: string;
+    boundaryGeojson: string;
+  }
+): string {
+  let rendered = template;
+  const replacements: Record<string, string> = {
+    "{resortKey}": shellEscape(values.resortKey),
+    "{minLon}": String(values.minLon),
+    "{minLat}": String(values.minLat),
+    "{maxLon}": String(values.maxLon),
+    "{maxLat}": String(values.maxLat),
+    "{bboxCsv}": shellEscape(values.bboxCsv),
+    "{bufferMeters}": String(values.bufferMeters),
+    "{maxZoom}": String(values.maxZoom),
+    "{outputPmtiles}": shellEscape(values.outputPmtiles),
+    "{outputStyle}": shellEscape(values.outputStyle),
+    "{boundaryGeojson}": shellEscape(values.boundaryGeojson)
+  };
+
+  for (const [token, replacement] of Object.entries(replacements)) {
+    rendered = rendered.split(token).join(replacement);
+  }
+
+  return rendered;
+}
+
+function shellEscape(value: string): string {
+  return `'${value.replace(/'/gu, `'\\''`)}'`;
+}
+
+async function runShellCommand(command: string, options: { cwd: string }): Promise<void> {
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    const child = spawn("/bin/sh", ["-lc", command], {
+      cwd: options.cwd,
+      stdio: "inherit"
+    });
+
+    child.on("error", (error) => {
+      rejectPromise(error);
+    });
+
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolvePromise();
+        return;
+      }
+
+      rejectPromise(new Error(`Basemap provider command failed with exit code ${String(code)}.`));
+    });
+  });
+}
+
+async function inspectOfflineBasemapReadiness(paths: {
+  pmtilesPath: string;
+  stylePath: string;
+}): Promise<BasemapOfflineReadiness> {
+  const pmtiles = await inspectPmtilesArchive(paths.pmtilesPath);
+  const style = await inspectOfflineStyle(paths.stylePath);
+  return {
+    pmtilesReady: pmtiles.ok,
+    styleReady: style.ok,
+    offlineReady: pmtiles.ok && style.ok,
+    issues: [...pmtiles.issues, ...style.issues]
+  };
+}
+
+async function inspectPmtilesArchive(path: string): Promise<{ ok: boolean; issues: string[] }> {
+  let metadata;
+  try {
+    metadata = await stat(path);
+  } catch {
+    return { ok: false, issues: [`missing PMTiles file (${path})`] };
+  }
+
+  if (!metadata.isFile()) {
+    return { ok: false, issues: [`PMTiles path is not a file (${path})`] };
+  }
+
+  if (metadata.size <= 0) {
+    return { ok: false, issues: [`PMTiles file is empty (${path})`] };
+  }
+
+  if (metadata.size === 3) {
+    try {
+      const bytes = await readFile(path);
+      if (bytes[0] === 80 && bytes[1] === 84 && bytes[2] === 75) {
+        return { ok: false, issues: [`PMTiles file is placeholder content (${path})`] };
+      }
+    } catch {
+      return { ok: false, issues: [`Unable to read PMTiles file (${path})`] };
+    }
+  }
+
+  return { ok: true, issues: [] };
+}
+
+async function inspectOfflineStyle(path: string): Promise<{ ok: boolean; issues: string[] }> {
+  let parsed: unknown;
+  try {
+    const raw = await readFile(path, "utf8");
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return { ok: false, issues: [`Invalid basemap style JSON (${path})`] };
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    return { ok: false, issues: [`Basemap style must be an object (${path})`] };
+  }
+
+  const candidate = parsed as { sources?: unknown };
+  if (typeof candidate.sources !== "object" || candidate.sources === null) {
+    return { ok: false, issues: [`Basemap style missing sources (${path})`] };
+  }
+
+  const sources = candidate.sources as Record<string, { type?: unknown; url?: unknown; tiles?: unknown }>;
+  let hasVectorSource = false;
+  const issues: string[] = [];
+
+  for (const source of Object.values(sources)) {
+    if (!source || typeof source !== "object") {
+      continue;
+    }
+
+    if (source.type === "vector") {
+      hasVectorSource = true;
+      if (typeof source.url === "string" && /^https?:\/\//iu.test(source.url.trim())) {
+        issues.push("style vector source points to network URL");
+      }
+      continue;
+    }
+
+    if (source.type === "raster" && Array.isArray(source.tiles)) {
+      const hasNetworkTiles = source.tiles.some(
+        (entry) => typeof entry === "string" && /^https?:\/\//iu.test(entry.trim())
+      );
+      if (hasNetworkTiles) {
+        issues.push("style raster source points to network tile URLs");
+      }
+    }
+  }
+
+  if (!hasVectorSource) {
+    issues.push("style has no vector source for local PMTiles");
+  }
+
+  return { ok: issues.length === 0, issues: issues.map((issue) => `${issue} (${path})`) };
 }
 
 async function isRegularFile(path: string): Promise<boolean> {
@@ -1918,6 +2384,36 @@ async function isRegularFile(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function readFileSizeBytes(path: string): Promise<number | null> {
+  try {
+    const metadata = await stat(path);
+    if (!metadata.isFile()) {
+      return null;
+    }
+    return metadata.size;
+  } catch {
+    return null;
+  }
+}
+
+function formatBytes(bytes: number | null): string {
+  if (bytes === null || !Number.isFinite(bytes) || bytes < 0) {
+    return "(n/a)";
+  }
+
+  if (bytes < 1024) {
+    return `(${bytes} B)`;
+  }
+
+  const kib = bytes / 1024;
+  if (kib < 1024) {
+    return `(${kib.toFixed(1)} KiB)`;
+  }
+
+  const mib = kib / 1024;
+  return `(${mib.toFixed(2)} MiB)`;
 }
 
 function isCatalogIndex(input: unknown): input is ResortCatalogIndex {
