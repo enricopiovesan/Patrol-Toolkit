@@ -67,12 +67,13 @@
 - PR outcome: predictable regeneration workflow.
 
 ## Slice 6: Offline Diagnostics + SW Hardening
-- Status: planned
+- Status: in progress
 - Goal: make offline failures diagnosable and rarer.
 - Changes:
+  - [x] add runtime diagnostics in UI warning (online state, SW control state, style/pmtiles paths).
   - add debug diagnostics for style URL, pmtiles URL, cache/SW state.
-  - formalize cache migration/version behavior.
-  - strengthen range/cache tests for PMTiles.
+  - [x] formalize cache migration/version behavior.
+  - [x] strengthen range/cache tests for PMTiles.
 - Test:
   - offline failure simulation tests pass.
   - update from previous SW version remains functional.

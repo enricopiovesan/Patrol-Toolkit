@@ -95,6 +95,9 @@ describe("AppShell", () => {
     await waitForCondition(() =>
       /Basemap assets missing/iu.test(readWarningText(shell))
     );
+    await waitForCondition(() =>
+      /online=|sw=|style=|pmtiles=/iu.test(readWarningDetails(shell))
+    );
   });
 
   it("replaces stale persisted active pack not present in catalog", async () => {
@@ -169,6 +172,11 @@ function readPhraseHint(shell: HTMLElement): string {
 function readWarningText(shell: HTMLElement): string {
   const warning = shell.shadowRoot?.querySelector(".warning-line")?.textContent;
   return (warning ?? "").replace(/\s+/gu, " ").trim();
+}
+
+function readWarningDetails(shell: HTMLElement): string {
+  const details = shell.shadowRoot?.querySelector(".warning-details")?.textContent;
+  return (details ?? "").replace(/\s+/gu, " ").trim();
 }
 
 async function createReadyShell(): Promise<HTMLElement> {

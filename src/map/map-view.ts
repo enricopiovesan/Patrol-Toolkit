@@ -143,7 +143,7 @@ export class MapView extends LitElement {
     this.map.on("error", (event) => {
       const message = this.extractMapErrorMessage(event);
       if (this.shouldApplyRuntimeOfflineFallback(message)) {
-        this.applyRuntimeOfflineFallback();
+        this.applyRuntimeOfflineFallback(message);
         return;
       }
 
@@ -428,7 +428,7 @@ export class MapView extends LitElement {
     return /asset unavailable offline|failed to fetch|gateway timeout|pmtiles|504/iu.test(normalized);
   }
 
-  private applyRuntimeOfflineFallback(): void {
+  private applyRuntimeOfflineFallback(reason: string): void {
     if (!this.map || this.runtimeFallbackApplied) {
       return;
     }
@@ -438,7 +438,9 @@ export class MapView extends LitElement {
     this.currentStyleKey = "runtime-offline-fallback";
     this.map.setStyle(OFFLINE_FALLBACK_STYLE, { diff: false });
     this.rebindLayersWhenStyleReady(token);
-    this.status = "Offline basemap unavailable. Showing local overlay view.";
+    const normalizedReason = reason.trim().replace(/\s+/gu, " ");
+    const suffix = normalizedReason.length > 0 ? ` Reason: ${normalizedReason.slice(0, 140)}.` : "";
+    this.status = `Offline basemap unavailable. Showing local overlay view.${suffix}`;
   }
 
   private rebindLayersWhenStyleReady(token: number, remainingAttempts = 60): void {

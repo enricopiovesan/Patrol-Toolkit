@@ -105,6 +105,13 @@ export class AppShell extends LitElement {
       color: #9a3412;
     }
 
+    .warning-details {
+      margin-top: 0.45rem;
+      font-size: 0.82rem;
+      color: #7c2d12;
+      word-break: break-word;
+    }
+
     .radio-panel {
       margin-top: 0.25rem;
       border: 1px solid #dbe3ea;
@@ -189,6 +196,9 @@ export class AppShell extends LitElement {
 
   @state()
   private accessor basemapWarning = "";
+
+  @state()
+  private accessor basemapDiagnostics = "";
 
   private isAutoActivating = false;
   private basemapProbeToken = 0;
@@ -320,6 +330,7 @@ export class AppShell extends LitElement {
         this.activePackId = null;
         this.activePack = null;
         this.basemapWarning = "";
+        this.basemapDiagnostics = "";
         this.generatedPhrase = "";
         this.phraseStatus = "Waiting for GPS and active pack.";
       }
@@ -331,6 +342,7 @@ export class AppShell extends LitElement {
     const token = ++this.basemapProbeToken;
     if (!pack) {
       this.basemapWarning = "";
+      this.basemapDiagnostics = "";
       return;
     }
 
@@ -344,6 +356,7 @@ export class AppShell extends LitElement {
 
     if (styleOk && pmtilesOk) {
       this.basemapWarning = "";
+      this.basemapDiagnostics = "";
       return;
     }
 
@@ -356,6 +369,7 @@ export class AppShell extends LitElement {
     }
 
     this.basemapWarning = `Basemap assets missing for ${pack.resort.name}: ${missing.join(", ")}.`;
+    this.basemapDiagnostics = this.describeBasemapDiagnostics(pack);
   }
 
   private async probeStyleAsset(path: string): Promise<boolean> {
@@ -388,6 +402,19 @@ export class AppShell extends LitElement {
     } catch {
       return false;
     }
+  }
+
+  private describeBasemapDiagnostics(pack: ResortPack): string {
+    const online =
+      typeof navigator !== "undefined" && typeof navigator.onLine === "boolean" ? (navigator.onLine ? "yes" : "no") : "unknown";
+    const swControl =
+      typeof navigator !== "undefined" && "serviceWorker" in navigator && navigator.serviceWorker.controller ? "controlled" : "none";
+    return [
+      `online=${online}`,
+      `sw=${swControl}`,
+      `style=${normalizeRelativePath(pack.basemap.stylePath)}`,
+      `pmtiles=${normalizeRelativePath(pack.basemap.pmtilesPath)}`
+    ].join("; ");
   }
 
   private handlePositionUpdate(event: CustomEvent<{ coordinates: LngLat; accuracy: number }>): void {
@@ -443,7 +470,10 @@ export class AppShell extends LitElement {
             </div>
             <div class="status-line"><strong>Status:</strong> ${this.statusMessage}</div>
             ${this.basemapWarning
-              ? html`<div class="warning-line"><strong>Warning:</strong> ${this.basemapWarning}</div>`
+              ? html`<div class="warning-line">
+                  <strong>Warning:</strong> ${this.basemapWarning}
+                  ${this.basemapDiagnostics ? html`<div class="warning-details">${this.basemapDiagnostics}</div>` : null}
+                </div>`
               : null}
           </section>
           <section class="radio-panel" aria-label="Radio phrase generator">
