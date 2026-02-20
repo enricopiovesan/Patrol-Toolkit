@@ -25,10 +25,38 @@ npm --prefix tools/osm-extractor run run:menu
 Option `9` builds basemap assets for the current resort version using provider
 `openmaptiles-planetiler` when provider config is configured.
 
+### Prerequisites (Required Before Option 9)
+
+1. Install Java `21+` and verify:
+
+```bash
+java -version
+```
+
+2. Download Planetiler locally:
+
+```bash
+mkdir -p tools/bin
+curl -L https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar \
+  -o tools/bin/planetiler.jar
+```
+
+3. Verify Planetiler is runnable:
+
+```bash
+java -jar tools/bin/planetiler.jar --help
+```
+
+4. Keep the default `planetilerCommand` (or customize it) in
+   `tools/osm-extractor/config/basemap-provider.json`.
+   - default command uses `{osmExtractPath}` and auto-downloads/caches Geofabrik source data.
+   - cache path: `resorts/.cache/geofabrik/`.
+   - if command is empty, option `9` fails by design.
+
 Default generation settings:
 
 - boundary buffer: `1000m`
-- max zoom: `16`
+- max zoom: `15`
 
 Default config file:
 
@@ -36,7 +64,7 @@ Default config file:
   - fields:
     - `provider` (`openmaptiles-planetiler`)
     - `bufferMeters` (default `1000`)
-    - `maxZoom` (default `16`)
+    - `maxZoom` (default `15`, must be `<=15` for Planetiler)
     - `planetilerCommand` (required)
 
 Required config value:
@@ -45,20 +73,19 @@ Required config value:
   - local shell command template.
   - must output:
     - `base.pmtiles` at `{outputPmtiles}`
-    - `style.json` at `{outputStyle}`
+  - if `style.json` is missing after command, CLI writes a default offline vector style.
   - receives placeholders:
     - `{boundaryGeojson}` (current boundary polygon)
     - `{bboxCsv}` and `{minLon}/{minLat}/{maxLon}/{maxLat}` (boundary + buffer bbox)
     - `{maxZoom}`, `{bufferMeters}`, `{resortKey}`
     - `{outputPmtiles}`, `{outputStyle}`
+    - `{osmExtractPath}` (resolved Geofabrik `.osm.pbf` path)
+    - `{planetilerJarPath}` (auto-resolved local Planetiler jar path)
 
 Optional environment overrides:
 
-- `PTK_BASEMAP_PROVIDER` (default: `openmaptiles-planetiler`)
-- `PTK_BASEMAP_BUFFER_METERS` (default: `1000`)
-- `PTK_BASEMAP_MAX_ZOOM` (default: `16`)
-- `PTK_BASEMAP_PLANETILER_CMD`
 - `PTK_BASEMAP_CONFIG_PATH` (default: `tools/osm-extractor/config/basemap-provider.json`)
+- `PTK_PLANETILER_JAR` (optional explicit path to `planetiler.jar`)
 
 ## Resort Storage Layout
 
