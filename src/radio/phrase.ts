@@ -20,68 +20,9 @@ export type RadioPhraseOutcomeV2 = RadioPhraseOutcome & {
 };
 
 export function composeRadioPhraseV2(point: LngLat, pack: ResortPack): RadioPhraseOutcomeV2 {
-  const runMatch = findRunByContainmentOrNearestCenterline(point, pack.runs);
-  const nearestLiftTower = nearestTower(point, pack.lifts);
-  const liftInRange = nearestLiftTower
-    ? isWithinThreshold(nearestLiftTower.distanceMeters, pack.thresholds.liftProximityMeters)
-    : false;
-
-  if (runMatch) {
-    const semantics = classifyPositionSemantics(point, runMatch.run.centerline);
-    const basePhrase = `${runMatch.run.name}, ${formatPositionBand(semantics.positionBand)}`;
-
-    if (nearestLiftTower && liftInRange) {
-      const towerSemantics = classifyPositionSemantics(nearestLiftTower.coordinates, runMatch.run.centerline);
-      const relation = formatRelativeRelation(semantics.fractionAlongRun, towerSemantics.fractionAlongRun);
-      const distance = roundToNearest10Meters(nearestLiftTower.distanceMeters);
-      return {
-        phrase: `${basePhrase}, ${distance}m ${relation} ${nearestLiftTower.liftName} tower ${nearestLiftTower.towerNumber}`,
-        runId: runMatch.run.id,
-        liftId: nearestLiftTower.liftId,
-        confidence: "high",
-        mode: "run+lift"
-      };
-    }
-
-    const runAnchor = nearestRunIntersectionAnchor(point, runMatch.run.id, pack.runs);
-    if (runAnchor) {
-      const cardinal = cardinalDirectionFromTo(runAnchor.coordinates, point);
-      return {
-        phrase: `${basePhrase}, ${runAnchor.distanceMeters}m ${cardinal} from intersection with ${runAnchor.runName}`,
-        runId: runMatch.run.id,
-        liftId: null,
-        confidence: "high",
-        mode: "run-only"
-      };
-    }
-
-    return {
-      phrase: basePhrase,
-      runId: runMatch.run.id,
-      liftId: null,
-      confidence: "medium",
-      mode: "run-only"
-    };
-  }
-
-  if (nearestLiftTower && liftInRange) {
-    const distance = roundToNearest10Meters(nearestLiftTower.distanceMeters);
-    return {
-      phrase: `${distance}m from ${nearestLiftTower.liftName} tower ${nearestLiftTower.towerNumber}`,
-      runId: null,
-      liftId: nearestLiftTower.liftId,
-      confidence: "medium",
-      mode: "lift-only"
-    };
-  }
-
-  return {
-    phrase: "Location uncertain",
-    runId: null,
-    liftId: null,
-    confidence: "low",
-    mode: "fallback"
-  };
+  const context = buildPhraseContext(point, pack);
+  const decision = decidePhrase(context);
+  return renderPhrase(decision);
 }
 
 export function composeRadioPhrase(point: LngLat, pack: ResortPack): RadioPhraseOutcome {
@@ -113,6 +54,250 @@ function formatRelativeRelation(pointFraction: number, anchorFraction: number): 
 
 function roundToNearest10Meters(distanceMeters: number): number {
   return Math.max(0, Math.round(distanceMeters / 10) * 10);
+}
+
+type PhraseContext = {
+  point: LngLat;
+  runMatch: ReturnType<typeof findRunByContainmentOrNearestCenterline>;
+  nearestLiftTower: ReturnType<typeof nearestTower>;
+  liftInRange: boolean;
+  runSemantics: ReturnType<typeof classifyPositionSemantics> | null;
+  runIntersectionAnchor: RunIntersectionAnchor | null;
+};
+
+type PhraseDecision =
+  | {
+      kind: "run+lift";
+      phraseParts: {
+        runName: string;
+        positionBand: "upper" | "mid" | "lower";
+        distanceMeters: number;
+        relation: "above" | "below" | "from";
+        liftName: string;
+        towerNumber: number;
+      };
+      runId: string;
+      liftId: string;
+      confidence: "high";
+    }
+  | {
+      kind: "run+lift-far";
+      phraseParts: {
+        runName: string;
+        positionBand: "upper" | "mid" | "lower";
+        distanceMeters: number;
+        relation: "above" | "below" | "from";
+        liftName: string;
+        towerNumber: number;
+      };
+      runId: string;
+      liftId: string;
+      confidence: "medium";
+    }
+  | {
+      kind: "run-only-anchor";
+      phraseParts: {
+        runName: string;
+        positionBand: "upper" | "mid" | "lower";
+        distanceMeters: number;
+        direction: "north" | "south" | "east" | "west";
+        anchorRunName: string;
+      };
+      runId: string;
+      confidence: "high";
+    }
+  | {
+      kind: "run-only-base";
+      phraseParts: {
+        runName: string;
+        positionBand: "upper" | "mid" | "lower";
+      };
+      runId: string;
+      confidence: "medium";
+    }
+  | {
+      kind: "lift-only";
+      phraseParts: {
+        distanceMeters: number;
+        liftName: string;
+        towerNumber: number;
+      };
+      liftId: string;
+      confidence: "medium";
+    }
+  | {
+      kind: "fallback";
+      confidence: "low";
+    };
+
+function buildPhraseContext(point: LngLat, pack: ResortPack): PhraseContext {
+  const runMatch = findRunByContainmentOrNearestCenterline(point, pack.runs);
+  const nearestLiftTower = nearestTower(point, pack.lifts);
+  const liftInRange = nearestLiftTower
+    ? isWithinThreshold(nearestLiftTower.distanceMeters, pack.thresholds.liftProximityMeters)
+    : false;
+  const runSemantics = runMatch ? classifyPositionSemantics(point, runMatch.run.centerline) : null;
+  const runIntersectionAnchor = runMatch ? nearestRunIntersectionAnchor(point, runMatch.run.id, pack.runs) : null;
+
+  return {
+    point,
+    runMatch,
+    nearestLiftTower,
+    liftInRange,
+    runSemantics,
+    runIntersectionAnchor
+  };
+}
+
+function decidePhrase(context: PhraseContext): PhraseDecision {
+  if (context.runMatch && context.runSemantics) {
+    if (context.nearestLiftTower && context.liftInRange) {
+      const towerSemantics = classifyPositionSemantics(
+        context.nearestLiftTower.coordinates,
+        context.runMatch.run.centerline
+      );
+
+      return {
+        kind: "run+lift",
+        phraseParts: {
+          runName: context.runMatch.run.name,
+          positionBand: context.runSemantics.positionBand,
+          distanceMeters: roundToNearest10Meters(context.nearestLiftTower.distanceMeters),
+          relation: formatRelativeRelation(context.runSemantics.fractionAlongRun, towerSemantics.fractionAlongRun),
+          liftName: context.nearestLiftTower.liftName,
+          towerNumber: context.nearestLiftTower.towerNumber
+        },
+        runId: context.runMatch.run.id,
+        liftId: context.nearestLiftTower.liftId,
+        confidence: "high"
+      };
+    }
+
+    if (context.runIntersectionAnchor) {
+      return {
+        kind: "run-only-anchor",
+        phraseParts: {
+          runName: context.runMatch.run.name,
+          positionBand: context.runSemantics.positionBand,
+          distanceMeters: context.runIntersectionAnchor.distanceMeters,
+          direction: cardinalDirectionFromTo(context.runIntersectionAnchor.coordinates, context.point),
+          anchorRunName: context.runIntersectionAnchor.runName
+        },
+        runId: context.runMatch.run.id,
+        confidence: "high"
+      };
+    }
+
+    if (context.nearestLiftTower) {
+      const towerSemantics = classifyPositionSemantics(
+        context.nearestLiftTower.coordinates,
+        context.runMatch.run.centerline
+      );
+
+      return {
+        kind: "run+lift-far",
+        phraseParts: {
+          runName: context.runMatch.run.name,
+          positionBand: context.runSemantics.positionBand,
+          distanceMeters: roundToNearest10Meters(context.nearestLiftTower.distanceMeters),
+          relation: formatRelativeRelation(context.runSemantics.fractionAlongRun, towerSemantics.fractionAlongRun),
+          liftName: context.nearestLiftTower.liftName,
+          towerNumber: context.nearestLiftTower.towerNumber
+        },
+        runId: context.runMatch.run.id,
+        liftId: context.nearestLiftTower.liftId,
+        confidence: "medium"
+      };
+    }
+
+    return {
+      kind: "run-only-base",
+      phraseParts: {
+        runName: context.runMatch.run.name,
+        positionBand: context.runSemantics.positionBand
+      },
+      runId: context.runMatch.run.id,
+      confidence: "medium"
+    };
+  }
+
+  if (context.nearestLiftTower && context.liftInRange) {
+    return {
+      kind: "lift-only",
+      phraseParts: {
+        distanceMeters: roundToNearest10Meters(context.nearestLiftTower.distanceMeters),
+        liftName: context.nearestLiftTower.liftName,
+        towerNumber: context.nearestLiftTower.towerNumber
+      },
+      liftId: context.nearestLiftTower.liftId,
+      confidence: "medium"
+    };
+  }
+
+  return {
+    kind: "fallback",
+    confidence: "low"
+  };
+}
+
+function renderPhrase(decision: PhraseDecision): RadioPhraseOutcomeV2 {
+  if (decision.kind === "run+lift") {
+    return {
+      phrase: `${decision.phraseParts.runName}, ${formatPositionBand(decision.phraseParts.positionBand)}, ${decision.phraseParts.distanceMeters}m ${decision.phraseParts.relation} ${decision.phraseParts.liftName} tower ${decision.phraseParts.towerNumber}`,
+      runId: decision.runId,
+      liftId: decision.liftId,
+      confidence: decision.confidence,
+      mode: "run+lift"
+    };
+  }
+
+  if (decision.kind === "run+lift-far") {
+    return {
+      phrase: `${decision.phraseParts.runName}, ${formatPositionBand(decision.phraseParts.positionBand)}, ${decision.phraseParts.distanceMeters}m ${decision.phraseParts.relation} ${decision.phraseParts.liftName} tower ${decision.phraseParts.towerNumber}`,
+      runId: decision.runId,
+      liftId: decision.liftId,
+      confidence: decision.confidence,
+      mode: "run+lift"
+    };
+  }
+
+  if (decision.kind === "run-only-anchor") {
+    return {
+      phrase: `${decision.phraseParts.runName}, ${formatPositionBand(decision.phraseParts.positionBand)}, ${decision.phraseParts.distanceMeters}m ${decision.phraseParts.direction} from intersection with ${decision.phraseParts.anchorRunName}`,
+      runId: decision.runId,
+      liftId: null,
+      confidence: decision.confidence,
+      mode: "run-only"
+    };
+  }
+
+  if (decision.kind === "run-only-base") {
+    return {
+      phrase: `${decision.phraseParts.runName}, ${formatPositionBand(decision.phraseParts.positionBand)}`,
+      runId: decision.runId,
+      liftId: null,
+      confidence: decision.confidence,
+      mode: "run-only"
+    };
+  }
+
+  if (decision.kind === "lift-only") {
+    return {
+      phrase: `${decision.phraseParts.distanceMeters}m from ${decision.phraseParts.liftName} tower ${decision.phraseParts.towerNumber}`,
+      runId: null,
+      liftId: decision.liftId,
+      confidence: decision.confidence,
+      mode: "lift-only"
+    };
+  }
+
+  return {
+    phrase: "Location uncertain",
+    runId: null,
+    liftId: null,
+    confidence: decision.confidence,
+    mode: "fallback"
+  };
 }
 
 function cardinalDirectionFromTo(from: LngLat, to: LngLat): "north" | "south" | "east" | "west" {

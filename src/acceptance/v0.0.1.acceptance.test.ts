@@ -66,7 +66,7 @@ describe("v0.0.1 acceptance", () => {
     expect(phrase).toContain("tower 2");
   });
 
-  it("omits tower context when nearest tower is outside configured threshold", async () => {
+  it("keeps nearest lift tower context when nearest tower is outside configured threshold", async () => {
     const shell = await createReadyShell();
     await setActivePackThreshold(shell, 10);
 
@@ -74,7 +74,7 @@ describe("v0.0.1 acceptance", () => {
     const phrase = readPhrase(shell);
 
     expect(phrase).toContain("Easy Street");
-    expect(phrase).not.toContain("tower");
+    expect(phrase).toMatch(/\d+m (above|below|from) Summit Express tower 2/iu);
   });
 });
 
