@@ -16,6 +16,7 @@ import {
   parseCandidateSelection,
   parseDuplicateResortAction,
   persistResortVersion,
+  readBasemapProviderConfig,
   readOfflineBasemapMetrics,
   generateBasemapAssetsForVersion,
   rankSearchCandidates,
@@ -87,6 +88,132 @@ describe("offline basemap metrics", () => {
         publishedPmtilesBytes: 4,
         publishedStyleBytes: Buffer.byteLength(styleRaw)
       });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("basemap provider config", () => {
+  it("rejects invalid config field types", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-basemap-provider-config-invalid-"));
+    try {
+      const configPath = join(root, "basemap-provider.json");
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          provider: "openmaptiles-planetiler",
+          bufferMeters: "1000",
+          maxZoom: 16,
+          planetilerCommand: "echo ok"
+        }),
+        "utf8"
+      );
+
+      await expect(
+        readBasemapProviderConfig({
+          PTK_BASEMAP_CONFIG_PATH: configPath
+        })
+      ).rejects.toThrow(/bufferMeters.*number/iu);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("loads config defaults and allows env overrides", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-basemap-provider-config-ok-"));
+    try {
+      const configPath = join(root, "basemap-provider.json");
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          provider: "openmaptiles-planetiler",
+          bufferMeters: 1200,
+          maxZoom: 14,
+          planetilerCommand: "echo from-config"
+        }),
+        "utf8"
+      );
+
+      const resolved = await readBasemapProviderConfig({
+        PTK_BASEMAP_CONFIG_PATH: configPath,
+        PTK_BASEMAP_MAX_ZOOM: "16",
+        PTK_BASEMAP_PLANETILER_CMD: "echo from-env"
+      });
+
+      expect(resolved).toEqual({
+        provider: "openmaptiles-planetiler",
+        bufferMeters: 1200,
+        maxZoom: 16,
+        planetilerCommand: "echo from-env"
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects placeholder or empty planetilerCommand from config", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-basemap-provider-config-missing-cmd-"));
+    try {
+      const configPath = join(root, "basemap-provider.json");
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          provider: "openmaptiles-planetiler",
+          bufferMeters: 1000,
+          maxZoom: 16,
+          planetilerCommand: "REPLACE_WITH_LOCAL_PLANETILER_COMMAND"
+        }),
+        "utf8"
+      );
+
+      await expect(
+        readBasemapProviderConfig({
+          PTK_BASEMAP_CONFIG_PATH: configPath
+        })
+      ).rejects.toThrow(/PTK_BASEMAP_PLANETILER_CMD is required/iu);
+
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          provider: "openmaptiles-planetiler",
+          bufferMeters: 1000,
+          maxZoom: 16,
+          planetilerCommand: "   "
+        }),
+        "utf8"
+      );
+
+      await expect(
+        readBasemapProviderConfig({
+          PTK_BASEMAP_CONFIG_PATH: configPath
+        })
+      ).rejects.toThrow(/PTK_BASEMAP_PLANETILER_CMD is required/iu);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects unsupported provider from config", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-basemap-provider-config-provider-"));
+    try {
+      const configPath = join(root, "basemap-provider.json");
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          provider: "something-else",
+          bufferMeters: 1000,
+          maxZoom: 16,
+          planetilerCommand: "echo ok"
+        }),
+        "utf8"
+      );
+
+      await expect(
+        readBasemapProviderConfig({
+          PTK_BASEMAP_CONFIG_PATH: configPath
+        })
+      ).rejects.toThrow(/Unsupported PTK_BASEMAP_PROVIDER/iu);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
