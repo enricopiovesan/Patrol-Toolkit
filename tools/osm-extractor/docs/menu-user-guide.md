@@ -87,6 +87,16 @@ Optional environment overrides:
 - `PTK_BASEMAP_CONFIG_PATH` (default: `tools/osm-extractor/config/basemap-provider.json`)
 - `PTK_PLANETILER_JAR` (optional explicit path to `planetiler.jar`)
 
+### First-Run Runtime Expectations
+
+- First run can take several minutes on a cold cache.
+- Option `9` may download provider support datasets before tile build starts.
+- Warm-cache reruns should be significantly faster.
+- Cache locations:
+  - `resorts/.CACHE/geofabrik/`
+  - `resorts/.CACHE/planetiler/sources/`
+  - `resorts/.CACHE/planetiler/tile_weights.tsv.gz`
+
 ## Resort Storage Layout
 
 Menu workflow stores data under root:
@@ -116,6 +126,21 @@ resorts/CA_Golden_Kicking_Horse/v2
 
 Each version includes `status.json` with stable metrics and manual validation flag.
 
+## Commit Policy
+
+Commit (deliverables):
+- `resorts/<resortKey>/<version>/**`
+- `public/packs/<resortKey>/**`
+- `public/packs/<resortKey>.latest.validated.json`
+- `public/resort-packs/index.json`
+
+Do not commit (generation/cache):
+- `resorts/.CACHE/**`, `resorts/.cache/**`
+- `resorts/*/v*/.cache/**`
+- `resorts/*/basemap/**` (shared generation working area)
+- `data/sources/**`, `data/tmp/**`
+- `tools/bin/**`
+
 ## Expected Operator Workflow
 
 1. Open menu.
@@ -130,3 +155,23 @@ Each version includes `status.json` with stable metrics and manual validation fl
 5. Sync lifts and runs.
 6. Confirm status is complete.
 7. Mark manual validation when field-tested.
+8. Run `9. Generate basemap assets` and wait for:
+   - `Generated artifact check passed`
+   - `Published artifact check passed`
+9. Test app online, then offline, to confirm basemap renders (not overlays only).
+
+## Clean-Machine Acceptance Checklist
+
+Use this before merging operational changes:
+
+1. `npm --prefix tools/osm-extractor install`
+2. `npm --prefix tools/osm-extractor run check`
+3. `npm --prefix tools/osm-extractor run run:menu`
+4. In menu for target resort, run option `9`.
+5. Confirm successful output lines:
+   - `Provider basemap build complete.`
+   - `Generated artifact check passed: base.pmtiles, style.json.`
+   - `Published artifact check passed: base.pmtiles, style.json.`
+6. In app:
+   - online load shows basemap + overlays
+   - offline reload shows basemap + overlays for generated area

@@ -69,11 +69,12 @@
 - PR outcome: high-confidence output integrity.
 
 ## Slice 7: Docs + Operator Runbook
-- Status: in progress
+- Status: completed (2026-02-20)
 - Goal: make it usable by others.
 - Changes:
   - README + menu guide with exact config, cache path, troubleshooting.
   - example commands and expected outputs.
+  - document versioning policy: commit deliverable resort/app bundle artifacts; do not commit generation caches/tooling bootstrap data.
 - Test:
   - clean-machine walkthrough by following docs only.
 - PR outcome: handoff-ready.
