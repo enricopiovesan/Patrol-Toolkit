@@ -43,15 +43,38 @@ The current MVP focus is:
 - boundary/run/lift representation
 - deterministic phrase generation for radio callouts
 
+## Current App Snapshot vs Roadmap v2 (February 2026)
+
+![Patrol Toolkit current app snapshot](docs/assets/patrol-toolkit-current-state-2026-02-20.png)
+
+The screenshot above reflects the current state of the app in field-like usage:
+- Active resort selected (`kicking horse v1`)
+- Live map with boundary, runs, and lifts overlays
+- GPS lock and phrase generation in one operational screen
+- Phrase output now includes objective anchor references (example: `100m below Stairway to Heaven tower 7`)
+
+Roadmap v2 alignment:
+
+| Roadmap v2 Slice | Status | Current Evidence |
+|---|---|---|
+| Slice 1: Phrase v2 Discovery + Spec | Completed | Phrase spec documented in `roadmaps/phrase_v2_spec.md` |
+| Slice 2: Phrase v2 Engine | In progress | Context->decision->render phrase logic and anchor improvements |
+| Slice 3: Run Rendering v2 | Planned | Current runs render, but styling and readability upgrades pending |
+| Slice 4: Run Labels v2 | Planned | Labels tuning not started |
+| Slice 5: Basemap Regeneration Controls | Planned | Basemap generation works; UX/control improvements pending |
+| Slice 6: Offline Diagnostics + SW Hardening | Planned | Core offline works; additional diagnostics/hardening pending |
+| Slice 7: Multi-Resort Validation + Integrity | Planned | Single-resort validation done; multi-resort matrix pending |
+| Slice 8: Docs/Runbook v2 + Exit Signoff | Planned | v0.0.1 docs exist; v2 closure docs pending |
+
 ### Status Snapshot
 
 - Ready: single active resort selection from local packs.
 - Ready: deterministic phrase generation from GPS + run/lift geometry.
 - Ready: offline app shell and local pack persistence.
-- Not ready: resort boundary rendered in app map.
-- Not ready: runs rendered in app map.
-- Not ready: lifts rendered in app map.
-- Not ready: fully local basemap path for offline map (no network tile dependency).
+- Ready: resort boundary rendered in app map.
+- Ready: runs rendered in app map.
+- Ready: lifts rendered in app map.
+- Ready: local offline basemap path through generated and published resort assets.
 - Ready: generate phrase is the primary radio action (copy phrase removed).
 
 ---
