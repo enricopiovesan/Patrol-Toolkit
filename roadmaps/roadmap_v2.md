@@ -44,7 +44,7 @@
 - PR outcome: runs are visually correct and readable.
 
 ## Slice 4: Run Labels v2
-- Status: planned
+- Status: in progress
 - Goal: add useful run names without clutter.
 - Changes:
   - add run name symbol layer.
