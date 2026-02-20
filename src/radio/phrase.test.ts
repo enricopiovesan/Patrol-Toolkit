@@ -18,16 +18,17 @@ describe("composeRadioPhrase", () => {
     expect(result.liftId).toBe("lift-a");
   });
 
-  it("omits tower segment when nearest tower is outside threshold", () => {
+  it("keeps nearest lift tower context when threshold excludes tower", () => {
     const tightThresholdPack = structuredClone(pack);
     tightThresholdPack.thresholds.liftProximityMeters = 10;
     const point: [number, number] = [-106.9502, 39.1928];
 
     const result = composeRadioPhrase(point, tightThresholdPack);
 
-    expect(result.phrase).toBe("Easy Street, middle section");
+    expect(result.phrase).toContain("Easy Street, middle section");
+    expect(result.phrase).toMatch(/\d+m (above|below|from) Summit Express tower 2/iu);
     expect(result.runId).toBe("run-easy");
-    expect(result.liftId).toBeNull();
+    expect(result.liftId).toBe("lift-a");
   });
 
   it("falls back to tower-only phrase when run data is unavailable", () => {
@@ -73,18 +74,19 @@ describe("composeRadioPhraseV2", () => {
     expect(result.phrase).toMatch(/\d+m (above|below|from) Summit Express tower 2/iu);
   });
 
-  it("returns run-only mode with medium confidence when tower is outside threshold and no run intersection anchor exists", () => {
+  it("returns run+lift mode with medium confidence when tower is outside threshold and no run intersection anchor exists", () => {
     const tightThresholdPack = structuredClone(pack);
     tightThresholdPack.thresholds.liftProximityMeters = 10;
     const point: [number, number] = [-106.9502, 39.1928];
 
     const result = composeRadioPhraseV2(point, tightThresholdPack);
 
-    expect(result.mode).toBe("run-only");
+    expect(result.mode).toBe("run+lift");
     expect(result.confidence).toBe("medium");
     expect(result.runId).toBe("run-easy");
-    expect(result.liftId).toBeNull();
-    expect(result.phrase).toBe("Easy Street, middle section");
+    expect(result.liftId).toBe("lift-a");
+    expect(result.phrase).toContain("Easy Street, middle section");
+    expect(result.phrase).toMatch(/\d+m (above|below|from) Summit Express tower 2/iu);
   });
 
   it("uses run intersection anchor when lift anchor is unavailable", () => {
