@@ -1,6 +1,7 @@
 # Roadmap v1
 
 ## Slice 1: Basemap Config + Preconditions
+- Status: completed (2026-02-20)
 - Goal: solid config contract before generation.
 - Changes:
   - finalize `tools/osm-extractor/config/basemap-provider.json` schema validation in CLI.

@@ -2139,7 +2139,7 @@ function computeBufferedBbox(
   };
 }
 
-async function readBasemapProviderConfig(env: NodeJS.ProcessEnv = process.env): Promise<BasemapProviderConfig> {
+export async function readBasemapProviderConfig(env: NodeJS.ProcessEnv = process.env): Promise<BasemapProviderConfig> {
   const configPath = (env.PTK_BASEMAP_CONFIG_PATH ?? "tools/osm-extractor/config/basemap-provider.json").trim();
   const configFile = await readBasemapProviderConfigFile(configPath);
 
@@ -2195,6 +2195,18 @@ async function readBasemapProviderConfigFile(path: string): Promise<BasemapProvi
     maxZoom?: unknown;
     planetilerCommand?: unknown;
   };
+  if (candidate.provider !== undefined && typeof candidate.provider !== "string") {
+    throw new Error(`Basemap provider config field 'provider' must be a string (${path}).`);
+  }
+  if (candidate.bufferMeters !== undefined && typeof candidate.bufferMeters !== "number") {
+    throw new Error(`Basemap provider config field 'bufferMeters' must be a number (${path}).`);
+  }
+  if (candidate.maxZoom !== undefined && typeof candidate.maxZoom !== "number") {
+    throw new Error(`Basemap provider config field 'maxZoom' must be a number (${path}).`);
+  }
+  if (candidate.planetilerCommand !== undefined && typeof candidate.planetilerCommand !== "string") {
+    throw new Error(`Basemap provider config field 'planetilerCommand' must be a string (${path}).`);
+  }
 
   return {
     provider: typeof candidate.provider === "string" ? candidate.provider : undefined,
