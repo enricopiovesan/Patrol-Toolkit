@@ -57,7 +57,7 @@ Roadmap v2 alignment:
 
 | Roadmap v2 Slice | Status | Current Evidence |
 |---|---|---|
-| Slice 1: Phrase v2 Discovery + Spec | Completed | Phrase spec documented in `roadmaps/phrase_v2_spec.md` |
+| Slice 1: Phrase v2 Discovery + Spec | Completed | Phrase spec documented in `roadmaps/roadmap_v2_phrase_spec.md` |
 | Slice 2: Phrase v2 Engine | In progress | Context->decision->render phrase logic and anchor improvements |
 | Slice 3: Run Rendering v2 | Planned | Current runs render, but styling and readability upgrades pending |
 | Slice 4: Run Labels v2 | Planned | Labels tuning not started |
