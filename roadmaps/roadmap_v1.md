@@ -12,6 +12,7 @@
 - PR outcome: deterministic setup validation.
 
 ## Slice 2: Boundary Geometry Pipeline
+- Status: completed (2026-02-20)
 - Goal: reliable boundary->buffered bbox input.
 - Changes:
   - harden boundary ring extraction (Feature/FeatureCollection/MultiPolygon).
@@ -22,6 +23,7 @@
 - PR outcome: trusted AOI computation.
 
 ## Slice 3: Geofabrik Resolver + Cache
+- Status: completed (2026-02-20)
 - Goal: free data source automation.
 - Changes:
   - implement country->Geofabrik extract resolver.
@@ -32,16 +34,20 @@
 - PR outcome: local free data source works.
 
 ## Slice 4: Provider Runner (Planetiler Command)
+- Status: completed (2026-02-20)
 - Goal: execute local generator end-to-end.
 - Changes:
   - render command placeholders (`{bboxCsv}`, `{outputPmtiles}`, etc).
   - run command + stream output + exit code handling.
+  - enforce Planetiler runtime defaults (`--download=true`, cache dirs, `--force=true`) for robust first-run bootstrap.
 - Test:
   - stub command writes PMTiles/style successfully.
   - failing command surfaces clean error.
+  - config-only provider resolution (legacy env overrides do not break option `9`).
 - PR outcome: provider execution reliable.
 
 ## Slice 5: Option 9 End-to-End Build Path
+- Status: completed (2026-02-20)
 - Goal: no manual inputs, full generation flow.
 - Changes:
   - option `9` triggers: boundary->extract resolve->provider run->offline validation.
@@ -52,6 +58,7 @@
 - PR outcome: operator can run one menu action.
 
 ## Slice 6: Publish + Post-Checks
+- Status: completed (2026-02-20)
 - Goal: guarantee deliverable assets.
 - Changes:
   - enforce generated + published artifact existence checks.
@@ -62,6 +69,7 @@
 - PR outcome: high-confidence output integrity.
 
 ## Slice 7: Docs + Operator Runbook
+- Status: in progress
 - Goal: make it usable by others.
 - Changes:
   - README + menu guide with exact config, cache path, troubleshooting.
@@ -71,6 +79,7 @@
 - PR outcome: handoff-ready.
 
 ## Slice 8: Real Resort Validation
+- Status: in progress
 - Goal: prove on real workflow.
 - Changes:
   - run on `CA_Golden_Kicking_Horse`.

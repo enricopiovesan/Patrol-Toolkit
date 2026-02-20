@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { createInterface } from "node:readline/promises";
@@ -200,6 +201,9 @@ export async function listKnownResorts(rootPath: string): Promise<KnownResortSum
   const resorts: KnownResortSummary[] = [];
   for (const entry of rootEntries) {
     if (!entry.isDirectory()) {
+      continue;
+    }
+    if (entry.name.startsWith(".")) {
       continue;
     }
 
@@ -1981,7 +1985,7 @@ async function buildSharedBasemapFromProvider(args: {
     throw new Error(`Unsupported basemap provider: ${provider.provider}`);
   }
 
-  const boundaryArtifactPath = resolveBoundaryArtifactPath(args.workspace, args.versionPath);
+  const boundaryArtifactPath = await resolveBoundaryArtifactPath(args.workspace, args.versionPath);
   const boundaryRing = await readBoundaryRingFromArtifact(boundaryArtifactPath);
   const bbox = computeBufferedBbox(boundaryRing, provider.bufferMeters);
 
@@ -1989,8 +1993,20 @@ async function buildSharedBasemapFromProvider(args: {
   await mkdir(sharedBasemapDir, { recursive: true });
   const targetPmtiles = join(sharedBasemapDir, "base.pmtiles");
   const targetStyle = join(sharedBasemapDir, "style.json");
+  const planetilerDataDir = resolve(args.resortsRoot, ".cache", "planetiler");
+  await mkdir(planetilerDataDir, { recursive: true });
   const tempDir = await mkdtemp(join(tmpdir(), "ptk-basemap-provider-"));
   const boundaryGeojsonPath = join(tempDir, "boundary.geojson");
+  const planetilerJarPath = resolvePlanetilerJarPath();
+  const countryCode = resolveResortCountryCode(args.workspace, args.resortKey);
+  console.log(`Resolving source extract for country=${countryCode}...`);
+  const osmExtractPath = provider.planetilerCommand.includes("{osmExtractPath}")
+    ? await resolveGeofabrikExtractPath({
+        countryCode,
+        cacheDir: join(args.resortsRoot, ".cache", "geofabrik"),
+        onProgress: (message) => console.log(message)
+      })
+    : "";
   await writeFile(
     boundaryGeojsonPath,
     `${JSON.stringify(
@@ -2009,22 +2025,39 @@ async function buildSharedBasemapFromProvider(args: {
   );
 
   try {
-    const command = renderBasemapProviderCommand(provider.planetilerCommand, {
-      resortKey: args.resortKey,
-      minLon: bbox.minLon,
-      minLat: bbox.minLat,
-      maxLon: bbox.maxLon,
-      maxLat: bbox.maxLat,
-      bboxCsv: `${bbox.minLon},${bbox.minLat},${bbox.maxLon},${bbox.maxLat}`,
-      bufferMeters: provider.bufferMeters,
-      maxZoom: provider.maxZoom,
-      outputPmtiles: targetPmtiles,
-      outputStyle: targetStyle,
-      boundaryGeojson: boundaryGeojsonPath
-    });
+    const command = ensurePlanetilerRuntimeDefaults(
+      renderBasemapProviderCommand(provider.planetilerCommand, {
+        resortKey: args.resortKey,
+        minLon: bbox.minLon,
+        minLat: bbox.minLat,
+        maxLon: bbox.maxLon,
+        maxLat: bbox.maxLat,
+        bboxCsv: `${bbox.minLon},${bbox.minLat},${bbox.maxLon},${bbox.maxLat}`,
+        bufferMeters: provider.bufferMeters,
+        maxZoom: provider.maxZoom,
+        outputPmtiles: targetPmtiles,
+        outputStyle: targetStyle,
+        boundaryGeojson: boundaryGeojsonPath,
+        osmExtractPath,
+        planetilerJarPath,
+        planetilerDataDir
+      }),
+      {
+        downloadDir: join(planetilerDataDir, "sources"),
+        tempDir: join(planetilerDataDir, "tmp")
+      }
+    );
+    console.log("Running basemap provider command...");
     await runShellCommand(command, { cwd: process.cwd() });
   } finally {
     await rm(tempDir, { recursive: true, force: true });
+  }
+
+  if (!(await isRegularFile(targetStyle))) {
+    await writeDefaultOfflineStyle({
+      stylePath: targetStyle,
+      maxZoom: provider.maxZoom
+    });
   }
 
   await assertOfflineReadyBasemapAssets({
@@ -2034,7 +2067,267 @@ async function buildSharedBasemapFromProvider(args: {
   });
 }
 
-function resolveBoundaryArtifactPath(workspace: ResortWorkspace, versionPath: string): string {
+function resolvePlanetilerJarPath(): string {
+  const configured = process.env.PTK_PLANETILER_JAR?.trim();
+  if (configured && existsSync(configured)) {
+    return configured;
+  }
+  const candidates = [
+    resolve(process.cwd(), "tools/bin/planetiler.jar"),
+    resolve(process.cwd(), "../bin/planetiler.jar"),
+    resolve(process.cwd(), "../../tools/bin/planetiler.jar")
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  throw new Error(
+    "Planetiler jar not found. Expected one of: tools/bin/planetiler.jar, ../bin/planetiler.jar, ../../tools/bin/planetiler.jar. " +
+      "Install it with: mkdir -p tools/bin && curl -L https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar -o tools/bin/planetiler.jar"
+  );
+}
+
+function resolveResortCountryCode(workspace: ResortWorkspace, resortKey: string): string {
+  const workspaceCode = workspace.resort.query.country.trim().toUpperCase();
+  if (/^[A-Z]{2}$/u.test(workspaceCode)) {
+    return workspaceCode;
+  }
+  const prefix = resortKey.split("_")[0]?.trim().toUpperCase() ?? "";
+  if (/^[A-Z]{2}$/u.test(prefix)) {
+    return prefix;
+  }
+  throw new Error(`Unable to resolve resort country code from workspace or resort key '${resortKey}'.`);
+}
+
+export async function resolveGeofabrikExtractPath(args: {
+  countryCode: string;
+  cacheDir: string;
+  fetchJsonFn?: typeof resilientFetchJson;
+  fetchFn?: typeof fetch;
+  onProgress?: (message: string) => void;
+}): Promise<string> {
+  const countryCode = args.countryCode.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/u.test(countryCode)) {
+    throw new Error(`Invalid country code '${args.countryCode}'. Expected ISO-3166 alpha-2 (example: CA).`);
+  }
+
+  const fetchJsonFn = args.fetchJsonFn ?? resilientFetchJson;
+  const fetchFn = args.fetchFn ?? fetch;
+  const index = (await fetchJsonFn({
+    url: "https://download.geofabrik.de/index-v1.json",
+    cache: {
+      dir: args.cacheDir,
+      ttlMs: 24 * 60 * 60 * 1000,
+      key: "geofabrik:index-v1"
+    }
+  })) as unknown;
+  const selected = selectGeofabrikExtract(index, countryCode);
+  if (!selected) {
+    throw new Error(`No Geofabrik extract found for country code '${countryCode}'.`);
+  }
+  args.onProgress?.(`Geofabrik extract selected: ${selected.id}`);
+
+  const extractPath = join(args.cacheDir, `${selected.id.replace(/[\/]/gu, "_")}.osm.pbf`);
+  if (await hasNonEmptyFile(extractPath)) {
+    args.onProgress?.(`Using cached extract: ${extractPath}`);
+    return extractPath;
+  }
+
+  await mkdir(args.cacheDir, { recursive: true });
+  await downloadBinaryWithRetries({
+    url: selected.pbfUrl,
+    outputPath: extractPath,
+    fetchFn,
+    onProgress: args.onProgress
+  });
+  args.onProgress?.(`Saved extract: ${extractPath}`);
+  return extractPath;
+}
+
+type GeofabrikSelection = {
+  id: string;
+  pbfUrl: string;
+};
+
+function selectGeofabrikExtract(index: unknown, countryCode: string): GeofabrikSelection | null {
+  if (typeof index !== "object" || index === null) {
+    throw new Error("Invalid Geofabrik index payload.");
+  }
+  const features = (index as { features?: unknown }).features;
+  if (!Array.isArray(features)) {
+    throw new Error("Invalid Geofabrik index payload: missing features.");
+  }
+
+  const candidates: Array<{
+    id: string;
+    pbfUrl: string;
+    score: number;
+    depth: number;
+  }> = [];
+
+  for (const feature of features) {
+    if (typeof feature !== "object" || feature === null) {
+      continue;
+    }
+    const properties = (feature as { properties?: unknown }).properties;
+    if (typeof properties !== "object" || properties === null) {
+      continue;
+    }
+    const props = properties as Record<string, unknown>;
+    const id = typeof props.id === "string" ? props.id.trim() : "";
+    const pbfUrl = readGeofabrikPbfUrl(props.urls);
+    if (!id || !pbfUrl) {
+      continue;
+    }
+    const iso1 = readIsoCodes(props["iso3166-1:alpha2"] ?? props["iso3166-1"]);
+    const iso2 = readIsoCodes(props["iso3166-2"]);
+    const matchesCountry = iso1.includes(countryCode) || iso2.some((code) => code.startsWith(`${countryCode}-`));
+    if (!matchesCountry) {
+      continue;
+    }
+    const depth = id.split("/").filter((segment) => segment.length > 0).length;
+    const isSubdivision = iso2.some((code) => code.startsWith(`${countryCode}-`));
+    candidates.push({
+      id,
+      pbfUrl,
+      depth,
+      score: isSubdivision ? 2 : 1
+    });
+  }
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  candidates.sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    if (b.depth !== a.depth) {
+      return b.depth - a.depth;
+    }
+    return a.id.localeCompare(b.id);
+  });
+
+  const top = candidates[0];
+  if (!top) {
+    return null;
+  }
+  return { id: top.id, pbfUrl: top.pbfUrl };
+}
+
+function readGeofabrikPbfUrl(value: unknown): string | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const pbf = (value as { pbf?: unknown }).pbf;
+  if (typeof pbf !== "string") {
+    return null;
+  }
+  const normalized = pbf.trim();
+  if (!/^https?:\/\//iu.test(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
+function readIsoCodes(value: unknown): string[] {
+  if (typeof value === "string") {
+    return value
+      .split(/[,\s]+/u)
+      .map((token) => token.trim().toUpperCase())
+      .filter((token) => token.length > 0);
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => (typeof entry === "string" ? entry.trim().toUpperCase() : ""))
+      .filter((entry) => entry.length > 0);
+  }
+  return [];
+}
+
+async function hasNonEmptyFile(path: string): Promise<boolean> {
+  try {
+    const metadata = await stat(path);
+    return metadata.isFile() && metadata.size > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function downloadBinaryWithRetries(args: {
+  url: string;
+  outputPath: string;
+  fetchFn: typeof fetch;
+  onProgress?: (message: string) => void;
+}): Promise<void> {
+  const retryableStatuses = new Set([408, 429, 500, 502, 503, 504]);
+  let lastError = "unknown error";
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    try {
+      args.onProgress?.(`Downloading extract (attempt ${attempt}/4)...`);
+      const response = await args.fetchFn(args.url);
+      if (!response.ok) {
+        if (!retryableStatuses.has(response.status) || attempt === 4) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        await sleep(500 * 2 ** (attempt - 1));
+        continue;
+      }
+      const payload = new Uint8Array(await response.arrayBuffer());
+      if (payload.byteLength === 0) {
+        throw new Error("downloaded file is empty");
+      }
+      await writeFile(args.outputPath, payload);
+      return;
+    } catch (error: unknown) {
+      lastError = error instanceof Error ? error.message : String(error);
+      if (attempt === 4) {
+        break;
+      }
+      await sleep(500 * 2 ** (attempt - 1));
+    }
+  }
+  throw new Error(`Failed to download Geofabrik extract: ${lastError}`);
+}
+
+async function writeDefaultOfflineStyle(args: { stylePath: string; maxZoom: number }): Promise<void> {
+  const style = {
+    version: 8,
+    sources: {
+      basemap: {
+        type: "vector",
+        url: "pmtiles://./base.pmtiles"
+      }
+    },
+    layers: [
+      { id: "background", type: "background", paint: { "background-color": "#dce8ef" } },
+      { id: "landcover", type: "fill", source: "basemap", "source-layer": "landcover", paint: { "fill-color": "#d6ead0" } },
+      { id: "water", type: "fill", source: "basemap", "source-layer": "water", paint: { "fill-color": "#9ec7ea" } },
+      {
+        id: "transportation",
+        type: "line",
+        source: "basemap",
+        "source-layer": "transportation",
+        paint: { "line-color": "#ffffff", "line-width": 1.2 }
+      },
+      {
+        id: "boundary",
+        type: "line",
+        source: "basemap",
+        "source-layer": "boundary",
+        paint: { "line-color": "#9aa5ad", "line-width": 1 }
+      }
+    ],
+    metadata: {
+      "patrol-toolkit:maxZoom": args.maxZoom
+    }
+  };
+  await writeFile(args.stylePath, `${JSON.stringify(style, null, 2)}\n`, "utf8");
+}
+
+export async function resolveBoundaryArtifactPath(workspace: ResortWorkspace, versionPath: string): Promise<string> {
   const boundaryPath = workspace.layers.boundary.artifactPath;
   if (!boundaryPath) {
     throw new Error("Boundary artifact path is missing.");
@@ -2042,17 +2335,22 @@ function resolveBoundaryArtifactPath(workspace: ResortWorkspace, versionPath: st
   if (boundaryPath.startsWith("/")) {
     return boundaryPath;
   }
-
-  return resolve(versionPath, boundaryPath);
+  const candidates = [resolve(versionPath, boundaryPath), join(versionPath, basename(boundaryPath)), resolve(process.cwd(), boundaryPath)];
+  for (const candidate of candidates) {
+    if (await isRegularFile(candidate)) {
+      return candidate;
+    }
+  }
+  return candidates[0] ?? resolve(versionPath, boundaryPath);
 }
 
-async function readBoundaryRingFromArtifact(path: string): Promise<[number, number][]> {
+export async function readBoundaryRingFromArtifact(path: string): Promise<[number, number][]> {
   const raw = await readFile(path, "utf8");
   const parsed = JSON.parse(raw) as unknown;
   return extractBoundaryRing(parsed);
 }
 
-function extractBoundaryRing(input: unknown): [number, number][] {
+export function extractBoundaryRing(input: unknown): [number, number][] {
   if (typeof input !== "object" || input === null) {
     throw new Error("Boundary artifact is not valid GeoJSON.");
   }
@@ -2064,12 +2362,28 @@ function extractBoundaryRing(input: unknown): [number, number][] {
     features?: unknown;
   };
 
-  if (value.type === "FeatureCollection" && Array.isArray(value.features) && value.features.length > 0) {
-    const firstFeature = value.features[0];
-    return extractBoundaryRing(firstFeature);
+  if (value.type === "FeatureCollection") {
+    if (!Array.isArray(value.features) || value.features.length === 0) {
+      throw new Error("Boundary FeatureCollection has no features.");
+    }
+    const rings: [number, number][][] = [];
+    for (const feature of value.features) {
+      try {
+        rings.push(extractBoundaryRing(feature));
+      } catch {
+        continue;
+      }
+    }
+    if (rings.length === 0) {
+      throw new Error("Boundary FeatureCollection has no Polygon or MultiPolygon feature.");
+    }
+    return pickLargestRing(rings);
   }
 
-  if (value.type === "Feature" && typeof value.geometry === "object" && value.geometry !== null) {
+  if (value.type === "Feature") {
+    if (typeof value.geometry !== "object" || value.geometry === null) {
+      throw new Error("Boundary Feature has no geometry.");
+    }
     return extractBoundaryRing(value.geometry);
   }
 
@@ -2081,12 +2395,25 @@ function extractBoundaryRing(input: unknown): [number, number][] {
     return normalizeBoundaryRing(ring);
   }
 
-  if (value.type === "MultiPolygon" && Array.isArray(value.coordinates)) {
-    const polygon = value.coordinates[0];
-    if (!Array.isArray(polygon) || !Array.isArray(polygon[0])) {
-      throw new Error("Boundary multipolygon has no outer ring.");
+  if (value.type === "MultiPolygon") {
+    if (!Array.isArray(value.coordinates) || value.coordinates.length === 0) {
+      throw new Error("Boundary multipolygon has no polygons.");
     }
-    return normalizeBoundaryRing(polygon[0]);
+    const rings: [number, number][][] = [];
+    for (const polygon of value.coordinates) {
+      if (!Array.isArray(polygon) || !Array.isArray(polygon[0])) {
+        continue;
+      }
+      try {
+        rings.push(normalizeBoundaryRing(polygon[0]));
+      } catch {
+        continue;
+      }
+    }
+    if (rings.length === 0) {
+      throw new Error("Boundary multipolygon has no valid outer ring.");
+    }
+    return pickLargestRing(rings);
   }
 
   throw new Error("Boundary artifact does not contain a polygon.");
@@ -2112,7 +2439,36 @@ function normalizeBoundaryRing(ring: unknown[]): [number, number][] {
   return points;
 }
 
-function computeBufferedBbox(
+function pickLargestRing(rings: [number, number][][]): [number, number][] {
+  let largest = rings[0];
+  let largestArea = ringAreaAbs(largest);
+  for (let i = 1; i < rings.length; i += 1) {
+    const area = ringAreaAbs(rings[i] ?? []);
+    if (area > largestArea) {
+      largest = rings[i] ?? largest;
+      largestArea = area;
+    }
+  }
+  return largest;
+}
+
+function ringAreaAbs(ring: [number, number][]): number {
+  if (ring.length < 3) {
+    return 0;
+  }
+  let area = 0;
+  for (let i = 0; i < ring.length; i += 1) {
+    const current = ring[i];
+    const next = ring[(i + 1) % ring.length];
+    if (!current || !next) {
+      continue;
+    }
+    area += current[0] * next[1] - next[0] * current[1];
+  }
+  return Math.abs(area) / 2;
+}
+
+export function computeBufferedBbox(
   ring: [number, number][],
   bufferMeters: number
 ): { minLon: number; minLat: number; maxLon: number; maxLat: number } {
@@ -2140,23 +2496,23 @@ function computeBufferedBbox(
 }
 
 export async function readBasemapProviderConfig(env: NodeJS.ProcessEnv = process.env): Promise<BasemapProviderConfig> {
-  const configPath = (env.PTK_BASEMAP_CONFIG_PATH ?? "tools/osm-extractor/config/basemap-provider.json").trim();
+  const configuredPath = (env.PTK_BASEMAP_CONFIG_PATH ?? "").trim();
+  const configPath = configuredPath || (await resolveDefaultBasemapProviderConfigPath());
   const configFile = await readBasemapProviderConfigFile(configPath);
 
-  const providerRaw = String(env.PTK_BASEMAP_PROVIDER ?? configFile.provider ?? "openmaptiles-planetiler")
-    .trim()
-    .toLowerCase();
+  const providerRaw = String(configFile.provider ?? "openmaptiles-planetiler").trim().toLowerCase();
   if (providerRaw !== "openmaptiles-planetiler") {
-    throw new Error(`Unsupported PTK_BASEMAP_PROVIDER '${providerRaw}'. Supported: openmaptiles-planetiler.`);
+    throw new Error(`Unsupported basemap provider '${providerRaw}' in ${configPath}. Supported: openmaptiles-planetiler.`);
   }
 
-  const bufferMeters = readIntegerEnv(env.PTK_BASEMAP_BUFFER_METERS, configFile.bufferMeters ?? 1000, "PTK_BASEMAP_BUFFER_METERS");
-  const maxZoom = readIntegerEnv(env.PTK_BASEMAP_MAX_ZOOM, configFile.maxZoom ?? 16, "PTK_BASEMAP_MAX_ZOOM");
-  const planetilerCommand = String(env.PTK_BASEMAP_PLANETILER_CMD ?? configFile.planetilerCommand ?? "").trim();
+  const bufferMeters = configFile.bufferMeters ?? 1000;
+  const maxZoom = configFile.maxZoom ?? 15;
+  if (maxZoom > 15) {
+    throw new Error("Basemap provider config maxZoom must be <= 15 for openmaptiles-planetiler.");
+  }
+  const planetilerCommand = String(configFile.planetilerCommand ?? "").trim();
   if (!planetilerCommand || /REPLACE_WITH/iu.test(planetilerCommand)) {
-    throw new Error(
-      `PTK_BASEMAP_PLANETILER_CMD is required (env or ${configPath}). It must build base.pmtiles and style.json for option 9.`
-    );
+    throw new Error(`planetilerCommand is required in ${configPath}. It must build base.pmtiles and style.json for option 9.`);
   }
 
   return {
@@ -2165,6 +2521,16 @@ export async function readBasemapProviderConfig(env: NodeJS.ProcessEnv = process
     maxZoom,
     planetilerCommand
   };
+}
+
+async function resolveDefaultBasemapProviderConfigPath(): Promise<string> {
+  const candidates = ["tools/osm-extractor/config/basemap-provider.json", "config/basemap-provider.json"];
+  for (const candidate of candidates) {
+    if (await isRegularFile(candidate)) {
+      return candidate;
+    }
+  }
+  return candidates[0] ?? "tools/osm-extractor/config/basemap-provider.json";
 }
 
 async function readBasemapProviderConfigFile(path: string): Promise<BasemapProviderConfigFile> {
@@ -2216,19 +2582,6 @@ async function readBasemapProviderConfigFile(path: string): Promise<BasemapProvi
   };
 }
 
-function readIntegerEnv(raw: string | undefined, fallback: number, envName: string): number {
-  const value = raw?.trim();
-  if (!value) {
-    return fallback;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error(`${envName} must be an integer >= 0.`);
-  }
-  return parsed;
-}
-
 function renderBasemapProviderCommand(
   template: string,
   values: {
@@ -2243,6 +2596,9 @@ function renderBasemapProviderCommand(
     outputPmtiles: string;
     outputStyle: string;
     boundaryGeojson: string;
+    osmExtractPath: string;
+    planetilerJarPath: string;
+    planetilerDataDir: string;
   }
 ): string {
   let rendered = template;
@@ -2257,7 +2613,10 @@ function renderBasemapProviderCommand(
     "{maxZoom}": String(values.maxZoom),
     "{outputPmtiles}": shellEscape(values.outputPmtiles),
     "{outputStyle}": shellEscape(values.outputStyle),
-    "{boundaryGeojson}": shellEscape(values.boundaryGeojson)
+    "{boundaryGeojson}": shellEscape(values.boundaryGeojson),
+    "{osmExtractPath}": shellEscape(values.osmExtractPath),
+    "{planetilerJarPath}": shellEscape(values.planetilerJarPath),
+    "{planetilerDataDir}": shellEscape(values.planetilerDataDir)
   };
 
   for (const [token, replacement] of Object.entries(replacements)) {
@@ -2265,6 +2624,38 @@ function renderBasemapProviderCommand(
   }
 
   return rendered;
+}
+
+export function ensurePlanetilerRuntimeDefaults(
+  command: string,
+  paths: { downloadDir: string; tempDir: string }
+): string {
+  let normalized = command.trim();
+  if (!/planetiler|openmaptiles/iu.test(normalized)) {
+    return normalized;
+  }
+
+  if (/--download=(true|false)\b/iu.test(normalized)) {
+    normalized = normalized.replace(/--download=(true|false)\b/iu, "--download=true");
+  } else {
+    normalized = `${normalized} --download=true`;
+  }
+
+  if (!/--download_dir=/iu.test(normalized)) {
+    normalized = `${normalized} --download_dir=${shellEscape(paths.downloadDir)}`;
+  }
+
+  if (!/--tmpdir=/iu.test(normalized)) {
+    normalized = `${normalized} --tmpdir=${shellEscape(paths.tempDir)}`;
+  }
+
+  if (/--force=(true|false)\b/iu.test(normalized)) {
+    normalized = normalized.replace(/--force=(true|false)\b/iu, "--force=true");
+  } else {
+    normalized = `${normalized} --force=true`;
+  }
+
+  return normalized;
 }
 
 function shellEscape(value: string): string {
@@ -2504,6 +2895,10 @@ export async function canonicalizeResortKeys(rootPath: string): Promise<void> {
       throw error;
     }
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function isMissingPathError(error: unknown): error is NodeJS.ErrnoException {

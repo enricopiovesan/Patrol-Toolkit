@@ -58,7 +58,7 @@ npm --prefix tools/osm-extractor run run:menu
 3. In resort submenu:
 - `2/3/4` for single-layer sync (`boundary`, `runs`, `lifts`).
 - `5` for immutable multi-layer update in one new version.
-- `9` to generate offline basemap assets for the current version using a local provider command (defaults: buffer `1000m`, max zoom `16`).
+- `9` to generate offline basemap assets for the current version using a local provider command (defaults: buffer `1000m`, max zoom `15`).
 - `6/7/8` to mark layer manual validation.
   - when all three are validated, the menu auto-publishes latest validated bundle to app catalog (`public/packs` + `public/resort-packs/index.json`).
   - auto-publish also copies basemap assets from `resorts/<resortKey>/<version>/basemap/base.pmtiles` and `resorts/<resortKey>/<version>/basemap/style.json` into `public/packs/<resortKey>/`.
@@ -97,6 +97,33 @@ node tools/osm-extractor/dist/src/cli.js --help
 Menu option `9` can build shared resort basemap assets automatically with provider `openmaptiles-planetiler`.
 No manual PMTiles/style prompt is required when provider config is set.
 
+### Prerequisites (Required Before Option 9)
+
+1. Install Java `21+` and verify:
+
+```bash
+java -version
+```
+
+2. Download Planetiler locally (one-time):
+
+```bash
+mkdir -p tools/bin
+curl -L https://github.com/onthegomap/planetiler/releases/latest/download/planetiler.jar \
+  -o tools/bin/planetiler.jar
+```
+
+3. Verify Planetiler is runnable:
+
+```bash
+java -jar tools/bin/planetiler.jar --help
+```
+
+4. Use the default provider config (already committed) or customize `planetilerCommand`.
+   The default command auto-resolves a Geofabrik `.osm.pbf` by resort country and caches it under:
+   - `resorts/.cache/geofabrik/`
+   Option `9` fails fast only if `planetilerCommand` is empty.
+
 Default config file:
 
 - `tools/osm-extractor/config/basemap-provider.json`
@@ -105,8 +132,8 @@ Default config file:
 {
   "provider": "openmaptiles-planetiler",
   "bufferMeters": 1000,
-  "maxZoom": 16,
-  "planetilerCommand": "REPLACE_WITH_LOCAL_PLANETILER_COMMAND"
+  "maxZoom": 15,
+  "planetilerCommand": "java -jar {planetilerJarPath} --osm_path={osmExtractPath} --output={outputPmtiles} --bounds={bboxCsv} --maxzoom={maxZoom} --download=true --download_dir={planetilerDataDir}/sources --tmpdir={planetilerDataDir}/tmp --force=true"
 }
 ```
 
@@ -116,7 +143,7 @@ Required config field:
   - shell command template executed locally.
   - it must create:
     - `resorts/<resortKey>/basemap/base.pmtiles`
-    - `resorts/<resortKey>/basemap/style.json`
+  - if `style.json` is not produced by command, CLI writes a default offline vector style automatically.
   - supported placeholders:
     - `{resortKey}`
     - `{minLon}` `{minLat}` `{maxLon}` `{maxLat}`
@@ -126,27 +153,20 @@ Required config field:
     - `{outputPmtiles}`
     - `{outputStyle}`
     - `{boundaryGeojson}`
+    - `{osmExtractPath}` (auto-downloaded/cached Geofabrik source extract path)
+    - `{planetilerJarPath}` (auto-resolved local Planetiler jar path)
+    - `{planetilerDataDir}` (local Planetiler cache dir under `resorts/.cache/planetiler`)
 
-Optional env var overrides:
+Environment variables used by provider config:
 
-- `PTK_BASEMAP_PROVIDER` (default: `openmaptiles-planetiler`)
-- `PTK_BASEMAP_BUFFER_METERS` (default: `1000`)
-- `PTK_BASEMAP_MAX_ZOOM` (default: `16`)
-- `PTK_BASEMAP_PLANETILER_CMD`
 - `PTK_BASEMAP_CONFIG_PATH` (default: `tools/osm-extractor/config/basemap-provider.json`)
+- `PTK_PLANETILER_JAR` (optional explicit path to `planetiler.jar`)
 
 Example:
 
 ```bash
-export PTK_BASEMAP_PROVIDER=openmaptiles-planetiler
-export PTK_BASEMAP_BUFFER_METERS=1000
-export PTK_BASEMAP_MAX_ZOOM=16
-export PTK_BASEMAP_PLANETILER_CMD="planetiler-wrapper \
-  --boundary {boundaryGeojson} \
-  --bbox {bboxCsv} \
-  --max-zoom {maxZoom} \
-  --out {outputPmtiles} \
-  --style-out {outputStyle}"
+export PTK_BASEMAP_CONFIG_PATH=tools/osm-extractor/config/basemap-provider.json
+export PTK_PLANETILER_JAR=tools/bin/planetiler.jar
 ```
 
 ## Step-By-Step: Resort Workspace Flow

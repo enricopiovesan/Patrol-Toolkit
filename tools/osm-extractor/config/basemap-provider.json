@@ -1,6 +1,6 @@
 {
   "provider": "openmaptiles-planetiler",
   "bufferMeters": 1000,
-  "maxZoom": 16,
-  "planetilerCommand": "REPLACE_WITH_LOCAL_PLANETILER_COMMAND"
+  "maxZoom": 15,
+  "planetilerCommand": "java -jar {planetilerJarPath} --osm_path={osmExtractPath} --output={outputPmtiles} --bounds={bboxCsv} --maxzoom={maxZoom} --download=true --download_dir={planetilerDataDir}/sources --tmpdir={planetilerDataDir}/tmp --force=true"
 }

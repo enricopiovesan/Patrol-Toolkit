@@ -3,4 +3,13 @@ dist
 .vscode
 .DS_Store
 coverage
-resorts
+tools/bin
+resorts/.cache/
+resorts/.CACHE/
+resorts/*/v*/.cache/
+# generated shared basemap working area (non-versioned input to option 9)
+resorts/*/basemap/
+# planetiler/openmaptiles transient work dirs (if generated at repo root)
+data/sources/
+data/tmp/
+tools/osm-extractor/resorts/

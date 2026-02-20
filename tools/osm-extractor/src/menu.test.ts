@@ -6,10 +6,13 @@ import {
   attachBasemapAssetsToVersion,
   buildResortKey,
   canonicalizeResortKeys,
+  computeBufferedBbox,
   createNextVersionClone,
+  extractBoundaryRing,
   formatKnownResortSummary,
   formatSearchCandidate,
   getExistingResortLatestVersion,
+  ensurePlanetilerRuntimeDefaults,
   isBoundaryReadyForSync,
   listKnownResorts,
   parseLayerSelection,
@@ -17,7 +20,10 @@ import {
   parseDuplicateResortAction,
   persistResortVersion,
   readBasemapProviderConfig,
+  readBoundaryRingFromArtifact,
   readOfflineBasemapMetrics,
+  resolveGeofabrikExtractPath,
+  resolveBoundaryArtifactPath,
   generateBasemapAssetsForVersion,
   rankSearchCandidates,
   runInteractiveMenu,
@@ -94,6 +100,342 @@ describe("offline basemap metrics", () => {
   });
 });
 
+describe("boundary geometry utilities", () => {
+  it("extracts the largest polygon ring from mixed FeatureCollection geometry", () => {
+    const ring = extractBoundaryRing({
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {},
+          geometry: { type: "Point", coordinates: [-116.95, 51.3] }
+        },
+        {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "MultiPolygon",
+            coordinates: [
+              [
+                [
+                  [-116.96, 51.3],
+                  [-116.95, 51.3],
+                  [-116.95, 51.31],
+                  [-116.96, 51.31],
+                  [-116.96, 51.3]
+                ]
+              ],
+              [
+                [
+                  [-116.97, 51.29],
+                  [-116.93, 51.29],
+                  [-116.93, 51.33],
+                  [-116.97, 51.33],
+                  [-116.97, 51.29]
+                ]
+              ]
+            ]
+          }
+        }
+      ]
+    });
+
+    expect(ring).toEqual([
+      [-116.97, 51.29],
+      [-116.93, 51.29],
+      [-116.93, 51.33],
+      [-116.97, 51.33],
+      [-116.97, 51.29]
+    ]);
+  });
+
+  it("computes a buffered bbox with 1000m expansion", () => {
+    const bbox = computeBufferedBbox(
+      [
+        [-116.97, 51.29],
+        [-116.95, 51.29],
+        [-116.95, 51.31],
+        [-116.97, 51.31],
+        [-116.97, 51.29]
+      ],
+      1000
+    );
+
+    expect(bbox.minLon).toBeCloseTo(-116.9842, 3);
+    expect(bbox.maxLon).toBeCloseTo(-116.9358, 3);
+    expect(bbox.minLat).toBeCloseTo(51.2810, 3);
+    expect(bbox.maxLat).toBeCloseTo(51.3190, 3);
+  });
+
+  it("returns a precise error when artifact has no polygon geometry", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-boundary-artifact-invalid-"));
+    try {
+      const path = join(root, "boundary.geojson");
+      await writeFile(
+        path,
+        JSON.stringify({
+          type: "FeatureCollection",
+          features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [-116.95, 51.3] } }]
+        }),
+        "utf8"
+      );
+
+      await expect(readBoundaryRingFromArtifact(path)).rejects.toThrow(/FeatureCollection has no Polygon or MultiPolygon feature/i);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves boundary artifact path from cwd when workspace stores resorts-relative path", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-boundary-path-cwd-"));
+    const originalCwd = process.cwd();
+    try {
+      const versionPath = join(root, "resorts", "CA_Golden_Kicking_Horse", "v1");
+      const boundaryPath = join(versionPath, "boundary.geojson");
+      await mkdir(versionPath, { recursive: true });
+      await writeFile(
+        boundaryPath,
+        JSON.stringify({
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [-116.97, 51.29],
+                [-116.95, 51.29],
+                [-116.95, 51.31],
+                [-116.97, 51.31],
+                [-116.97, 51.29]
+              ]
+            ]
+          }
+        }),
+        "utf8"
+      );
+      process.chdir(root);
+      const resolved = await resolveBoundaryArtifactPath(
+        {
+          schemaVersion: "2.0.0",
+          resort: { query: { name: "Kicking Horse", country: "CA" } },
+          layers: {
+            boundary: { status: "complete", artifactPath: "resorts/CA_Golden_Kicking_Horse/v1/boundary.geojson" },
+            lifts: { status: "pending" },
+            runs: { status: "pending" }
+          }
+        },
+        versionPath
+      );
+      expect(resolved.endsWith("/resorts/CA_Golden_Kicking_Horse/v1/boundary.geojson")).toBe(true);
+    } finally {
+      process.chdir(originalCwd);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to boundary file under current version when stored path points to legacy resort key", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-boundary-path-legacy-key-"));
+    try {
+      const versionPath = join(root, "resorts", "CA_Golden_Kicking_Horse", "v1");
+      const boundaryPath = join(versionPath, "boundary.geojson");
+      await mkdir(versionPath, { recursive: true });
+      await writeFile(
+        boundaryPath,
+        JSON.stringify({
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [-116.97, 51.29],
+                [-116.95, 51.29],
+                [-116.95, 51.31],
+                [-116.97, 51.31],
+                [-116.97, 51.29]
+              ]
+            ]
+          }
+        }),
+        "utf8"
+      );
+
+      const resolved = await resolveBoundaryArtifactPath(
+        {
+          schemaVersion: "2.0.0",
+          resort: { query: { name: "Kicking Horse", country: "CA" } },
+          layers: {
+            boundary: { status: "complete", artifactPath: "resorts/CA_golden_kicking_horse/v1/boundary.geojson" },
+            lifts: { status: "pending" },
+            runs: { status: "pending" }
+          }
+        },
+        versionPath
+      );
+      expect(resolved.endsWith("/resorts/CA_Golden_Kicking_Horse/v1/boundary.geojson")).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("geofabrik resolver", () => {
+  it("downloads and caches a country extract", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-geofabrik-cache-"));
+    try {
+      const indexPayload = {
+        features: [
+          {
+            properties: {
+              id: "north-america/canada",
+              "iso3166-1:alpha2": "CA",
+              urls: { pbf: "https://download.geofabrik.de/north-america/canada-latest.osm.pbf" }
+            }
+          }
+        ]
+      };
+      let downloads = 0;
+      const fetchFn = (async () => {
+        downloads += 1;
+        return new Response(Uint8Array.from([1, 2, 3, 4]), { status: 200 });
+      }) as typeof fetch;
+
+      const first = await resolveGeofabrikExtractPath({
+        countryCode: "CA",
+        cacheDir: root,
+        fetchJsonFn: async () => indexPayload,
+        fetchFn
+      });
+      const firstBytes = await readFile(first);
+      expect([...firstBytes]).toEqual([1, 2, 3, 4]);
+      expect(downloads).toBe(1);
+
+      const second = await resolveGeofabrikExtractPath({
+        countryCode: "CA",
+        cacheDir: root,
+        fetchJsonFn: async () => indexPayload,
+        fetchFn: (async () => {
+          throw new Error("should not download when cache exists");
+        }) as typeof fetch
+      });
+      expect(second).toBe(first);
+      expect(downloads).toBe(1);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("selects deeper subdivision extract for the same country", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-geofabrik-subdivision-"));
+    try {
+      let downloadedUrl = "";
+      await resolveGeofabrikExtractPath({
+        countryCode: "CA",
+        cacheDir: root,
+        fetchJsonFn: async () => ({
+          features: [
+            {
+              properties: {
+                id: "north-america/canada",
+                "iso3166-1:alpha2": "CA",
+                urls: { pbf: "https://download.geofabrik.de/north-america/canada-latest.osm.pbf" }
+              }
+            },
+            {
+              properties: {
+                id: "north-america/canada/british-columbia",
+                "iso3166-2": "CA-BC",
+                urls: { pbf: "https://download.geofabrik.de/north-america/canada/british-columbia-latest.osm.pbf" }
+              }
+            }
+          ]
+        }),
+        fetchFn: (async (url) => {
+          downloadedUrl = String(url);
+          return new Response(Uint8Array.from([9, 9, 9]), { status: 200 });
+        }) as typeof fetch
+      });
+      expect(downloadedUrl).toContain("british-columbia-latest.osm.pbf");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails with clear error when country has no extract", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-geofabrik-no-match-"));
+    try {
+      await expect(
+        resolveGeofabrikExtractPath({
+          countryCode: "XX",
+          cacheDir: root,
+          fetchJsonFn: async () => ({ features: [] }),
+          fetchFn: (async () => new Response(Uint8Array.from([1]), { status: 200 })) as typeof fetch
+        })
+      ).rejects.toThrow(/No Geofabrik extract found for country code 'XX'/i);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails on invalid country code input", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-geofabrik-invalid-country-"));
+    try {
+      await expect(
+        resolveGeofabrikExtractPath({
+          countryCode: "CAN",
+          cacheDir: root,
+          fetchJsonFn: async () => ({ features: [] }),
+          fetchFn: (async () => new Response(Uint8Array.from([1]), { status: 200 })) as typeof fetch
+        })
+      ).rejects.toThrow(/Invalid country code 'CAN'/i);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails on invalid geofabrik index payload", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-geofabrik-invalid-index-"));
+    try {
+      await expect(
+        resolveGeofabrikExtractPath({
+          countryCode: "CA",
+          cacheDir: root,
+          fetchJsonFn: async () => ({ invalid: true }),
+          fetchFn: (async () => new Response(Uint8Array.from([1]), { status: 200 })) as typeof fetch
+        })
+      ).rejects.toThrow(/Invalid Geofabrik index payload/i);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails when extract download fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-geofabrik-download-fail-"));
+    try {
+      await expect(
+        resolveGeofabrikExtractPath({
+          countryCode: "CA",
+          cacheDir: root,
+          fetchJsonFn: async () => ({
+            features: [
+              {
+                properties: {
+                  id: "north-america/canada",
+                  "iso3166-1:alpha2": "CA",
+                  urls: { pbf: "https://download.geofabrik.de/north-america/canada-latest.osm.pbf" }
+                }
+              }
+            ]
+          }),
+          fetchFn: (async () => new Response("error", { status: 503 })) as typeof fetch
+        })
+      ).rejects.toThrow(/Failed to download Geofabrik extract: HTTP 503/i);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("basemap provider config", () => {
   it("rejects invalid config field types", async () => {
     const root = await mkdtemp(join(tmpdir(), "menu-basemap-provider-config-invalid-"));
@@ -104,7 +446,7 @@ describe("basemap provider config", () => {
         JSON.stringify({
           provider: "openmaptiles-planetiler",
           bufferMeters: "1000",
-          maxZoom: 16,
+          maxZoom: 15,
           planetilerCommand: "echo ok"
         }),
         "utf8"
@@ -120,7 +462,7 @@ describe("basemap provider config", () => {
     }
   });
 
-  it("loads config defaults and allows env overrides", async () => {
+  it("loads config defaults and ignores legacy env overrides", async () => {
     const root = await mkdtemp(join(tmpdir(), "menu-basemap-provider-config-ok-"));
     try {
       const configPath = join(root, "basemap-provider.json");
@@ -137,17 +479,49 @@ describe("basemap provider config", () => {
 
       const resolved = await readBasemapProviderConfig({
         PTK_BASEMAP_CONFIG_PATH: configPath,
-        PTK_BASEMAP_MAX_ZOOM: "16",
+        PTK_BASEMAP_PROVIDER: "something-else",
+        PTK_BASEMAP_BUFFER_METERS: "5000",
+        PTK_BASEMAP_MAX_ZOOM: "15",
         PTK_BASEMAP_PLANETILER_CMD: "echo from-env"
       });
 
       expect(resolved).toEqual({
         provider: "openmaptiles-planetiler",
         bufferMeters: 1200,
-        maxZoom: 16,
-        planetilerCommand: "echo from-env"
+        maxZoom: 14,
+        planetilerCommand: "echo from-config"
       });
     } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves default config path from repo root or extractor cwd", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-basemap-provider-config-default-path-"));
+    const originalCwd = process.cwd();
+    try {
+      const configDir = join(root, "tools", "osm-extractor", "config");
+      await mkdir(configDir, { recursive: true });
+      await writeFile(
+        join(configDir, "basemap-provider.json"),
+        JSON.stringify({
+          provider: "openmaptiles-planetiler",
+          bufferMeters: 1000,
+          maxZoom: 15,
+          planetilerCommand: "echo from-default"
+        }),
+        "utf8"
+      );
+
+      process.chdir(root);
+      const fromRoot = await readBasemapProviderConfig({});
+      expect(fromRoot.planetilerCommand).toBe("echo from-default");
+
+      process.chdir(join(root, "tools", "osm-extractor"));
+      const fromExtractorCwd = await readBasemapProviderConfig({});
+      expect(fromExtractorCwd.planetilerCommand).toBe("echo from-default");
+    } finally {
+      process.chdir(originalCwd);
       await rm(root, { recursive: true, force: true });
     }
   });
@@ -161,7 +535,7 @@ describe("basemap provider config", () => {
         JSON.stringify({
           provider: "openmaptiles-planetiler",
           bufferMeters: 1000,
-          maxZoom: 16,
+          maxZoom: 15,
           planetilerCommand: "REPLACE_WITH_LOCAL_PLANETILER_COMMAND"
         }),
         "utf8"
@@ -171,14 +545,14 @@ describe("basemap provider config", () => {
         readBasemapProviderConfig({
           PTK_BASEMAP_CONFIG_PATH: configPath
         })
-      ).rejects.toThrow(/PTK_BASEMAP_PLANETILER_CMD is required/iu);
+      ).rejects.toThrow(/planetilerCommand is required/iu);
 
       await writeFile(
         configPath,
         JSON.stringify({
           provider: "openmaptiles-planetiler",
           bufferMeters: 1000,
-          maxZoom: 16,
+          maxZoom: 15,
           planetilerCommand: "   "
         }),
         "utf8"
@@ -188,7 +562,7 @@ describe("basemap provider config", () => {
         readBasemapProviderConfig({
           PTK_BASEMAP_CONFIG_PATH: configPath
         })
-      ).rejects.toThrow(/PTK_BASEMAP_PLANETILER_CMD is required/iu);
+      ).rejects.toThrow(/planetilerCommand is required/iu);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -203,6 +577,31 @@ describe("basemap provider config", () => {
         JSON.stringify({
           provider: "something-else",
           bufferMeters: 1000,
+          maxZoom: 15,
+          planetilerCommand: "echo ok"
+        }),
+        "utf8"
+      );
+
+      await expect(
+        readBasemapProviderConfig({
+          PTK_BASEMAP_CONFIG_PATH: configPath
+        })
+      ).rejects.toThrow(/Unsupported basemap provider/iu);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects max zoom above planetiler limit", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-basemap-provider-config-maxzoom-"));
+    try {
+      const configPath = join(root, "basemap-provider.json");
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          provider: "openmaptiles-planetiler",
+          bufferMeters: 1000,
           maxZoom: 16,
           planetilerCommand: "echo ok"
         }),
@@ -213,10 +612,47 @@ describe("basemap provider config", () => {
         readBasemapProviderConfig({
           PTK_BASEMAP_CONFIG_PATH: configPath
         })
-      ).rejects.toThrow(/Unsupported PTK_BASEMAP_PROVIDER/iu);
+      ).rejects.toThrow(/maxZoom must be <= 15/i);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("planetiler runtime defaults", () => {
+  it("forces download and adds cache directories when command omits them", () => {
+    const normalized = ensurePlanetilerRuntimeDefaults("java -jar planetiler.jar --output=out.pmtiles", {
+      downloadDir: "/tmp/planetiler/sources",
+      tempDir: "/tmp/planetiler/tmp"
+    });
+    expect(normalized).toContain("--download=true");
+    expect(normalized).toContain("--download_dir='/tmp/planetiler/sources'");
+    expect(normalized).toContain("--tmpdir='/tmp/planetiler/tmp'");
+    expect(normalized).toContain("--force=true");
+  });
+
+  it("rewrites download=false and force=false to true", () => {
+    const normalized = ensurePlanetilerRuntimeDefaults(
+      "java -jar planetiler.jar --download=false --force=false --download_dir='/a' --tmpdir='/b'",
+      {
+        downloadDir: "/tmp/planetiler/sources",
+        tempDir: "/tmp/planetiler/tmp"
+      }
+    );
+    expect(normalized).toContain("--download=true");
+    expect(normalized).toContain("--force=true");
+    expect(normalized).toContain("--download_dir='/a'");
+    expect(normalized).toContain("--tmpdir='/b'");
+  });
+
+  it("does not modify non-planetiler commands", () => {
+    const command = "cp '/tmp/source.pmtiles' '/tmp/out.pmtiles'";
+    expect(
+      ensurePlanetilerRuntimeDefaults(command, {
+        downloadDir: "/tmp/planetiler/sources",
+        tempDir: "/tmp/planetiler/tmp"
+      })
+    ).toBe(command);
   });
 });
 
@@ -452,6 +888,38 @@ describe("menu known resort listing", () => {
           }
         }
       ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores hidden directories like .cache in resort list", async () => {
+    const root = await mkdtemp(join(tmpdir(), "resorts-root-hidden-"));
+    try {
+      await mkdir(join(root, ".cache", "geofabrik"), { recursive: true });
+      const resortPath = join(root, "CA_Golden_Kicking_Horse");
+      await mkdir(join(resortPath, "v1"), { recursive: true });
+      await writeFile(
+        join(resortPath, "v1", "status.json"),
+        JSON.stringify(
+          {
+            createdAt: "2026-02-21T12:00:00.000Z",
+            readiness: { overall: "ready", issues: [] },
+            layers: {
+              boundary: { status: "complete", featureCount: 1, checksumSha256: "abc123", updatedAt: "2026-02-21T12:01:00.000Z" },
+              runs: { status: "complete", featureCount: 72, checksumSha256: "def456", updatedAt: "2026-02-21T12:02:00.000Z" },
+              lifts: { status: "complete", featureCount: 7, checksumSha256: "ghi789", updatedAt: "2026-02-21T12:03:00.000Z" }
+            },
+            manualValidation: { validated: true }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+
+      const result = await listKnownResorts(root);
+      expect(result.map((entry) => entry.resortKey)).toEqual(["CA_Golden_Kicking_Horse"]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1353,6 +1821,7 @@ describe("menu interactive flows", () => {
     const statusPath = join(versionPath, "status.json");
     const sourcePmtiles = join(sourceRoot, "base.pmtiles");
     const sourceStyle = join(sourceRoot, "style.json");
+    const configPath = join(root, "basemap-provider.json");
     const rl = createFakeReadline(["1", "1", "9", "10", "3"]);
     const originalEnv = { ...process.env };
     try {
@@ -1362,10 +1831,17 @@ describe("menu interactive flows", () => {
         JSON.stringify({ version: 8, sources: { basemap: { type: "vector" } }, layers: [{ id: "bg", type: "background" }] }),
         "utf8"
       );
-      process.env.PTK_BASEMAP_PROVIDER = "openmaptiles-planetiler";
-      process.env.PTK_BASEMAP_BUFFER_METERS = "1000";
-      process.env.PTK_BASEMAP_MAX_ZOOM = "16";
-      process.env.PTK_BASEMAP_PLANETILER_CMD = `cp '${sourcePmtiles}' {outputPmtiles} && cp '${sourceStyle}' {outputStyle}`;
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          provider: "openmaptiles-planetiler",
+          bufferMeters: 1000,
+          maxZoom: 15,
+          planetilerCommand: `cp '${sourcePmtiles}' {outputPmtiles} && cp '${sourceStyle}' {outputStyle}`
+        }),
+        "utf8"
+      );
+      process.env.PTK_BASEMAP_CONFIG_PATH = configPath;
       await mkdir(versionPath, { recursive: true });
       await writeFile(
         workspacePath,
@@ -1461,6 +1937,125 @@ describe("menu interactive flows", () => {
       };
       expect([...publishedPmtiles]).toEqual([11, 22, 33, 44]);
       expect(publishedStyle.sources?.basemap?.type).toBe("vector");
+    } finally {
+      restoreProcessEnv(originalEnv);
+      await rm(root, { recursive: true, force: true });
+      await rm(sourceRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("generates default offline style when provider command only outputs pmtiles", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-basemap-default-style-"));
+    const sourceRoot = await mkdtemp(join(tmpdir(), "menu-flow-basemap-source-pmtiles-only-"));
+    const publicRoot = join(root, "public");
+    const resortKey = "CA_Golden_Kicking_Horse";
+    const versionPath = join(root, resortKey, "v1");
+    const workspacePath = join(versionPath, "resort.json");
+    const statusPath = join(versionPath, "status.json");
+    const sourcePmtiles = join(sourceRoot, "base.pmtiles");
+    const configPath = join(root, "basemap-provider.json");
+    const rl = createFakeReadline(["1", "1", "9", "10", "3"]);
+    const originalEnv = { ...process.env };
+    try {
+      await writeFile(sourcePmtiles, new Uint8Array([44, 33, 22, 11]));
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          provider: "openmaptiles-planetiler",
+          bufferMeters: 1000,
+          maxZoom: 15,
+          planetilerCommand: `cp '${sourcePmtiles}' {outputPmtiles}`
+        }),
+        "utf8"
+      );
+      process.env.PTK_BASEMAP_CONFIG_PATH = configPath;
+      await mkdir(versionPath, { recursive: true });
+      await writeFile(
+        workspacePath,
+        JSON.stringify(
+          {
+            schemaVersion: "2.0.0",
+            resort: {
+              query: { name: "Kicking Horse", country: "CA" }
+            },
+            layers: {
+              boundary: { status: "complete", artifactPath: "boundary.geojson", featureCount: 1 },
+              runs: { status: "complete", artifactPath: "runs.geojson", featureCount: 72 },
+              lifts: { status: "complete", artifactPath: "lifts.geojson", featureCount: 7 }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(
+        statusPath,
+        JSON.stringify(
+          {
+            schemaVersion: "1.0.0",
+            resortKey,
+            version: "v1",
+            createdAt: "2026-02-19T16:31:09.346Z",
+            query: { name: "Kicking Horse", countryCode: "CA", town: "Golden" },
+            readiness: { overall: "ready", issues: [] },
+            manualValidation: {
+              validated: true,
+              layers: {
+                boundary: { validated: true },
+                runs: { validated: true },
+                lifts: { validated: true }
+              }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(
+        join(versionPath, "boundary.geojson"),
+        JSON.stringify({
+          type: "Feature",
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [-116.97, 51.29],
+                [-116.95, 51.29],
+                [-116.95, 51.31],
+                [-116.97, 51.31],
+                [-116.97, 51.29]
+              ]
+            ]
+          },
+          properties: {}
+        }),
+        "utf8"
+      );
+      await writeFile(join(versionPath, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(versionPath, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        appPublicRoot: publicRoot,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((entry) => ({
+            candidate: entry,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Kicking Horse", country: "CA", limit: 5 },
+          candidates: []
+        })
+      });
+
+      const sharedStyle = JSON.parse(await readFile(join(root, resortKey, "basemap", "style.json"), "utf8")) as {
+        sources?: Record<string, { type?: string; url?: string }>;
+      };
+      expect(sharedStyle.sources?.basemap?.type).toBe("vector");
+      expect(sharedStyle.sources?.basemap?.url).toBe("pmtiles://./base.pmtiles");
     } finally {
       restoreProcessEnv(originalEnv);
       await rm(root, { recursive: true, force: true });
