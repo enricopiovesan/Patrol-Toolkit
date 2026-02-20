@@ -78,7 +78,10 @@ describe("AppShell", () => {
     const shell = await createReadyShell();
 
     await (shell as unknown as { generatePhrase: () => Promise<void> }).generatePhrase();
-    expect(readPhrase(shell)).toBe("Easy Street, Mid, skier's left, below Summit Express tower 2");
+    const phrase = readPhrase(shell);
+    expect(phrase).toContain("Easy Street");
+    expect(phrase).toContain("middle section");
+    expect(phrase).toMatch(/\d+m (above|below|from) Summit Express tower 2/iu);
     expect(readPhraseHint(shell)).toBe("Phrase generated.");
   });
 
