@@ -10,6 +10,8 @@ describe("buildResortOverlayData", () => {
 
     expect(overlays.boundary.features).toHaveLength(0);
     expect(overlays.runs.features).toHaveLength(pack.runs.length);
+    expect(overlays.runs.features[0]?.geometry.type).toBe("LineString");
+    expect(overlays.runs.features[0]?.properties?.difficulty).toBe(pack.runs[0]?.difficulty);
     expect(overlays.lifts.features).toHaveLength(1);
     expect(overlays.liftTowers.features).toHaveLength(2);
   });

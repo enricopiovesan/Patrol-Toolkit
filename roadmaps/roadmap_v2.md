@@ -20,7 +20,7 @@
 - PR outcome: locked phrase spec for implementation.
 
 ## Slice 2: Phrase v2 Engine
-- Status: in progress
+- Status: completed
 - Goal: implement phrase improvements from Slice 1.
 - Changes:
   - refactor phrase generation into explicit stages (context -> decision -> render).
@@ -31,7 +31,7 @@
 - PR outcome: production-ready phrase behavior.
 
 ## Slice 3: Run Rendering v2 (Lines + Difficulty Colors)
-- Status: planned
+- Status: in progress
 - Goal: replace triangle-like run display with readable line cartography.
 - Changes:
   - render runs as line-first visualization.
