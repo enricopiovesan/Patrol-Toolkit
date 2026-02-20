@@ -295,6 +295,7 @@ export class AppShell extends LitElement {
       return;
     }
 
+    const previouslyActivePackId = this.activePackId;
     try {
       const pack = await loadPackFromCatalogEntry(selectedEntry);
       await this.repository.savePack(pack);
@@ -309,6 +310,19 @@ export class AppShell extends LitElement {
       void this.refreshBasemapWarning(pack);
       this.statusMessage = `Active pack: ${pack.resort.name} (${selectedEntry.version})`;
     } catch (error) {
+      const canRestorePreviousSelection =
+        typeof previouslyActivePackId === "string" &&
+        this.resortOptions.some((entry) => entry.resortId === previouslyActivePackId);
+
+      if (canRestorePreviousSelection) {
+        this.selectedPackId = previouslyActivePackId;
+      } else {
+        this.activePackId = null;
+        this.activePack = null;
+        this.basemapWarning = "";
+        this.generatedPhrase = "";
+        this.phraseStatus = "Waiting for GPS and active pack.";
+      }
       this.statusMessage = error instanceof Error ? error.message : "Failed to load selected resort.";
     }
   }

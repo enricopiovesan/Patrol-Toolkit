@@ -1183,15 +1183,84 @@ async function runKnownResortMenu(args: {
         continue;
       }
 
+      console.log("Basemap generation");
+      console.log("1. Generate/publish");
+      console.log("2. Dry-run preview (no writes)");
+      console.log("3. Force rebuild (provider rebuild + publish)");
+      const modeSelectedRaw = (await args.rl.question("Select basemap mode (1-3): ")).trim();
+      const modeSelected = modeSelectedRaw.length === 0 ? "1" : modeSelectedRaw;
+      if (!["1", "2", "3"].includes(modeSelected)) {
+        console.log("Invalid basemap mode. Select 1, 2, or 3.");
+        continue;
+      }
+
+      if (modeSelected === "2") {
+        try {
+          const preview = await previewBasemapGeneration({
+            workspace,
+            versionPath: dirname(workspacePath),
+            resortsRoot: args.resortsRoot,
+            resortKey: args.resortKey,
+            appPublicRoot: args.appPublicRoot
+          });
+          console.log("");
+          console.log("Basemap dry-run preview");
+          console.log(`- Target: ${preview.targetVersionBasemapDir}`);
+          console.log(
+            `- Current version basemap: ${preview.currentVersionOfflineReady ? "offline-ready" : "not offline-ready"}`
+          );
+          if (preview.currentVersionIssues.length > 0) {
+            console.log(`- Current issues: ${preview.currentVersionIssues.join("; ")}`);
+          }
+          console.log(`- Candidate source: ${preview.sourceLabel ?? "none"}`);
+          if (preview.providerSummary) {
+            console.log(
+              `- Provider: ${preview.providerSummary.provider} (buffer=${preview.providerSummary.bufferMeters}m, maxZoom=${preview.providerSummary.maxZoom})`
+            );
+            console.log(`- Buffered bbox: ${preview.providerSummary.bboxCsv}`);
+            console.log(`- Command preview: ${preview.providerSummary.commandPreview}`);
+          } else {
+            console.log("- Provider preview unavailable: config and/or boundary artifacts missing.");
+          }
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.log(`Basemap dry-run failed: ${message}`);
+        }
+        continue;
+      }
+
+      const forceRebuild = modeSelected === "3";
+      if (forceRebuild) {
+        const confirmed = (await args.rl.question("Force rebuild will overwrite current version basemap. Continue? (y/N): "))
+          .trim()
+          .toLowerCase();
+        if (confirmed !== "y" && confirmed !== "yes") {
+          console.log("Force rebuild cancelled.");
+          continue;
+        }
+      }
+
       try {
+        if (forceRebuild) {
+          console.log("Force rebuild selected. Rebuilding shared basemap via provider...");
+          await buildSharedBasemapFromProvider({
+            workspace,
+            versionPath: dirname(workspacePath),
+            resortsRoot: args.resortsRoot,
+            resortKey: args.resortKey
+          });
+          console.log("Provider basemap build complete.");
+        }
+
         const result = await generateBasemapAssetsForVersion({
           resortsRoot: args.resortsRoot,
           appPublicRoot: args.appPublicRoot,
           resortKey: args.resortKey,
-          versionPath: dirname(workspacePath)
+          versionPath: dirname(workspacePath),
+          forceRebuild
         }).catch(async (error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
-          if (!/No offline-ready basemap source found/iu.test(message)) {
+          if (forceRebuild || !/No offline-ready basemap source found/iu.test(message)) {
             throw error;
           }
 
@@ -1365,14 +1434,16 @@ export async function generateBasemapAssetsForVersion(args: {
   appPublicRoot: string;
   resortKey: string;
   versionPath: string;
+  forceRebuild?: boolean;
 }): Promise<{ generatedNow: boolean; sourceLabel: string }> {
   const targetPmtiles = join(args.versionPath, "basemap", "base.pmtiles");
   const targetStyle = join(args.versionPath, "basemap", "style.json");
+  const forceRebuild = args.forceRebuild === true;
   const currentReadiness = await inspectOfflineBasemapReadiness({
     pmtilesPath: targetPmtiles,
     stylePath: targetStyle
   });
-  if (currentReadiness.offlineReady) {
+  if (currentReadiness.offlineReady && !forceRebuild) {
     return { generatedNow: false, sourceLabel: "current version basemap" };
   }
 
@@ -1393,6 +1464,94 @@ export async function generateBasemapAssetsForVersion(args: {
   return {
     generatedNow: true,
     sourceLabel: sourcePaths.sourceLabel
+  };
+}
+
+type BasemapDryRunPreview = {
+  mode: "dry-run";
+  forceRebuild: boolean;
+  targetVersionBasemapDir: string;
+  currentVersionOfflineReady: boolean;
+  currentVersionIssues: string[];
+  sourceLabel: string | null;
+  providerSummary: {
+    provider: string;
+    bufferMeters: number;
+    maxZoom: number;
+    bboxCsv: string;
+    commandPreview: string;
+  } | null;
+};
+
+export async function previewBasemapGeneration(args: {
+  workspace: ResortWorkspace;
+  versionPath: string;
+  resortsRoot: string;
+  resortKey: string;
+  appPublicRoot: string;
+  forceRebuild?: boolean;
+}): Promise<BasemapDryRunPreview> {
+  const targetPmtiles = join(args.versionPath, "basemap", "base.pmtiles");
+  const targetStyle = join(args.versionPath, "basemap", "style.json");
+  const readiness = await inspectOfflineBasemapReadiness({
+    pmtilesPath: targetPmtiles,
+    stylePath: targetStyle
+  });
+  const source = await resolveBasemapSourcePaths({
+    resortsRoot: args.resortsRoot,
+    appPublicRoot: args.appPublicRoot,
+    resortKey: args.resortKey,
+    versionPath: args.versionPath
+  });
+
+  let providerSummary: BasemapDryRunPreview["providerSummary"] = null;
+  try {
+    const provider = await readBasemapProviderConfig();
+    const boundaryArtifactPath = await resolveBoundaryArtifactPath(args.workspace, args.versionPath);
+    const boundaryRing = await readBoundaryRingFromArtifact(boundaryArtifactPath);
+    const bbox = computeBufferedBbox(boundaryRing, provider.bufferMeters);
+    const planetilerDataDir = resolve(args.resortsRoot, ".cache", "planetiler");
+    const commandPreview = ensurePlanetilerRuntimeDefaults(
+      renderBasemapProviderCommand(provider.planetilerCommand, {
+        resortKey: args.resortKey,
+        minLon: bbox.minLon,
+        minLat: bbox.minLat,
+        maxLon: bbox.maxLon,
+        maxLat: bbox.maxLat,
+        bboxCsv: `${bbox.minLon},${bbox.minLat},${bbox.maxLon},${bbox.maxLat}`,
+        bufferMeters: provider.bufferMeters,
+        maxZoom: provider.maxZoom,
+        outputPmtiles: targetPmtiles,
+        outputStyle: targetStyle,
+        boundaryGeojson: "<boundary.geojson>",
+        osmExtractPath: "<auto-geofabrik-extract>",
+        planetilerJarPath: "<auto-planetiler-jar>",
+        planetilerDataDir
+      }),
+      {
+        downloadDir: join(planetilerDataDir, "sources"),
+        tempDir: join(planetilerDataDir, "tmp")
+      }
+    );
+    providerSummary = {
+      provider: provider.provider,
+      bufferMeters: provider.bufferMeters,
+      maxZoom: provider.maxZoom,
+      bboxCsv: `${bbox.minLon},${bbox.minLat},${bbox.maxLon},${bbox.maxLat}`,
+      commandPreview
+    };
+  } catch {
+    providerSummary = null;
+  }
+
+  return {
+    mode: "dry-run",
+    forceRebuild: args.forceRebuild === true,
+    targetVersionBasemapDir: join(args.versionPath, "basemap"),
+    currentVersionOfflineReady: readiness.offlineReady,
+    currentVersionIssues: readiness.issues,
+    sourceLabel: source?.sourceLabel ?? null,
+    providerSummary
   };
 }
 
@@ -1893,9 +2052,11 @@ async function readLayerArtifactJson(versionPath: string, artifactPath: string |
   if (!artifactPath || artifactPath.trim().length === 0) {
     return null;
   }
-  const candidates = artifactPath.startsWith("/")
-    ? [artifactPath]
-    : [resolve(versionPath, artifactPath), resolve(artifactPath)];
+  const trimmed = artifactPath.trim();
+  const basenameCandidate = basename(trimmed);
+  const candidates = trimmed.startsWith("/")
+    ? [trimmed, resolve(versionPath, basenameCandidate)]
+    : [resolve(versionPath, trimmed), resolve(trimmed), resolve(versionPath, basenameCandidate)];
   for (const candidate of candidates) {
     try {
       const raw = await readFile(candidate, "utf8");

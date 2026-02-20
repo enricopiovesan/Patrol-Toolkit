@@ -2,6 +2,18 @@
   "schemaVersion": "1.0.0",
   "resorts": [
     {
+      "resortId": "CA_Fernie_Fernie",
+      "resortName": "Fernie",
+      "versions": [
+        {
+          "version": "v7",
+          "approved": true,
+          "packUrl": "/packs/CA_Fernie_Fernie.latest.validated.json",
+          "createdAt": "2026-02-20T21:58:54.694Z"
+        }
+      ]
+    },
+    {
       "resortId": "CA_Golden_Kicking_Horse",
       "resortName": "kicking horse",
       "versions": [
@@ -9,7 +21,7 @@
           "version": "v1",
           "approved": true,
           "packUrl": "/packs/CA_Golden_Kicking_Horse.latest.validated.json",
-          "createdAt": "2026-02-20T04:31:08.376Z"
+          "createdAt": "2026-02-20T21:58:54.451Z"
         }
       ]
     }

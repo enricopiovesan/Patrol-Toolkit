@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Fernie_Fernie",
+  "version": "v4",
+  "createdAt": "2026-02-20T21:33:49.297Z",
+  "query": {
+    "name": "Fernie",
+    "countryCode": "CA",
+    "town": "Fernie"
+  },
+  "selection": {
+    "osmType": "relation",
+    "osmId": 2221420,
+    "displayName": "Fernie, Regional District of East Kootenay, British Columbia, Canada",
+    "center": [
+      -115.062867,
+      49.5041747
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v2/boundary.geojson",
+      "checksumSha256": "ce6fe3f3ffef835a8063662622ad4cbd42a31f7be3a8b11ebf15ae23128e6348",
+      "updatedAt": "2026-02-20T21:33:35.602Z"
+    },
+    "runs": {
+      "status": "complete",
+      "featureCount": 0,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v3/runs.geojson",
+      "checksumSha256": "b3049ad7a1062091e169bd352424d59721a26b8b6229942aef26d11b0c6a96e1",
+      "updatedAt": "2026-02-20T21:33:42.279Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "featureCount": 0,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v4/lifts.geojson",
+      "checksumSha256": "b3049ad7a1062091e169bd352424d59721a26b8b6229942aef26d11b0c6a96e1",
+      "updatedAt": "2026-02-20T21:33:49.300Z"
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": [
+      "lifts: featureCount must be >= 1",
+      "runs: featureCount must be >= 1"
+    ]
+  },
+  "manualValidation": {
+    "validated": true,
+    "validatedAt": "2026-02-20T21:34:34.374Z",
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": true,
+        "validatedAt": "2026-02-20T21:34:15.519Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": true,
+        "validatedAt": "2026-02-20T21:34:23.196Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": true,
+        "validatedAt": "2026-02-20T21:34:34.374Z",
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "Fernie",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "relation",
+      "osmId": 2221420,
+      "displayName": "Fernie, Regional District of East Kootenay, British Columbia, Canada",
+      "center": [
+        -115.062867,
+        49.5041747
+      ],
+      "selectedAt": "2026-02-20T21:31:31.585Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "pending"
+    },
+    "lifts": {
+      "status": "pending"
+    },
+    "runs": {
+      "status": "pending"
+    }
+  }
+}

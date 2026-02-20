@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Fernie_Fernie",
+  "version": "v6",
+  "createdAt": "2026-02-20T21:37:19.393Z",
+  "query": {
+    "name": "Fernie",
+    "countryCode": "CA",
+    "town": "Fernie"
+  },
+  "selection": {
+    "osmType": "relation",
+    "osmId": 2221420,
+    "displayName": "Fernie, Regional District of East Kootenay, British Columbia, Canada",
+    "center": [
+      -115.062867,
+      49.5041747
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v5/boundary.geojson",
+      "checksumSha256": "863977b49f7bc4ff264fb43c45136b7df8605886b82056e0985e6511780e9457",
+      "updatedAt": "2026-02-20T21:37:14.566Z"
+    },
+    "runs": {
+      "status": "complete",
+      "featureCount": 103,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v6/runs.geojson",
+      "checksumSha256": "c8507ff5ba351c051cb741dfc9c809796970fc92c9a725630eefccb6c5c76e66",
+      "updatedAt": "2026-02-20T21:37:19.394Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "featureCount": 0,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v4/lifts.geojson",
+      "checksumSha256": "b3049ad7a1062091e169bd352424d59721a26b8b6229942aef26d11b0c6a96e1",
+      "updatedAt": "2026-02-20T21:33:49.300Z"
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": [
+      "lifts: featureCount must be >= 1"
+    ]
+  },
+  "manualValidation": {
+    "validated": false,
+    "validatedAt": null,
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

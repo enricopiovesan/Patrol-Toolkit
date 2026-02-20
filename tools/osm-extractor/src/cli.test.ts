@@ -415,9 +415,9 @@ describe("resort-export-latest command helpers", () => {
             query: { name: "Kicking Horse", country: "CA" }
           },
           layers: {
-            boundary: { status: "complete", artifactPath: "boundary.geojson" },
-            lifts: { status: "complete", artifactPath: "lifts.geojson" },
-            runs: { status: "complete", artifactPath: "runs.geojson" }
+            boundary: { status: "complete", artifactPath: "resorts/CA_golden_kicking_horse/v2/boundary.geojson" },
+            lifts: { status: "complete", artifactPath: "resorts/CA_golden_kicking_horse/v2/lifts.geojson" },
+            runs: { status: "complete", artifactPath: "resorts/CA_golden_kicking_horse/v2/runs.geojson" }
           }
         }),
         "utf8"

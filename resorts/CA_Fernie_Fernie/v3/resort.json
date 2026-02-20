@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "Fernie",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "relation",
+      "osmId": 2221420,
+      "displayName": "Fernie, Regional District of East Kootenay, British Columbia, Canada",
+      "center": [
+        -115.062867,
+        49.5041747
+      ],
+      "selectedAt": "2026-02-20T21:31:31.585Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v2/boundary.geojson",
+      "checksumSha256": "ce6fe3f3ffef835a8063662622ad4cbd42a31f7be3a8b11ebf15ae23128e6348",
+      "featureCount": 1,
+      "updatedAt": "2026-02-20T21:33:35.602Z"
+    },
+    "lifts": {
+      "status": "pending"
+    },
+    "runs": {
+      "status": "complete",
+      "queryHash": "f386e06dda9ed9940e3f4ceb87157f7d5db8090b600b7b0fba1864c725418587",
+      "updatedAt": "2026-02-20T21:33:42.279Z",
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v3/runs.geojson",
+      "featureCount": 0,
+      "checksumSha256": "b3049ad7a1062091e169bd352424d59721a26b8b6229942aef26d11b0c6a96e1"
+    }
+  }
+}
