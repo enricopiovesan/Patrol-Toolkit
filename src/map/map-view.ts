@@ -5,7 +5,7 @@ import { LocationTracker, type GeoPosition } from "../location/location-tracker"
 import type { ResortPack } from "../resort-pack/types";
 import { buildResortOverlayData } from "./overlays";
 import { ensurePackPmtilesArchiveLoaded, ensurePmtilesProtocolRegistered } from "./pmtiles-protocol";
-import { buildRunLinePaint } from "./run-style";
+import { buildRunLayers } from "./run-layers";
 import { OFFLINE_FALLBACK_STYLE, resolveStyleForPack } from "./style-loader";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -18,7 +18,6 @@ const RESORT_LIFTS_SOURCE_ID = "resort-lifts";
 const RESORT_LIFT_TOWERS_SOURCE_ID = "resort-lift-towers";
 const RESORT_BOUNDARY_FILL_LAYER = "resort-boundary-fill";
 const RESORT_BOUNDARY_LINE_LAYER = "resort-boundary-line";
-const RESORT_RUNS_LINE_LAYER = "resort-runs-line";
 const RESORT_LIFTS_LINE_LAYER = "resort-lifts-line";
 const RESORT_LIFT_TOWERS_LAYER = "resort-lift-towers";
 const DEFAULT_CENTER: [number, number] = [7.2, 45.1];
@@ -321,12 +320,9 @@ export class MapView extends LitElement {
       }
     });
 
-    this.map.addLayer({
-      id: RESORT_RUNS_LINE_LAYER,
-      type: "line",
-      source: RESORT_RUNS_SOURCE_ID,
-      paint: buildRunLinePaint() as never
-    });
+    const runLayers = buildRunLayers(RESORT_RUNS_SOURCE_ID);
+    this.map.addLayer(runLayers.lineLayer as never);
+    this.map.addLayer(runLayers.labelLayer as never);
 
     this.map.addLayer({
       id: RESORT_LIFTS_LINE_LAYER,
