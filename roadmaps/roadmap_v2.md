@@ -14,7 +14,7 @@
   - run structured brainstorm on phrase outputs by scenario (normal, low confidence, no nearby run/lift, ambiguous side).
   - define phrase contract: required fields, optional enrichments, fallback wording.
   - define acceptance examples in fixtures.
-  - track spec in `roadmaps/phrase_v2_spec.md`.
+  - track spec in `roadmaps/roadmap_v2_phrase_spec.md`.
 - Test:
   - spec review with sample inputs/outputs approved.
 - PR outcome: locked phrase spec for implementation.
