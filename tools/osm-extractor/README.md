@@ -169,6 +169,46 @@ export PTK_BASEMAP_CONFIG_PATH=tools/osm-extractor/config/basemap-provider.json
 export PTK_PLANETILER_JAR=tools/bin/planetiler.jar
 ```
 
+### First-Run Runtime Expectations
+
+- First run can be slow (often several minutes) because Planetiler downloads provider source datasets.
+- Expected cache directories:
+  - `resorts/.CACHE/geofabrik/` (regional OSM extracts)
+  - `resorts/.CACHE/planetiler/sources/` (provider support datasets)
+  - `resorts/.CACHE/planetiler/tile_weights.tsv.gz`
+- Warm-cache reruns should be much faster.
+
+### Versioning Policy (Deliverables vs Generation Inputs)
+
+Commit these (deliverables used by the app):
+- `resorts/<resortKey>/<version>/**` (including `<version>/basemap/base.pmtiles` + `style.json`)
+- `public/packs/<resortKey>/**`
+- `public/packs/<resortKey>.latest.validated.json`
+- `public/resort-packs/index.json`
+
+Do not commit these (generation/cache/tool bootstrap):
+- `resorts/.CACHE/**`
+- `resorts/.cache/**`
+- `resorts/*/v*/.cache/**`
+- `resorts/*/basemap/**` (shared working source for generation, non-versioned)
+- `data/sources/**`, `data/tmp/**`
+- `tools/bin/**`
+
+### Troubleshooting (Option 9)
+
+- `Planetiler jar not found`:
+  - install jar in `tools/bin/planetiler.jar` or set `PTK_PLANETILER_JAR`.
+- `maxZoom must be <= 15`:
+  - set `maxZoom` to `15` or below in `tools/osm-extractor/config/basemap-provider.json`.
+- Missing `lake_centerline`/`water_polygons`/`natural_earth`:
+  - this is expected only on cold cache; allow first run to complete.
+- Long first run with little feedback:
+  - watch logs for `download`, `osm_pass1`, `osm_pass2`, and `archive` phases.
+- Offline app shows overlays but no basemap:
+  - verify generated and published checks passed and files exist in both:
+    - `resorts/<resortKey>/<version>/basemap/`
+    - `public/packs/<resortKey>/`
+
 ## Step-By-Step: Resort Workspace Flow
 
 This is the fastest end-to-end way to use the CLI for one resort.
