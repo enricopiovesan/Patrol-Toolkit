@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRunLineColorExpression,
+  buildRunLabelLayout,
+  buildRunLabelPaint,
   buildRunLinePaint,
   buildRunLineWidthExpression,
   RUN_DIFFICULTY_COLORS
@@ -53,6 +55,29 @@ describe("run style mapping", () => {
       ],
       "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 13, 3, 16, 4.5],
       "line-opacity": 0.94
+    });
+  });
+
+  it("builds run label layout for line-following labels with zoom scaling", () => {
+    expect(buildRunLabelLayout()).toEqual({
+      "text-field": ["get", "name"],
+      "symbol-placement": "line",
+      "symbol-spacing": 300,
+      "text-size": ["interpolate", ["linear"], ["zoom"], 12, 11, 15, 13, 17, 15],
+      "text-font": ["Noto Sans Regular"],
+      "text-allow-overlap": false,
+      "text-ignore-placement": false,
+      "text-optional": true,
+      "text-max-angle": 45
+    });
+  });
+
+  it("builds run label paint with halo and zoom-gated opacity", () => {
+    expect(buildRunLabelPaint()).toEqual({
+      "text-color": "#0f172a",
+      "text-halo-color": "#f8fafc",
+      "text-halo-width": 1.2,
+      "text-opacity": ["interpolate", ["linear"], ["zoom"], 11.5, 0, 12.5, 1]
     });
   });
 });
