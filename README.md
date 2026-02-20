@@ -45,7 +45,7 @@ The current MVP focus is:
 
 ## Current App Snapshot vs Roadmap v2 (February 2026)
 
-![Patrol Toolkit current app snapshot](docs/assets/patrol-toolkit-current-state-2026-02-20.png)
+![Patrol Toolkit current app snapshot](public/assets/patrol-toolkit-current-state-2026-02-20.png)
 
 The screenshot above reflects the current state of the app in field-like usage:
 - Active resort selected (`kicking horse v1`)
