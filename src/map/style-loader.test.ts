@@ -143,6 +143,41 @@ describe("resolveStyleForPack", () => {
     });
   });
 
+  it("normalizes relative pmtiles source urls to pack pmtiles path", async () => {
+    const pack = structuredClone(validPack) as ResortPack;
+    pack.basemap.stylePath = "packs/demo/style.json";
+    pack.basemap.pmtilesPath = "packs/demo/base.pmtiles";
+
+    const stylePayload = {
+      version: 8,
+      sources: {
+        basemap: {
+          type: "vector",
+          url: "pmtiles://./base.pmtiles"
+        }
+      },
+      layers: [{ id: "bg", type: "background", paint: { "background-color": "#fff" } }]
+    };
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(stylePayload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+
+    const result = await resolveStyleForPack(pack, fetchMock, () => false);
+    expect(result.style).toEqual({
+      ...stylePayload,
+      sources: {
+        basemap: {
+          type: "vector",
+          url: "pmtiles:///packs/demo/base.pmtiles"
+        }
+      }
+    });
+  });
+
   it("uses network fallback style when online and pack style is unavailable", async () => {
     const pack = structuredClone(validPack) as ResortPack;
     pack.basemap.stylePath = "https://example.com/style.json";

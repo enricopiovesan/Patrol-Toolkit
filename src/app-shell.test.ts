@@ -1,6 +1,8 @@
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import validPack from "./resort-pack/fixtures/valid-pack.json";
+import type { ResortPack } from "./resort-pack/types";
+import { ResortPackRepository } from "./resort-pack/repository";
 
 vi.mock("./map/map-view", () => ({}));
 
@@ -89,6 +91,31 @@ describe("AppShell", () => {
 
     await waitForCondition(() =>
       /Basemap assets missing/iu.test(readWarningText(shell))
+    );
+  });
+
+  it("replaces stale persisted active pack not present in catalog", async () => {
+    const repository = await ResortPackRepository.open();
+    try {
+      const stalePack = structuredClone(validPack) as ResortPack;
+      stalePack.resort.id = "legacy-resort";
+      stalePack.resort.name = "Legacy Resort";
+      stalePack.basemap.pmtilesPath = "packs/legacy-resort/base.pmtiles";
+      stalePack.basemap.stylePath = "packs/legacy-resort/style.json";
+      await repository.savePack(stalePack);
+      await repository.setActivePackId(stalePack.resort.id);
+    } finally {
+      repository.close();
+    }
+
+    mockCatalogFetch();
+    const { AppShell } = await import("./app-shell");
+
+    const shell = new AppShell();
+    document.body.appendChild(shell);
+
+    await waitForCondition(() =>
+      /Active pack: Demo Resort/iu.test(readStatusText(shell))
     );
   });
 });

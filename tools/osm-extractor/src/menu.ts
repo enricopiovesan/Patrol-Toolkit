@@ -1988,6 +1988,8 @@ async function buildSharedBasemapFromProvider(args: {
   const boundaryArtifactPath = await resolveBoundaryArtifactPath(args.workspace, args.versionPath);
   const boundaryRing = await readBoundaryRingFromArtifact(boundaryArtifactPath);
   const bbox = computeBufferedBbox(boundaryRing, provider.bufferMeters);
+  const centerLon = (bbox.minLon + bbox.maxLon) / 2;
+  const centerLat = (bbox.minLat + bbox.maxLat) / 2;
 
   const sharedBasemapDir = join(args.resortsRoot, args.resortKey, "basemap");
   await mkdir(sharedBasemapDir, { recursive: true });
@@ -2004,6 +2006,8 @@ async function buildSharedBasemapFromProvider(args: {
     ? await resolveGeofabrikExtractPath({
         countryCode,
         cacheDir: join(args.resortsRoot, ".cache", "geofabrik"),
+        locationLon: centerLon,
+        locationLat: centerLat,
         onProgress: (message) => console.log(message)
       })
     : "";
@@ -2103,6 +2107,8 @@ function resolveResortCountryCode(workspace: ResortWorkspace, resortKey: string)
 export async function resolveGeofabrikExtractPath(args: {
   countryCode: string;
   cacheDir: string;
+  locationLon?: number;
+  locationLat?: number;
   fetchJsonFn?: typeof resilientFetchJson;
   fetchFn?: typeof fetch;
   onProgress?: (message: string) => void;
@@ -2122,7 +2128,10 @@ export async function resolveGeofabrikExtractPath(args: {
       key: "geofabrik:index-v1"
     }
   })) as unknown;
-  const selected = selectGeofabrikExtract(index, countryCode);
+  const selected = selectGeofabrikExtract(index, countryCode, {
+    lon: args.locationLon,
+    lat: args.locationLat
+  });
   if (!selected) {
     throw new Error(`No Geofabrik extract found for country code '${countryCode}'.`);
   }
@@ -2150,7 +2159,11 @@ type GeofabrikSelection = {
   pbfUrl: string;
 };
 
-function selectGeofabrikExtract(index: unknown, countryCode: string): GeofabrikSelection | null {
+function selectGeofabrikExtract(
+  index: unknown,
+  countryCode: string,
+  location?: { lon?: number; lat?: number }
+): GeofabrikSelection | null {
   if (typeof index !== "object" || index === null) {
     throw new Error("Invalid Geofabrik index payload.");
   }
@@ -2164,6 +2177,7 @@ function selectGeofabrikExtract(index: unknown, countryCode: string): GeofabrikS
     pbfUrl: string;
     score: number;
     depth: number;
+    containsLocation: boolean;
   }> = [];
 
   for (const feature of features) {
@@ -2188,11 +2202,13 @@ function selectGeofabrikExtract(index: unknown, countryCode: string): GeofabrikS
     }
     const depth = id.split("/").filter((segment) => segment.length > 0).length;
     const isSubdivision = iso2.some((code) => code.startsWith(`${countryCode}-`));
+    const containsLocation = featureContainsLocation(feature, location);
     candidates.push({
       id,
       pbfUrl,
       depth,
-      score: isSubdivision ? 2 : 1
+      score: isSubdivision ? 2 : 1,
+      containsLocation
     });
   }
 
@@ -2201,6 +2217,9 @@ function selectGeofabrikExtract(index: unknown, countryCode: string): GeofabrikS
   }
 
   candidates.sort((a, b) => {
+    if (a.containsLocation !== b.containsLocation) {
+      return a.containsLocation ? -1 : 1;
+    }
     if (b.score !== a.score) {
       return b.score - a.score;
     }
@@ -2215,6 +2234,92 @@ function selectGeofabrikExtract(index: unknown, countryCode: string): GeofabrikS
     return null;
   }
   return { id: top.id, pbfUrl: top.pbfUrl };
+}
+
+function featureContainsLocation(
+  feature: unknown,
+  location: { lon?: number; lat?: number } | undefined
+): boolean {
+  const lonRaw = location?.lon;
+  const latRaw = location?.lat;
+  if (!Number.isFinite(lonRaw) || !Number.isFinite(latRaw)) {
+    return false;
+  }
+  const lon = Number(lonRaw);
+  const lat = Number(latRaw);
+  if (typeof feature !== "object" || feature === null) {
+    return false;
+  }
+
+  const geometryRaw = (feature as { geometry?: unknown }).geometry;
+  if (typeof geometryRaw === "object" && geometryRaw !== null) {
+    const geometry = geometryRaw as { type?: unknown; coordinates?: unknown };
+    if (geometry.type === "Polygon" && Array.isArray(geometry.coordinates)) {
+      return polygonContainsPoint(geometry.coordinates, lon, lat);
+    }
+    if (geometry.type === "MultiPolygon" && Array.isArray(geometry.coordinates)) {
+      for (const polygon of geometry.coordinates) {
+        if (Array.isArray(polygon) && polygonContainsPoint(polygon, lon, lat)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  const bboxRaw = (feature as { bbox?: unknown }).bbox;
+  if (!Array.isArray(bboxRaw) || bboxRaw.length < 4) {
+    return false;
+  }
+  const minLon = Number(bboxRaw[0]);
+  const minLat = Number(bboxRaw[1]);
+  const maxLon = Number(bboxRaw[2]);
+  const maxLat = Number(bboxRaw[3]);
+  if (![minLon, minLat, maxLon, maxLat].every((value) => Number.isFinite(value))) {
+    return false;
+  }
+  return lon >= minLon && lon <= maxLon && lat >= minLat && lat <= maxLat;
+}
+
+function polygonContainsPoint(polygon: unknown, lon: number, lat: number): boolean {
+  if (!Array.isArray(polygon) || polygon.length === 0) {
+    return false;
+  }
+  const outer = polygon[0];
+  if (!ringContainsPoint(outer, lon, lat)) {
+    return false;
+  }
+  for (let i = 1; i < polygon.length; i += 1) {
+    if (ringContainsPoint(polygon[i], lon, lat)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function ringContainsPoint(ring: unknown, lon: number, lat: number): boolean {
+  if (!Array.isArray(ring) || ring.length < 3) {
+    return false;
+  }
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
+    const pointI = ring[i];
+    const pointJ = ring[j];
+    if (!Array.isArray(pointI) || !Array.isArray(pointJ) || pointI.length < 2 || pointJ.length < 2) {
+      continue;
+    }
+    const xi = Number(pointI[0]);
+    const yi = Number(pointI[1]);
+    const xj = Number(pointJ[0]);
+    const yj = Number(pointJ[1]);
+    if (![xi, yi, xj, yj].every((value) => Number.isFinite(value))) {
+      continue;
+    }
+    const intersects = yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+  return inside;
 }
 
 function readGeofabrikPbfUrl(value: unknown): string | null {

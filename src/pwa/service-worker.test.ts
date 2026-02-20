@@ -191,6 +191,74 @@ describe("service worker cache hardening", () => {
     expect([...payload]).toEqual([2, 3, 4, 5]);
     cleanup();
   });
+
+  it("backfills full asset cache after online range response for later offline use", async () => {
+    const listeners = new Map() as ListenerMap;
+    const stores = new Map<string, Map<string, Response>>();
+    const caches = createMockCaches(stores);
+
+    let online = true;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (!online) {
+        throw new Error("offline");
+      }
+
+      const request = input instanceof Request ? input : new Request(input);
+      const url = request.url;
+      const range = request.headers.get("range");
+
+      if (url === "https://patrol.local/packs/demo/base.pmtiles" && range) {
+        return new Response(new Uint8Array([0]), {
+          status: 206,
+          headers: {
+            "Content-Range": "bytes 0-0/10",
+            "Accept-Ranges": "bytes",
+            "Content-Type": "application/octet-stream"
+          }
+        });
+      }
+
+      if (url === "https://patrol.local/packs/demo/base.pmtiles") {
+        return new Response(new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]), {
+          status: 200,
+          headers: { "Content-Type": "application/octet-stream" }
+        });
+      }
+
+      return new Response("not found", { status: 404 });
+    });
+
+    const cleanup = loadServiceWorker(listeners, caches, fetchMock as typeof fetch);
+    const fetchListener = listeners.get("fetch");
+    if (!fetchListener) {
+      throw new Error("Fetch listener not registered");
+    }
+
+    await createRespondWithPromise(
+      fetchListener,
+      new Request("https://patrol.local/packs/demo/base.pmtiles", {
+        headers: { range: "bytes=0-0" }
+      })
+    );
+
+    // Allow best-effort backfill promise to complete.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    online = false;
+
+    const offlineResponse = await createRespondWithPromise(
+      fetchListener,
+      new Request("https://patrol.local/packs/demo/base.pmtiles", {
+        headers: { range: "bytes=2-5" }
+      })
+    );
+    const payload = new Uint8Array(await offlineResponse.arrayBuffer());
+
+    expect(offlineResponse.status).toBe(206);
+    expect(offlineResponse.headers.get("content-range")).toBe("bytes 2-5/10");
+    expect([...payload]).toEqual([2, 3, 4, 5]);
+    cleanup();
+  });
 });
 
 function loadServiceWorker(
