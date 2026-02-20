@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -22,6 +22,7 @@ import {
   readBasemapProviderConfig,
   readBoundaryRingFromArtifact,
   readOfflineBasemapMetrics,
+  previewBasemapGeneration,
   resolveGeofabrikExtractPath,
   resolveBoundaryArtifactPath,
   generateBasemapAssetsForVersion,
@@ -877,6 +878,119 @@ describe("attach basemap assets", () => {
         })
       ).rejects.toThrow(/placeholder content/iu);
     } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("force rebuild regenerates even when current version basemap is already offline-ready", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-generate-basemap-force-"));
+    try {
+      const resortsRoot = join(root, "resorts");
+      const publicRoot = join(root, "public");
+      const resortKey = "CA_Golden_Kicking_Horse";
+      const currentVersionPath = join(resortsRoot, resortKey, "v2");
+      await mkdir(join(currentVersionPath, "basemap"), { recursive: true });
+      await mkdir(join(resortsRoot, resortKey, "basemap"), { recursive: true });
+      await writeFile(join(currentVersionPath, "basemap", "base.pmtiles"), new Uint8Array([1, 1, 1, 1]));
+      await writeFile(
+        join(currentVersionPath, "basemap", "style.json"),
+        JSON.stringify({ version: 8, sources: { basemap: { type: "vector" } }, layers: [{ id: "bg", type: "background" }] })
+      );
+      await writeFile(join(resortsRoot, resortKey, "basemap", "base.pmtiles"), new Uint8Array([9, 9, 9, 9]));
+      await writeFile(
+        join(resortsRoot, resortKey, "basemap", "style.json"),
+        JSON.stringify({ version: 8, sources: { basemap: { type: "vector" } }, layers: [{ id: "bg", type: "background" }] })
+      );
+
+      const result = await generateBasemapAssetsForVersion({
+        resortsRoot,
+        appPublicRoot: publicRoot,
+        resortKey,
+        versionPath: currentVersionPath,
+        forceRebuild: true
+      });
+
+      expect(result.generatedNow).toBe(true);
+      expect(result.sourceLabel).toBe("resort shared basemap");
+      const copiedPmtiles = await readFile(join(currentVersionPath, "basemap", "base.pmtiles"));
+      expect([...copiedPmtiles]).toEqual([9, 9, 9, 9]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("builds deterministic dry-run preview with no writes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-basemap-dry-run-"));
+    const originalEnv = { ...process.env };
+    try {
+      const resortsRoot = join(root, "resorts");
+      const appPublicRoot = join(root, "public");
+      const resortKey = "CA_Golden_Kicking_Horse";
+      const versionPath = join(resortsRoot, resortKey, "v1");
+      await mkdir(versionPath, { recursive: true });
+      await mkdir(join(resortsRoot, resortKey, "basemap"), { recursive: true });
+      await writeFile(join(resortsRoot, resortKey, "basemap", "base.pmtiles"), new Uint8Array([7, 7, 7, 7]));
+      await writeFile(
+        join(resortsRoot, resortKey, "basemap", "style.json"),
+        JSON.stringify({ version: 8, sources: { basemap: { type: "vector", url: "pmtiles://./base.pmtiles" } }, layers: [] })
+      );
+      await writeFile(
+        join(versionPath, "boundary.geojson"),
+        JSON.stringify({
+          type: "Feature",
+          geometry: {
+            type: "Polygon",
+            coordinates: [[[-116.97, 51.29], [-116.95, 51.29], [-116.95, 51.31], [-116.97, 51.31], [-116.97, 51.29]]]
+          },
+          properties: {}
+        }),
+        "utf8"
+      );
+      const workspace = {
+        schemaVersion: "2.0.0" as const,
+        resort: {
+          query: { name: "Kicking Horse", country: "CA" }
+        },
+        layers: {
+          boundary: { status: "complete" as const, artifactPath: "boundary.geojson", featureCount: 1 },
+          runs: { status: "complete" as const, artifactPath: "runs.geojson", featureCount: 10 },
+          lifts: { status: "complete" as const, artifactPath: "lifts.geojson", featureCount: 3 }
+        }
+      };
+      const configPath = join(root, "basemap-provider.json");
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          provider: "openmaptiles-planetiler",
+          bufferMeters: 1000,
+          maxZoom: 15,
+          planetilerCommand: "java -jar {planetilerJarPath} --bounds={bboxCsv} --output={outputPmtiles}"
+        }),
+        "utf8"
+      );
+      process.env.PTK_BASEMAP_CONFIG_PATH = configPath;
+
+      const preview = await previewBasemapGeneration({
+        workspace,
+        versionPath,
+        resortsRoot,
+        resortKey,
+        appPublicRoot,
+        forceRebuild: false
+      });
+
+      expect(preview.mode).toBe("dry-run");
+      expect(preview.targetVersionBasemapDir).toBe(join(versionPath, "basemap"));
+      expect(preview.sourceLabel).toBe("resort shared basemap");
+      expect(preview.providerSummary?.provider).toBe("openmaptiles-planetiler");
+      expect(preview.providerSummary?.commandPreview).toContain("--bounds=");
+      expect(preview.providerSummary?.commandPreview).toContain("download_dir=");
+      expect(preview.currentVersionOfflineReady).toBe(false);
+
+      const targetBasemapDirExists = await fileExists(join(versionPath, "basemap"));
+      expect(targetBasemapDirExists).toBe(false);
+    } finally {
+      restoreProcessEnv(originalEnv);
       await rm(root, { recursive: true, force: true });
     }
   });
@@ -1762,7 +1876,7 @@ describe("menu interactive flows", () => {
     const versionPath = join(root, resortKey, "v1");
     const workspacePath = join(versionPath, "resort.json");
     const statusPath = join(versionPath, "status.json");
-    const rl = createFakeReadline(["1", "1", "9", "10", "3"]);
+    const rl = createFakeReadline(["1", "1", "9", "1", "10", "3"]);
     try {
       await mkdir(versionPath, { recursive: true });
       await mkdir(join(root, resortKey, "basemap"), { recursive: true });
@@ -1885,7 +1999,7 @@ describe("menu interactive flows", () => {
     const sourcePmtiles = join(sourceRoot, "base.pmtiles");
     const sourceStyle = join(sourceRoot, "style.json");
     const configPath = join(root, "basemap-provider.json");
-    const rl = createFakeReadline(["1", "1", "9", "10", "3"]);
+    const rl = createFakeReadline(["1", "1", "9", "1", "10", "3"]);
     const originalEnv = { ...process.env };
     try {
       await writeFile(sourcePmtiles, new Uint8Array([11, 22, 33, 44]));
@@ -2017,7 +2131,7 @@ describe("menu interactive flows", () => {
     const statusPath = join(versionPath, "status.json");
     const sourcePmtiles = join(sourceRoot, "base.pmtiles");
     const configPath = join(root, "basemap-provider.json");
-    const rl = createFakeReadline(["1", "1", "9", "10", "3"]);
+    const rl = createFakeReadline(["1", "1", "9", "1", "10", "3"]);
     const originalEnv = { ...process.env };
     try {
       await writeFile(sourcePmtiles, new Uint8Array([44, 33, 22, 11]));
@@ -2157,5 +2271,14 @@ function restoreProcessEnv(snapshot: Record<string, string | undefined>): void {
     }
 
     process.env[key] = nextValue;
+  }
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
   }
 }

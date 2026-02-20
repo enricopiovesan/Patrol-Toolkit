@@ -29,7 +29,8 @@ describe("resort catalog selection", () => {
         resortId: "resort-a",
         resortName: "Resort A",
         version: "v1",
-        packUrl: "/packs/resort-a-v1.json"
+        packUrl: "/packs/resort-a-v1.json",
+        createdAt: undefined
       }
     ]);
   });
@@ -56,7 +57,8 @@ describe("resort catalog selection", () => {
         resortId: "resort-b",
         resortName: "Resort B",
         version: "v3",
-        packUrl: "/packs/resort-b-v3.json"
+        packUrl: "/packs/resort-b-v3.json",
+        createdAt: "2026-02-03T00:00:00.000Z"
       }
     ]);
   });
@@ -171,6 +173,32 @@ describe("resort catalog selection", () => {
     expect(pack.boundary?.type).toBe("Polygon");
     expect(pack.runs).toHaveLength(1);
     expect(pack.lifts).toHaveLength(1);
+  });
+
+  it("uses cache-busted fetch URL for pack requests", async () => {
+    const entry: SelectableResortPack = {
+      resortId: "CA_Golden_Kicking_Horse",
+      resortName: "Kicking Horse",
+      version: "v1",
+      packUrl: "/packs/CA_Golden_Kicking_Horse.latest.validated.json",
+      createdAt: "2026-02-20T21:52:23.646Z"
+    };
+
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    );
+
+    await expect(loadPackFromCatalogEntry(entry)).rejects.toThrow(
+      /Invalid resort pack for CA_Golden_Kicking_Horse/iu
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/packs/CA_Golden_Kicking_Horse.latest.validated.json?v=2026-02-20T21%3A52%3A23.646Z",
+      { cache: "no-store" }
+    );
   });
 
   it("prefers export resort key when status resort key casing differs", async () => {

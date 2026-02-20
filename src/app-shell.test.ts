@@ -121,6 +121,34 @@ describe("AppShell", () => {
       /Active pack: Demo Resort/iu.test(readStatusText(shell))
     );
   });
+
+  it("restores previous selection when switching to an invalid resort pack fails", async () => {
+    mockCatalogFetchWithInvalidAlternatePack();
+    const { AppShell } = await import("./app-shell");
+
+    const shell = new AppShell();
+    document.body.appendChild(shell);
+
+    await waitForCondition(() => /Active pack: Demo Resort/iu.test(readStatusText(shell)));
+
+    const select = shell.shadowRoot?.querySelector("select");
+    if (!select) {
+      throw new Error("Resort select not found.");
+    }
+
+    select.value = "bad-resort";
+    select.dispatchEvent(new Event("change"));
+
+    await waitForCondition(() => /Invalid resort pack for bad-resort/iu.test(readStatusText(shell)));
+    await waitForCondition(() => (select as HTMLSelectElement).value === "demo-resort");
+    expect(
+      (
+        shell as unknown as {
+          activePack: { resort: { id: string } } | null;
+        }
+      ).activePack?.resort.id
+    ).toBe("demo-resort");
+  });
 });
 
 function readStatusText(shell: HTMLElement): string {
@@ -244,5 +272,70 @@ function mockCatalogFetch(): void {
     }
 
     return new Response("Not Found", { status: 404 });
+  });
+}
+
+function mockCatalogFetchWithInvalidAlternatePack(): void {
+  const catalogPayload = {
+    schemaVersion: "1.0.0",
+    resorts: [
+      {
+        resortId: "demo-resort",
+        resortName: "Demo Resort",
+        versions: [
+          {
+            version: "v1",
+            approved: true,
+            packUrl: "/packs/demo-resort-v1.json",
+            createdAt: "2026-02-19T16:35:00.000Z"
+          }
+        ]
+      },
+      {
+        resortId: "bad-resort",
+        resortName: "Zulu Resort",
+        versions: [
+          {
+            version: "v1",
+            approved: true,
+            packUrl: "/packs/bad-resort-v1.json",
+            createdAt: "2026-02-20T16:35:00.000Z"
+          }
+        ]
+      }
+    ]
+  };
+
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (url.includes("/resort-packs/index.json")) {
+      return new Response(JSON.stringify(catalogPayload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (url.includes("/packs/demo-resort-v1.json")) {
+      return new Response(JSON.stringify(validPack), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (url.includes("/packs/bad-resort-v1.json")) {
+      return new Response(
+        JSON.stringify({
+          schemaVersion: "1.0.0",
+          resort: { id: "bad-resort" }
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    return new Response("", { status: 404 });
   });
 }

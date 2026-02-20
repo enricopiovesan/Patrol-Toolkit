@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createAuditLogger, noopAuditLogger } from "./audit-log.js";
 import { runExtractFleetPipeline } from "./fleet-run.js";
@@ -1508,9 +1508,11 @@ async function readLayerArtifactJson(versionPath: string, artifactPath: string |
   if (!artifactPath || artifactPath.trim().length === 0) {
     return null;
   }
-  const candidates = artifactPath.startsWith("/")
-    ? [artifactPath]
-    : [resolve(versionPath, artifactPath), resolve(artifactPath)];
+  const trimmed = artifactPath.trim();
+  const basenameCandidate = basename(trimmed);
+  const candidates = trimmed.startsWith("/")
+    ? [trimmed, resolve(versionPath, basenameCandidate)]
+    : [resolve(versionPath, trimmed), resolve(trimmed), resolve(versionPath, basenameCandidate)];
 
   for (const candidate of candidates) {
     try {

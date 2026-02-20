@@ -24,12 +24,13 @@ export type SelectableResortPack = {
   resortName: string;
   version: string;
   packUrl: string;
+  createdAt?: string;
 };
 
 const DEFAULT_CATALOG_URL = "/resort-packs/index.json";
 
 export async function loadResortCatalog(url = DEFAULT_CATALOG_URL): Promise<ResortCatalog> {
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Unable to load resort catalog (${response.status}).`);
   }
@@ -52,7 +53,8 @@ export function selectLatestEligibleVersions(catalog: ResortCatalog): Selectable
         resortId: resort.resortId,
         resortName: resort.resortName,
         version: single.version,
-        packUrl: single.packUrl
+        packUrl: single.packUrl,
+        createdAt: single.createdAt
       });
       continue;
     }
@@ -68,7 +70,8 @@ export function selectLatestEligibleVersions(catalog: ResortCatalog): Selectable
       resortId: resort.resortId,
       resortName: resort.resortName,
       version: latestApproved.version,
-      packUrl: latestApproved.packUrl
+      packUrl: latestApproved.packUrl,
+      createdAt: latestApproved.createdAt
     });
   }
 
@@ -76,7 +79,9 @@ export function selectLatestEligibleVersions(catalog: ResortCatalog): Selectable
 }
 
 export async function loadPackFromCatalogEntry(entry: SelectableResortPack): Promise<ResortPack> {
-  const response = await fetch(entry.packUrl);
+  const cacheBustKey = entry.createdAt ?? entry.version;
+  const packUrl = appendCacheBust(entry.packUrl, cacheBustKey);
+  const response = await fetch(packUrl, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Unable to load resort pack ${entry.resortId} (${response.status}).`);
   }
@@ -404,4 +409,14 @@ function stringOrFallback(...values: unknown[]): string {
     }
   }
   return "unknown";
+}
+
+function appendCacheBust(url: string, key: string): string {
+  const trimmed = url.trim();
+  if (trimmed.length === 0 || key.trim().length === 0) {
+    return trimmed;
+  }
+
+  const separator = trimmed.includes("?") ? "&" : "?";
+  return `${trimmed}${separator}v=${encodeURIComponent(key)}`;
 }

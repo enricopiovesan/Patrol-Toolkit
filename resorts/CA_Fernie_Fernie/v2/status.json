@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Fernie_Fernie",
+  "version": "v2",
+  "createdAt": "2026-02-20T21:31:53.667Z",
+  "query": {
+    "name": "Fernie",
+    "countryCode": "CA",
+    "town": "Fernie"
+  },
+  "selection": {
+    "osmType": "relation",
+    "osmId": 2221420,
+    "displayName": "Fernie, Regional District of East Kootenay, British Columbia, Canada",
+    "center": [
+      -115.062867,
+      49.5041747
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v2/boundary.geojson",
+      "checksumSha256": "ce6fe3f3ffef835a8063662622ad4cbd42a31f7be3a8b11ebf15ae23128e6348",
+      "updatedAt": "2026-02-20T21:33:35.602Z"
+    },
+    "runs": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    },
+    "lifts": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": [
+      "lifts: status is 'pending', expected 'complete'",
+      "lifts: artifactPath is missing",
+      "lifts: checksumSha256 is missing",
+      "lifts: featureCount is missing",
+      "lifts: updatedAt is missing",
+      "runs: status is 'pending', expected 'complete'",
+      "runs: artifactPath is missing",
+      "runs: checksumSha256 is missing",
+      "runs: featureCount is missing",
+      "runs: updatedAt is missing"
+    ]
+  },
+  "manualValidation": {
+    "validated": false,
+    "validatedAt": null,
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

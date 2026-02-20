@@ -56,7 +56,7 @@
 - PR outcome: labeled map that remains readable.
 
 ## Slice 5: Basemap Regeneration Controls
-- Status: planned
+- Status: in progress
 - Goal: make rebuild intent explicit and safe.
 - Changes:
   - add menu option to force basemap rebuild for current version.
