@@ -1375,6 +1375,11 @@ async function publishBasemapAssetsForVersion(args: {
 
   await assertRegularFile(pmtilesSourcePath, "Missing basemap PMTiles");
   await assertRegularFile(styleSourcePath, "Missing basemap style");
+  await assertOfflineReadyBasemapAssets({
+    pmtilesPath: pmtilesSourcePath,
+    stylePath: styleSourcePath,
+    label: "Basemap assets are not offline-ready"
+  });
 
   const destinationDir = join(args.publicRoot, "packs", args.resortKey);
   const pmtilesDestinationPath = join(destinationDir, "base.pmtiles");
@@ -1388,6 +1393,102 @@ async function publishBasemapAssetsForVersion(args: {
     pmtilesDestinationPath,
     styleDestinationPath
   };
+}
+
+async function assertOfflineReadyBasemapAssets(args: {
+  pmtilesPath: string;
+  stylePath: string;
+  label: string;
+}): Promise<void> {
+  const pmtiles = await inspectPmtilesArchive(args.pmtilesPath);
+  const style = await inspectOfflineStyle(args.stylePath);
+  if (pmtiles.ok && style.ok) {
+    return;
+  }
+
+  throw new Error(`${args.label}: ${[...pmtiles.issues, ...style.issues].join("; ")}`);
+}
+
+async function inspectPmtilesArchive(path: string): Promise<{ ok: boolean; issues: string[] }> {
+  let metadata;
+  try {
+    metadata = await stat(path);
+  } catch {
+    return { ok: false, issues: [`missing PMTiles file (${path})`] };
+  }
+
+  if (!metadata.isFile()) {
+    return { ok: false, issues: [`PMTiles path is not a file (${path})`] };
+  }
+
+  if (metadata.size <= 0) {
+    return { ok: false, issues: [`PMTiles file is empty (${path})`] };
+  }
+
+  if (metadata.size === 3) {
+    try {
+      const bytes = await readFile(path);
+      if (bytes[0] === 80 && bytes[1] === 84 && bytes[2] === 75) {
+        return { ok: false, issues: [`PMTiles file is placeholder content (${path})`] };
+      }
+    } catch {
+      return { ok: false, issues: [`Unable to read PMTiles file (${path})`] };
+    }
+  }
+
+  return { ok: true, issues: [] };
+}
+
+async function inspectOfflineStyle(path: string): Promise<{ ok: boolean; issues: string[] }> {
+  let parsed: unknown;
+  try {
+    const raw = await readFile(path, "utf8");
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return { ok: false, issues: [`Invalid basemap style JSON (${path})`] };
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    return { ok: false, issues: [`Basemap style must be an object (${path})`] };
+  }
+
+  const candidate = parsed as { sources?: unknown };
+  if (typeof candidate.sources !== "object" || candidate.sources === null) {
+    return { ok: false, issues: [`Basemap style missing sources (${path})`] };
+  }
+
+  const sources = candidate.sources as Record<string, { type?: unknown; url?: unknown; tiles?: unknown }>;
+  let hasVectorSource = false;
+  const issues: string[] = [];
+
+  for (const source of Object.values(sources)) {
+    if (!source || typeof source !== "object") {
+      continue;
+    }
+
+    if (source.type === "vector") {
+      hasVectorSource = true;
+      if (typeof source.url === "string" && /^https?:\/\//iu.test(source.url.trim())) {
+        issues.push("style vector source points to network URL");
+      }
+      continue;
+    }
+
+    if (source.type === "raster" && Array.isArray(source.tiles)) {
+      const hasNetworkTiles = source.tiles.some(
+        (entry) => typeof entry === "string" && /^https?:\/\//iu.test(entry.trim())
+      );
+      if (hasNetworkTiles) {
+        issues.push("style raster source points to network tile URLs");
+      }
+    }
+  }
+
+  if (!hasVectorSource) {
+    issues.push("style has no vector source for local PMTiles");
+  }
+
+  return { ok: issues.length === 0, issues: issues.map((issue) => `${issue} (${path})`) };
 }
 
 async function assertRegularFile(path: string, label: string): Promise<void> {
