@@ -8,18 +8,19 @@
 - Reuse ideas from openskimap where useful, adapted to Patrol Toolkit constraints.
 
 ## Slice 1: Phrase v2 Discovery + Spec
-- Status: planned
+- Status: completed
 - Goal: define a better phrase system before coding.
 - Changes:
   - run structured brainstorm on phrase outputs by scenario (normal, low confidence, no nearby run/lift, ambiguous side).
   - define phrase contract: required fields, optional enrichments, fallback wording.
   - define acceptance examples in fixtures.
+  - track spec in `roadmaps/phrase_v2_spec.md`.
 - Test:
   - spec review with sample inputs/outputs approved.
 - PR outcome: locked phrase spec for implementation.
 
 ## Slice 2: Phrase v2 Engine
-- Status: planned
+- Status: in progress
 - Goal: implement phrase improvements from Slice 1.
 - Changes:
   - refactor phrase generation into explicit stages (context -> decision -> render).
