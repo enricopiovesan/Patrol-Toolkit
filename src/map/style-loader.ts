@@ -117,6 +117,9 @@ function injectPmtilesSourceUrls(
 
     if (typeof source.url === "string") {
       if (source.url.startsWith("pmtiles://")) {
+        // Normalize any embedded PMTiles URL to the active pack archive path so
+        // the style source matches the protocol-registered PMTiles instance.
+        source.url = pmtilesUrl;
         hasPmtilesVectorSource = true;
         continue;
       }

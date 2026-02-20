@@ -236,11 +236,13 @@ export class AppShell extends LitElement {
         ? activePackId
         : fallbackSelection;
 
-    this.activePack = activePack;
-    requestPackAssetPrecache(activePack);
-    void this.refreshBasemapWarning(activePack);
-    this.statusMessage = activePack
-      ? `Active pack: ${activePack.resort.name}`
+    const activePackToUse = activeInOptions ? activePack : null;
+
+    this.activePack = activePackToUse;
+    requestPackAssetPrecache(activePackToUse);
+    void this.refreshBasemapWarning(activePackToUse);
+    this.statusMessage = activePackToUse
+      ? `Active pack: ${activePackToUse.resort.name}`
       : this.resortOptions.length > 0
         ? "Select a resort pack."
         : "No eligible resort packs available.";

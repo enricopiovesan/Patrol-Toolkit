@@ -126,7 +126,11 @@ async function handleSameOriginStaticRequest(request) {
     }
 
     try {
-      return await fetch(request);
+      const networkRangeResponse = await fetch(request);
+      if (isCacheableResponse(networkRangeResponse)) {
+        void backfillFullAssetCache(cache, cacheKey);
+      }
+      return networkRangeResponse;
     } catch {
       if (cachedResponse) {
         return cachedResponse;
@@ -164,6 +168,21 @@ async function handleSameOriginStaticRequest(request) {
     status: 504,
     headers: { "Content-Type": "text/plain; charset=utf-8" }
   });
+}
+
+async function backfillFullAssetCache(cache, cacheKey) {
+  try {
+    const fullRequest = new Request(cacheKey, { method: "GET" });
+    const fullResponse = await fetch(fullRequest);
+    if (!isCacheableResponse(fullResponse)) {
+      return;
+    }
+
+    await cache.put(cacheKey, fullResponse.clone());
+    await trimCache(STATIC_CACHE, 120);
+  } catch {
+    // Best-effort cache warmup for future offline range requests.
+  }
 }
 
 async function precacheSameOriginUrls(urls) {

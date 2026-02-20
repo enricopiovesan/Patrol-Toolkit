@@ -361,6 +361,69 @@ describe("geofabrik resolver", () => {
     }
   });
 
+  it("prefers subdivision containing resort location when multiple match country", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-geofabrik-location-match-"));
+    try {
+      let downloadedUrl = "";
+      await resolveGeofabrikExtractPath({
+        countryCode: "CA",
+        cacheDir: root,
+        locationLon: -116.9624,
+        locationLat: 51.2937,
+        fetchJsonFn: async () => ({
+          features: [
+            {
+              geometry: {
+                type: "Polygon",
+                coordinates: [
+                  [
+                    [-114.0, 49.0],
+                    [-110.0, 49.0],
+                    [-110.0, 60.0],
+                    [-114.0, 60.0],
+                    [-114.0, 49.0]
+                  ]
+                ]
+              },
+              properties: {
+                id: "north-america/canada/alberta",
+                "iso3166-2": "CA-AB",
+                urls: { pbf: "https://download.geofabrik.de/north-america/canada/alberta-latest.osm.pbf" }
+              }
+            },
+            {
+              geometry: {
+                type: "Polygon",
+                coordinates: [
+                  [
+                    [-139.0, 48.0],
+                    [-114.0, 48.0],
+                    [-114.0, 61.0],
+                    [-139.0, 61.0],
+                    [-139.0, 48.0]
+                  ]
+                ]
+              },
+              properties: {
+                id: "north-america/canada/british-columbia",
+                "iso3166-2": "CA-BC",
+                urls: { pbf: "https://download.geofabrik.de/north-america/canada/british-columbia-latest.osm.pbf" }
+              }
+            }
+          ]
+        }),
+        fetchFn: (async (url) => {
+          downloadedUrl = String(url);
+          return new Response(Uint8Array.from([1, 2, 3]), { status: 200 });
+        }) as typeof fetch
+      });
+
+      expect(downloadedUrl).toContain("british-columbia-latest.osm.pbf");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails with clear error when country has no extract", async () => {
     const root = await mkdtemp(join(tmpdir(), "menu-geofabrik-no-match-"));
     try {

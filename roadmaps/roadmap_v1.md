@@ -80,11 +80,12 @@
 - PR outcome: handoff-ready.
 
 ## Slice 8: Real Resort Validation
-- Status: in progress
+- Status: completed (2026-02-20)
 - Goal: prove on real workflow.
 - Changes:
   - run on `CA_Golden_Kicking_Horse`.
   - capture timings, output sizes, and offline app verification checklist.
+  - tracked validation record in `roadmaps/slice8_real_resort_validation_v1.md`.
 - Test:
   - online then offline map renders with generated basemap (not just overlays).
 - PR outcome: release confidence.
