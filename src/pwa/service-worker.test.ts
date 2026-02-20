@@ -38,7 +38,7 @@ describe("service worker cache hardening", () => {
       urls: ["/packs/demo/style.json", "/packs/demo/base.pmtiles", "https://example.com/skip.json"]
     });
 
-    const staticStore = stores.get("ptk-static-v0.0.1");
+    const staticStore = stores.get("ptk-static-v0.0.2");
     expect(staticStore?.has("https://patrol.local/packs/demo/style.json")).toBe(true);
     expect(staticStore?.has("https://patrol.local/packs/demo/base.pmtiles")).toBe(true);
     expect(staticStore?.has("https://example.com/skip.json")).toBe(false);
@@ -50,7 +50,7 @@ describe("service worker cache hardening", () => {
     const stores = new Map<string, Map<string, Response>>();
 
     const caches = createMockCaches(stores);
-    const staticCacheName = "ptk-static-v0.0.1";
+    const staticCacheName = "ptk-static-v0.0.2";
     stores.set(staticCacheName, new Map());
 
     const staticStore = stores.get(staticCacheName);
@@ -86,7 +86,7 @@ describe("service worker cache hardening", () => {
     const stores = new Map<string, Map<string, Response>>();
 
     const caches = createMockCaches(stores);
-    const tileCacheName = "ptk-tiles-v0.0.1";
+    const tileCacheName = "ptk-tiles-v0.0.2";
     stores.set(tileCacheName, new Map());
 
     const tileStore = stores.get(tileCacheName);
@@ -153,7 +153,7 @@ describe("service worker cache hardening", () => {
     const stores = new Map<string, Map<string, Response>>();
     const caches = createMockCaches(stores);
 
-    const staticCacheName = "ptk-static-v0.0.1";
+    const staticCacheName = "ptk-static-v0.0.2";
     stores.set(staticCacheName, new Map());
     const staticStore = stores.get(staticCacheName);
     if (!staticStore) {
@@ -257,6 +257,128 @@ describe("service worker cache hardening", () => {
     expect(offlineResponse.status).toBe(206);
     expect(offlineResponse.headers.get("content-range")).toBe("bytes 2-5/10");
     expect([...payload]).toEqual([2, 3, 4, 5]);
+    cleanup();
+  });
+
+  it("returns 416 for unsatisfiable cached range requests while offline", async () => {
+    const listeners = new Map() as ListenerMap;
+    const stores = new Map<string, Map<string, Response>>();
+    const caches = createMockCaches(stores);
+
+    const staticCacheName = "ptk-static-v0.0.2";
+    stores.set(staticCacheName, new Map());
+    const staticStore = stores.get(staticCacheName);
+    if (!staticStore) {
+      throw new Error("Missing static cache store");
+    }
+
+    staticStore.set(
+      "https://patrol.local/packs/demo/base.pmtiles",
+      new Response(new Uint8Array([0, 1, 2, 3]), {
+        status: 200,
+        headers: { "Content-Type": "application/octet-stream" }
+      })
+    );
+
+    const fetchMock = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    const cleanup = loadServiceWorker(listeners, caches, fetchMock);
+
+    const fetchListener = listeners.get("fetch");
+    if (!fetchListener) {
+      throw new Error("Fetch listener not registered");
+    }
+
+    const response = await createRespondWithPromise(
+      fetchListener,
+      new Request("https://patrol.local/packs/demo/base.pmtiles", {
+        headers: { range: "bytes=20-30" }
+      })
+    );
+
+    expect(response.status).toBe(416);
+    expect(response.headers.get("content-range")).toBe("bytes */4");
+    cleanup();
+  });
+
+  it("does not return full cached file for invalid range requests while offline", async () => {
+    const listeners = new Map() as ListenerMap;
+    const stores = new Map<string, Map<string, Response>>();
+    const caches = createMockCaches(stores);
+
+    const staticCacheName = "ptk-static-v0.0.2";
+    stores.set(staticCacheName, new Map());
+    const staticStore = stores.get(staticCacheName);
+    if (!staticStore) {
+      throw new Error("Missing static cache store");
+    }
+
+    staticStore.set(
+      "https://patrol.local/packs/demo/base.pmtiles",
+      new Response(new Uint8Array([0, 1, 2, 3, 4, 5]), {
+        status: 200,
+        headers: { "Content-Type": "application/octet-stream" }
+      })
+    );
+
+    const fetchMock = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    const cleanup = loadServiceWorker(listeners, caches, fetchMock);
+
+    const fetchListener = listeners.get("fetch");
+    if (!fetchListener) {
+      throw new Error("Fetch listener not registered");
+    }
+
+    const response = await createRespondWithPromise(
+      fetchListener,
+      new Request("https://patrol.local/packs/demo/base.pmtiles", {
+        headers: { range: "bytes=abc-def" }
+      })
+    );
+
+    expect(response.status).toBe(504);
+    expect(await response.text()).toContain("Asset unavailable offline.");
+    cleanup();
+  });
+
+  it("removes old ptk version caches and known legacy cache names on activate", async () => {
+    const listeners = new Map() as ListenerMap;
+    const stores = new Map<string, Map<string, Response>>();
+    stores.set("ptk-shell-v0.0.1", new Map());
+    stores.set("ptk-static-v0.0.1", new Map());
+    stores.set("ptk-tiles-v0.0.1", new Map());
+    stores.set("ptk-shell-v0.0.2", new Map());
+    stores.set("ptk-static-v0.0.2", new Map());
+    stores.set("ptk-tiles-v0.0.2", new Map());
+    stores.set("patrol-shell", new Map());
+    stores.set("patrol-static", new Map());
+    stores.set("foreign-cache", new Map());
+
+    const caches = createMockCaches(stores);
+    const fetchMock = vi.fn(async () => new Response("ok", { status: 200 }));
+    const cleanup = loadServiceWorker(listeners, caches, fetchMock as typeof fetch);
+
+    const activateListener = listeners.get("activate");
+    if (!activateListener) {
+      cleanup();
+      throw new Error("Activate listener not registered");
+    }
+
+    await createActivateWaitUntilPromise(activateListener);
+
+    const cacheNames = await caches.keys();
+    expect(cacheNames).toContain("ptk-shell-v0.0.2");
+    expect(cacheNames).toContain("ptk-static-v0.0.2");
+    expect(cacheNames).toContain("ptk-tiles-v0.0.2");
+    expect(cacheNames).toContain("foreign-cache");
+    expect(cacheNames).not.toContain("ptk-shell-v0.0.1");
+    expect(cacheNames).not.toContain("ptk-static-v0.0.1");
+    expect(cacheNames).not.toContain("ptk-tiles-v0.0.1");
+    expect(cacheNames).not.toContain("patrol-shell");
+    expect(cacheNames).not.toContain("patrol-static");
     cleanup();
   });
 });
@@ -374,6 +496,22 @@ function createMessageWaitUntilPromise(
 
   const settled = waitPromise as Promise<unknown>;
   return settled.then(() => undefined);
+}
+
+function createActivateWaitUntilPromise(activateListener: (event: unknown) => void): Promise<void> {
+  let waitPromise: Promise<unknown> | null = null;
+
+  activateListener({
+    waitUntil: (promise: Promise<unknown>) => {
+      waitPromise = promise;
+    }
+  });
+
+  if (!waitPromise) {
+    throw new Error("activate waitUntil was not called");
+  }
+
+  return (waitPromise as Promise<unknown>).then(() => undefined);
 }
 
 function toAbsoluteUrl(path: string): string {

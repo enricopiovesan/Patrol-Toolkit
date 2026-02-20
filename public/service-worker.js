@@ -1,9 +1,14 @@
 const CACHE_PREFIX = "ptk";
-const CACHE_VERSION = "v0.0.1";
+const CACHE_VERSION = "v0.0.2";
 const SHELL_CACHE = `${CACHE_PREFIX}-shell-${CACHE_VERSION}`;
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const TILE_CACHE = `${CACHE_PREFIX}-tiles-${CACHE_VERSION}`;
 const ACTIVE_CACHES = new Set([SHELL_CACHE, STATIC_CACHE, TILE_CACHE]);
+const LEGACY_CACHE_NAMES = new Set([
+  "patrol-shell",
+  "patrol-static",
+  "patrol-tiles"
+]);
 
 const APP_SHELL_URLS = [
   "/",
@@ -33,7 +38,13 @@ self.addEventListener("activate", (event) => {
       const cacheNames = await caches.keys();
       await Promise.all(
         cacheNames
-          .filter((name) => name.startsWith(`${CACHE_PREFIX}-`) && !ACTIVE_CACHES.has(name))
+          .filter((name) => {
+            if (LEGACY_CACHE_NAMES.has(name)) {
+              return true;
+            }
+
+            return name.startsWith(`${CACHE_PREFIX}-`) && !ACTIVE_CACHES.has(name);
+          })
           .map((name) => caches.delete(name))
       );
 
@@ -132,8 +143,13 @@ async function handleSameOriginStaticRequest(request) {
       }
       return networkRangeResponse;
     } catch {
-      if (cachedResponse) {
-        return cachedResponse;
+      // Do not return a full-file cached body for range requests.
+      // Returning 200 to a byte-range client can break PMTiles reads.
+      if (cachedResponse && cachedResponse.status === 200) {
+        const partial = await buildPartialResponseFromFull(cachedResponse, rangeHeader);
+        if (partial) {
+          return partial;
+        }
       }
 
       return new Response("Asset unavailable offline.", {

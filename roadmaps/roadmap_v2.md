@@ -14,10 +14,107 @@
   - run structured brainstorm on phrase outputs by scenario (normal, low confidence, no nearby run/lift, ambiguous side).
   - define phrase contract: required fields, optional enrichments, fallback wording.
   - define acceptance examples in fixtures.
-  - track spec in `roadmaps/roadmap_v2_phrase_spec.md`.
+  - embed Phrase v2 spec in this roadmap (single source of truth).
 - Test:
   - spec review with sample inputs/outputs approved.
 - PR outcome: locked phrase spec for implementation.
+
+### Phrase v2 Spec (Embedded)
+
+Purpose:
+- Improve patrol radio phrase usefulness while keeping output deterministic and short.
+- Keep compatibility with offline-first operation and existing pack geometry inputs.
+
+Output contract:
+- `composeRadioPhraseV2(point, pack) -> RadioPhraseOutcomeV2`
+- Required fields:
+  - `phrase: string`
+  - `runId: string | null`
+  - `liftId: string | null`
+  - `confidence: "high" | "medium" | "low"`
+  - `mode: "run+lift" | "run-only" | "lift-only" | "fallback"`
+- Optional fields:
+  - `runName?: string`
+  - `liftName?: string`
+  - `towerNumber?: number`
+  - `positionBand?: "upper" | "mid" | "lower" | "unknown"`
+  - `skierSide?: "left" | "right" | "center" | "unknown"`
+  - `notes?: string[]`
+
+Phrase templates:
+- Primary:
+  - `"{runName}, {positionBand}, {distanceM}m {above|below|from} {liftName} tower {n}"`
+- Run-only:
+  - `"{runName}, {positionBand}, {distanceM}m {north|south|east|west} from intersection with {runName}"` when anchor is available.
+  - `"{runName}, {positionBand}"` when no reliable anchor is available.
+- Lift-only:
+  - `"{distanceM}m from {liftName} tower {n}"`
+- Fallback:
+  - `"Location uncertain"`
+
+Anchor wording policy (objective only):
+- Do not use vague language like `near` or `close to`.
+- Prefer objective references:
+  - `"{distanceM}m above {anchor}"`
+  - `"{distanceM}m below {anchor}"`
+- If above/below cannot be determined with confidence:
+  - use `"{distanceM}m from {anchor}"`.
+- Cardinal directions (`north/south/east/west`) are last-resort only.
+- Distances are rounded to the nearest `10m`.
+
+Confidence rules:
+- `high`:
+  - valid run match and valid semantics; and optional nearby lift in threshold when present.
+- `medium`:
+  - run match exists but semantics uncertain, or only lift-only phrase.
+- `low`:
+  - no robust run/lift context; fallback mode.
+
+Scenario matrix:
+1. Normal run + nearby lift:
+- mode: `run+lift`
+- confidence: `high`
+- phrase includes objective anchor distance + relation.
+2. Run matched, no nearby lift:
+- mode: `run-only`
+- confidence: `high`
+3. Run matched, side ambiguous:
+- mode: `run-only`
+- phrase avoids false precision and prioritizes objective anchors.
+- confidence: `medium`
+4. No run, nearby lift:
+- mode: `lift-only`
+- confidence: `medium`
+5. No run, no lift:
+- mode: `fallback`
+- confidence: `low`
+6. Borderline thresholds:
+- deterministic tie-break required (nearest/containment order preserved).
+- confidence downgraded to `medium` if ambiguity remains.
+
+Determinism requirements:
+- Same input point + same pack -> same phrase and metadata.
+- No randomization.
+- No network calls.
+
+Backward compatibility:
+- Keep existing `composeRadioPhrase(...)` for v1 behavior during migration.
+- Add `composeRadioPhraseV2(...)` and run side-by-side tests.
+- Switch UI to v2 only after acceptance tests pass.
+
+Acceptance examples:
+1. Run + lift:
+- output mode: `run+lift`
+- phrase pattern: `"Easy Street, middle section, 40m below Summit Express tower 2"`
+2. Run only:
+- output mode: `run-only`
+- phrase pattern: `"Easy Street, middle section, 20m above intersection with Crystal Bowl"`
+3. Lift only:
+- output mode: `lift-only`
+- phrase pattern: `"30m above Summit Express tower 1"`
+4. Fallback:
+- output mode: `fallback`
+- phrase pattern: `"Location uncertain"`
 
 ## Slice 2: Phrase v2 Engine
 - Status: completed
@@ -31,7 +128,7 @@
 - PR outcome: production-ready phrase behavior.
 
 ## Slice 3: Run Rendering v2 (Lines + Difficulty Colors)
-- Status: in progress
+- Status: completed
 - Goal: replace triangle-like run display with readable line cartography.
 - Changes:
   - render runs as line-first visualization.
@@ -44,7 +141,7 @@
 - PR outcome: runs are visually correct and readable.
 
 ## Slice 4: Run Labels v2
-- Status: in progress
+- Status: completed
 - Goal: add useful run names without clutter.
 - Changes:
   - add run name symbol layer.
@@ -56,7 +153,7 @@
 - PR outcome: labeled map that remains readable.
 
 ## Slice 5: Basemap Regeneration Controls
-- Status: in progress
+- Status: completed
 - Goal: make rebuild intent explicit and safe.
 - Changes:
   - add menu option to force basemap rebuild for current version.
@@ -67,12 +164,13 @@
 - PR outcome: predictable regeneration workflow.
 
 ## Slice 6: Offline Diagnostics + SW Hardening
-- Status: planned
+- Status: completed
 - Goal: make offline failures diagnosable and rarer.
 - Changes:
-  - add debug diagnostics for style URL, pmtiles URL, cache/SW state.
-  - formalize cache migration/version behavior.
-  - strengthen range/cache tests for PMTiles.
+  - [x] add runtime diagnostics in UI warning (online state, SW control state, style/pmtiles paths).
+  - [x] add debug diagnostics for style URL, pmtiles URL, cache/SW state.
+  - [x] formalize cache migration/version behavior.
+  - [x] strengthen range/cache tests for PMTiles.
 - Test:
   - offline failure simulation tests pass.
   - update from previous SW version remains functional.
