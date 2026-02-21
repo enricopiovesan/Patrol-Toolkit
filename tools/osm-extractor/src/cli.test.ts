@@ -953,4 +953,136 @@ describe("release-go-no-go command helpers", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("supports published-only scope to skip local unpublished resorts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "release-go-no-go-published-only-"));
+    const publicRoot = join(root, "public");
+    const publishedResort = "CA_Golden_Kicking_Horse";
+    const unpublishedResort = "CA_Kananaskis_Nakiska_Ski_Area";
+
+    try {
+      const publishedV1 = join(root, "resorts", publishedResort, "v1");
+      await mkdir(publishedV1, { recursive: true });
+      await writeFile(
+        join(publishedV1, "status.json"),
+        JSON.stringify({
+          manualValidation: { validated: true, validatedAt: "2026-02-21T10:00:00.000Z" },
+          readiness: { overall: "ready", issues: [] }
+        }),
+        "utf8"
+      );
+      await writeFile(
+        join(publishedV1, "resort.json"),
+        JSON.stringify({
+          schemaVersion: "2.0.0",
+          resort: { query: { name: "Kicking Horse", country: "CA" } },
+          layers: {
+            boundary: { status: "complete", artifactPath: "boundary.geojson" },
+            lifts: { status: "complete", artifactPath: "lifts.geojson" },
+            runs: { status: "complete", artifactPath: "runs.geojson" }
+          }
+        }),
+        "utf8"
+      );
+      await writeFile(join(publishedV1, "boundary.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(publishedV1, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(publishedV1, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await mkdir(join(publishedV1, "basemap"), { recursive: true });
+      await writeFile(join(publishedV1, "basemap", "base.pmtiles"), new Uint8Array([1, 2, 3, 4]));
+      await writeFile(
+        join(publishedV1, "basemap", "style.json"),
+        JSON.stringify({ version: 8, sources: { basemap: { type: "vector" } }, layers: [{ id: "bg", type: "background" }] }),
+        "utf8"
+      );
+      await publishLatestValidatedResortVersion({
+        resortsRoot: join(root, "resorts"),
+        appPublicRoot: publicRoot,
+        resortKey: publishedResort,
+        exportedAt: "2026-02-21T10:30:00.000Z"
+      });
+
+      const unpublishedV1 = join(root, "resorts", unpublishedResort, "v1");
+      await mkdir(unpublishedV1, { recursive: true });
+      await writeFile(
+        join(unpublishedV1, "status.json"),
+        JSON.stringify({
+          manualValidation: { validated: false, validatedAt: null },
+          readiness: { overall: "incomplete", issues: ["missing data"] }
+        }),
+        "utf8"
+      );
+
+      const gate = await runReleaseGoNoGoGate({
+        resortsRoot: join(root, "resorts"),
+        appPublicRoot: publicRoot,
+        publishedOnly: true
+      });
+
+      expect(gate.overallOk).toBe(true);
+      expect(gate.summary.resortsChecked).toBe(1);
+      expect(gate.resorts[0]?.resortKey).toBe(publishedResort);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("supports explicit --resort-key style scope", async () => {
+    const root = await mkdtemp(join(tmpdir(), "release-go-no-go-scoped-key-"));
+    const publicRoot = join(root, "public");
+    const targetResort = "CA_Golden_Kicking_Horse";
+
+    try {
+      const targetV1 = join(root, "resorts", targetResort, "v1");
+      await mkdir(targetV1, { recursive: true });
+      await writeFile(
+        join(targetV1, "status.json"),
+        JSON.stringify({
+          manualValidation: { validated: true, validatedAt: "2026-02-21T10:00:00.000Z" },
+          readiness: { overall: "ready", issues: [] }
+        }),
+        "utf8"
+      );
+      await writeFile(
+        join(targetV1, "resort.json"),
+        JSON.stringify({
+          schemaVersion: "2.0.0",
+          resort: { query: { name: "Kicking Horse", country: "CA" } },
+          layers: {
+            boundary: { status: "complete", artifactPath: "boundary.geojson" },
+            lifts: { status: "complete", artifactPath: "lifts.geojson" },
+            runs: { status: "complete", artifactPath: "runs.geojson" }
+          }
+        }),
+        "utf8"
+      );
+      await writeFile(join(targetV1, "boundary.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(targetV1, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(targetV1, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await mkdir(join(targetV1, "basemap"), { recursive: true });
+      await writeFile(join(targetV1, "basemap", "base.pmtiles"), new Uint8Array([1, 2, 3, 4]));
+      await writeFile(
+        join(targetV1, "basemap", "style.json"),
+        JSON.stringify({ version: 8, sources: { basemap: { type: "vector" } }, layers: [{ id: "bg", type: "background" }] }),
+        "utf8"
+      );
+      await publishLatestValidatedResortVersion({
+        resortsRoot: join(root, "resorts"),
+        appPublicRoot: publicRoot,
+        resortKey: targetResort,
+        exportedAt: "2026-02-21T10:30:00.000Z"
+      });
+
+      const gate = await runReleaseGoNoGoGate({
+        resortsRoot: join(root, "resorts"),
+        appPublicRoot: publicRoot,
+        resortKeys: [targetResort]
+      });
+
+      expect(gate.overallOk).toBe(true);
+      expect(gate.summary.resortsChecked).toBe(1);
+      expect(gate.resorts[0]?.resortKey).toBe(targetResort);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
