@@ -75,7 +75,7 @@
 - Update UI must block any app/pack pair outside compatibility contract.
 
 ## Slice 2: Install + Download UX for Devices
-- Status: in_progress
+- Status: completed
 - Goal: make clean-device installation and pack download operational using only GitHub-hosted assets.
 - Changes:
   - add in-app "install app" guidance flow (browser/PWA prompts + fallback instructions).
