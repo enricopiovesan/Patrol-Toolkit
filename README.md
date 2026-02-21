@@ -35,47 +35,47 @@ All built on portable, structured Resort Packs that separate terrain data from a
 
 ---
 
-## Current Scope — App MVP (Map + Phrase)
+## Current Product State (February 21, 2026)
 
-The current MVP focus is:
-- one active resort at a time
-- offline map context
-- boundary/run/lift representation
-- deterministic phrase generation for radio callouts
+![Patrol Toolkit current app snapshot](public/assets/patrol-toolkit-current-state-2026-02-21.png)
 
-## Current App Snapshot vs Roadmap v2 (February 2026)
+Patrol Toolkit is now in a multi-resort, offline-ready operational state with deterministic phrase generation and publish integrity controls.
 
-![Patrol Toolkit current app snapshot](public/assets/patrol-toolkit-current-state-2026-02-20.png)
+### Current Capabilities
 
-The screenshot above reflects the current state of the app in field-like usage:
-- Active resort selected (`kicking horse v1`)
-- Live map with boundary, runs, and lifts overlays
-- GPS lock and phrase generation in one operational screen
-- Phrase output now includes objective anchor references (example: `100m below Stairway to Heaven tower 7`)
+- One active resort context in app (switchable from locally published packs).
+- Offline app shell + offline basemap + offline overlays (boundary/runs/lifts).
+- Runs rendered as line geometry with difficulty-based coloring.
+- Run labels with zoom/readability tuning.
+- Deterministic phrase generation with objective distance-based anchors.
+- CLI basemap controls: generate/publish, dry-run preview, force rebuild.
+- Publish safety gate: requires manual validation **and** readiness `ready`.
+- CLI rollback control: `Unpublish resort` removes published app artifacts without deleting resort source data.
 
-Roadmap v2 alignment:
+### Available Published Resorts
 
-| Roadmap v2 Slice | Status | Current Evidence |
+As of `2026-02-21`, `public/resort-packs/index.json` includes:
+
+- `CA_Beaupre_Mont_Sainte_Anne` (`v4`)
+- `CA_Chelsea_Camp_Fortune` (`v4`)
+- `CA_Fernie_Fernie` (`v7`)
+- `CA_Golden_Kicking_Horse` (`v1`)
+- `CA_Kimberley_Kimberley_Resort` (`v5`)
+- `CA_Rossland_Red_Mountain_Resort` (`v6`)
+- `CA_Whistler_Whistler_Blackcomb` (`v4`)
+
+### Roadmap v2 Progress
+
+| Slice | Status | Summary |
 |---|---|---|
-| Slice 1: Phrase v2 Discovery + Spec | Completed | Phrase spec documented in `roadmaps/roadmap_v2_phrase_spec.md` |
-| Slice 2: Phrase v2 Engine | In progress | Context->decision->render phrase logic and anchor improvements |
-| Slice 3: Run Rendering v2 | Planned | Current runs render, but styling and readability upgrades pending |
-| Slice 4: Run Labels v2 | Planned | Labels tuning not started |
-| Slice 5: Basemap Regeneration Controls | Planned | Basemap generation works; UX/control improvements pending |
-| Slice 6: Offline Diagnostics + SW Hardening | Planned | Core offline works; additional diagnostics/hardening pending |
-| Slice 7: Multi-Resort Validation + Integrity | Planned | Single-resort validation done; multi-resort matrix pending |
-| Slice 8: Docs/Runbook v2 + Exit Signoff | Planned | v0.0.1 docs exist; v2 closure docs pending |
-
-### Status Snapshot
-
-- Ready: single active resort selection from local packs.
-- Ready: deterministic phrase generation from GPS + run/lift geometry.
-- Ready: offline app shell and local pack persistence.
-- Ready: resort boundary rendered in app map.
-- Ready: runs rendered in app map.
-- Ready: lifts rendered in app map.
-- Ready: local offline basemap path through generated and published resort assets.
-- Ready: generate phrase is the primary radio action (copy phrase removed).
+| Slice 1 | Completed | Phrase v2 spec finalized |
+| Slice 2 | Completed | Phrase v2 engine shipped |
+| Slice 3 | Completed | Run line rendering + difficulty colors |
+| Slice 4 | Completed | Run labels + readability tuning |
+| Slice 5 | Completed | Basemap regenerate controls |
+| Slice 6 | Completed | Offline diagnostics + SW hardening |
+| Slice 7 | Completed | Multi-resort integrity + publish hardening |
+| Slice 8 | In progress | Docs/runbook/signoff evidence |
 
 ---
 
@@ -136,23 +136,20 @@ This architecture allows Patrol Toolkit to scale across multiple resorts without
 
 ## Roadmap Overview
 
-### 0.0.1 (Baseline, Ready)
+### v0.0.1 (Released)
 - Offline app shell
 - Resort pack import/select/active persistence
-- GPS-driven deterministic phrase generation
+- Deterministic phrase baseline
 
-### 0.0.2 (Current Focus, In Progress)
-- Render boundary, runs, and lifts from active resort pack
-- Fully offline map path for basemap + overlays
+### v2 Program (Current)
+- Slices 1-7 complete
+- Slice 8 docs/signoff in progress
+- Focus: operational closure and auditable handoff artifacts
 
-### 0.1.x (Next)
-- Operational support tools such as sweep reference overlays and terrain knowledge layers
-
-### 0.2.x
-- Optional shared situational awareness capabilities
-
-### 1.0.0
-- Stable multi-resort operational platform
+### Next Program Focus
+- Handling strategy for resorts without reliable boundary data
+- Expanded operational overlays (sweep/terrain context)
+- Continued multi-resort validation at scale
 
 Roadmap evolves based on real field feedback from patrol use.
 
@@ -207,6 +204,13 @@ Field validation and release resources:
 - [v0.0.1 field trial runbook](docs/field-trial/v0.0.1-runbook.md)
 - [v0.0.1 patrol feedback template](docs/field-trial/v0.0.1-feedback-template.md)
 - [v0.0.1 release notes and tagging procedure](docs/releases/v0.0.1.md)
+- [v2 operations runbook](docs/runbooks/v2-operations-runbook.md)
+- [v2 troubleshooting matrix](docs/runbooks/v2-troubleshooting-matrix.md)
+- [v2 upgrade notes](docs/releases/v2-upgrade-notes.md)
+- [v2 acceptance checklist](docs/checklists/v2-exit-acceptance-checklist.md)
+- [v2 evidence bundle template](docs/evidence/v2-exit-evidence-template.md)
+- [v2 acceptance checklist (2026-02-21)](docs/checklists/v2-exit-acceptance-2026-02-21.md)
+- [v2 evidence bundle (2026-02-21)](docs/evidence/v2-exit-evidence-2026-02-21.md)
 - [tools workspace docs](tools/README.md)
 - [OSM extractor get started](tools/osm-extractor/GET_STARTED.md)
 - [OSM extractor CLI docs](tools/osm-extractor/README.md)
