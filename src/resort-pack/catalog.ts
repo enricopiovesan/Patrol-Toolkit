@@ -1,6 +1,7 @@
 import { loadResortPackFromObject } from "./loader";
 import type { ResortPack } from "./types";
 import { APP_VERSION } from "../app-version";
+import { resolveAppUrl } from "../runtime/base-url";
 
 export type ResortCatalogRelease = {
   channel: "stable";
@@ -54,7 +55,7 @@ export type SelectableResortPack = {
   checksums?: ResortCatalogVersionChecksums;
 };
 
-const DEFAULT_CATALOG_URL = "/resort-packs/index.json";
+const DEFAULT_CATALOG_URL = resolveAppUrl("/resort-packs/index.json");
 
 export async function loadResortCatalog(url = DEFAULT_CATALOG_URL): Promise<ResortCatalog> {
   const response = await fetch(url, { cache: "no-store" });
@@ -126,7 +127,7 @@ export function selectLatestEligibleVersions(
 
 export async function loadPackFromCatalogEntry(entry: SelectableResortPack): Promise<ResortPack> {
   const cacheBustKey = entry.createdAt ?? entry.version;
-  const packUrl = appendCacheBust(entry.packUrl, cacheBustKey);
+  const packUrl = appendCacheBust(resolveAppUrl(entry.packUrl), cacheBustKey);
   const response = await fetch(packUrl, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Unable to load resort pack ${entry.resortId} (${response.status}).`);

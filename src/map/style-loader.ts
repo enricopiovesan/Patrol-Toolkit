@@ -1,5 +1,6 @@
 import type maplibregl from "maplibre-gl";
 import type { ResortPack } from "../resort-pack/types";
+import { resolveAppUrl } from "../runtime/base-url";
 
 export const OFFLINE_FALLBACK_STYLE: maplibregl.StyleSpecification = {
   version: 8,
@@ -64,8 +65,9 @@ export async function resolveStyleForPack(
   );
 
   for (const styleCandidate of styleCandidates) {
+    const resolvedStyleUrl = resolveAppUrl(styleCandidate);
     try {
-      const response = await fetchFn(styleCandidate);
+      const response = await fetchFn(resolvedStyleUrl);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -77,7 +79,7 @@ export async function resolveStyleForPack(
       const hydratedStyle = injectPmtilesSourceUrls(payload, pack.basemap.pmtilesPath);
 
       return {
-        key: `pack:${pack.resort.id}:${styleCandidate}`,
+        key: `pack:${pack.resort.id}:${resolvedStyleUrl}`,
         style: hydratedStyle
       };
     } catch {
@@ -104,7 +106,7 @@ function injectPmtilesSourceUrls(
     .filter(([, source]) => (source as { type?: string }).type === "vector")
     .map(([name]) => name);
 
-  const pmtilesUrl = `pmtiles://${normalizeRelativePath(pmtilesPath)}`;
+  const pmtilesUrl = `pmtiles://${resolveAppUrl(normalizeRelativePath(pmtilesPath))}`;
   let hasPmtilesVectorSource = false;
 
   for (const sourceName of vectorSourceNames) {
@@ -125,7 +127,7 @@ function injectPmtilesSourceUrls(
       }
 
       if (looksLikeLocalPmtilesPath(source.url)) {
-        source.url = `pmtiles://${normalizeRelativePath(source.url)}`;
+        source.url = `pmtiles://${resolveAppUrl(normalizeRelativePath(source.url))}`;
         hasPmtilesVectorSource = true;
       }
     }
@@ -187,7 +189,7 @@ function maybeCanonicalizePackStylePath(path: string): string {
       index === 0 ? part.toUpperCase() : `${part.slice(0, 1).toUpperCase()}${part.slice(1).toLowerCase()}`
     )
     .join("_");
-  return `/packs/${canonical}/style.json`;
+  return resolveAppUrl(`/packs/${canonical}/style.json`);
 }
 
 function isStyleSpecification(value: unknown): value is maplibregl.StyleSpecification {

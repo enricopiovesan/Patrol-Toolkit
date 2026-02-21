@@ -24,6 +24,7 @@ From repository root:
 npm run check
 npm --prefix tools/osm-extractor run check
 npm --prefix tools/osm-extractor run build
+PTK_VITE_BASE=/Patrol-Toolkit/ npm run build
 ```
 
 Run scoped release dry-run:

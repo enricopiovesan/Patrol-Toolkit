@@ -24,7 +24,7 @@ describe("registerServiceWorker", () => {
     await expect(registerServiceWorker()).resolves.toBeNull();
   });
 
-  it("registers the service worker with root scope", async () => {
+  it("registers the service worker with BASE_URL scope", async () => {
     const register = vi.fn().mockResolvedValue({
       waiting: null,
       installing: null,

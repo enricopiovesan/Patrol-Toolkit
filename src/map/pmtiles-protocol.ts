@@ -1,6 +1,7 @@
 import maplibregl from "maplibre-gl";
 import { PMTiles, Protocol } from "pmtiles";
 import type { ResortPack } from "../resort-pack/types";
+import { resolveAppUrl } from "../runtime/base-url";
 
 let protocol: Protocol | null = null;
 let registered = false;
@@ -26,7 +27,7 @@ export function ensurePackPmtilesArchiveLoaded(pack: ResortPack | null): void {
   }
 
   const normalizedPath = normalizeRelativePath(pack.basemap.pmtilesPath);
-  const sourceUrl = `pmtiles://${normalizedPath}`;
+  const sourceUrl = `pmtiles://${resolveAppUrl(normalizedPath)}`;
 
   if (!protocol.get(sourceUrl)) {
     protocol.add(new PMTiles(sourceUrl));
