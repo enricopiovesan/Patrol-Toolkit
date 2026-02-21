@@ -1,11 +1,34 @@
 import { loadResortPackFromObject } from "./loader";
 import type { ResortPack } from "./types";
+import { APP_VERSION } from "../app-version";
+
+export type ResortCatalogRelease = {
+  channel: "stable";
+  appVersion: string;
+  manifestUrl: string;
+  manifestSha256: string;
+  createdAt: string;
+};
+
+export type ResortCatalogVersionCompatibility = {
+  minAppVersion: string;
+  maxAppVersion?: string;
+  supportedPackSchemaVersions?: string[];
+};
+
+export type ResortCatalogVersionChecksums = {
+  packSha256: string;
+  pmtilesSha256: string;
+  styleSha256: string;
+};
 
 export type ResortCatalogVersion = {
   version: string;
   approved: boolean;
   packUrl: string;
   createdAt?: string;
+  compatibility?: ResortCatalogVersionCompatibility;
+  checksums?: ResortCatalogVersionChecksums;
 };
 
 export type ResortCatalogResort = {
@@ -15,7 +38,8 @@ export type ResortCatalogResort = {
 };
 
 export type ResortCatalog = {
-  schemaVersion: "1.0.0";
+  schemaVersion: "1.0.0" | "2.0.0";
+  release?: ResortCatalogRelease;
   resorts: ResortCatalogResort[];
 };
 
@@ -25,6 +49,8 @@ export type SelectableResortPack = {
   version: string;
   packUrl: string;
   createdAt?: string;
+  compatibility?: ResortCatalogVersionCompatibility;
+  checksums?: ResortCatalogVersionChecksums;
 };
 
 const DEFAULT_CATALOG_URL = "/resort-packs/index.json";
@@ -39,12 +65,27 @@ export async function loadResortCatalog(url = DEFAULT_CATALOG_URL): Promise<Reso
   return assertResortCatalog(payload);
 }
 
-export function selectLatestEligibleVersions(catalog: ResortCatalog): SelectableResortPack[] {
+export function selectLatestEligibleVersions(
+  catalog: ResortCatalog,
+  options?: {
+    appVersion?: string;
+    supportedPackSchemaVersion?: string;
+  }
+): SelectableResortPack[] {
+  const appVersion = options?.appVersion ?? APP_VERSION;
+  const supportedPackSchemaVersion = options?.supportedPackSchemaVersion ?? "1.0.0";
   const selected: SelectableResortPack[] = [];
 
   for (const resort of catalog.resorts) {
-    if (resort.versions.length === 1) {
-      const single = resort.versions[0];
+    const eligibleByCompatibility = resort.versions.filter((entry) =>
+      isCatalogVersionCompatible(entry, {
+        appVersion,
+        supportedPackSchemaVersion
+      })
+    );
+
+    if (eligibleByCompatibility.length === 1) {
+      const single = eligibleByCompatibility[0];
       if (!single) {
         continue;
       }
@@ -54,12 +95,14 @@ export function selectLatestEligibleVersions(catalog: ResortCatalog): Selectable
         resortName: resort.resortName,
         version: single.version,
         packUrl: single.packUrl,
-        createdAt: single.createdAt
+        createdAt: single.createdAt,
+        compatibility: single.compatibility,
+        checksums: single.checksums
       });
       continue;
     }
 
-    const approved = resort.versions.filter((entry) => entry.approved);
+    const approved = eligibleByCompatibility.filter((entry) => entry.approved);
     const latestApproved = approved.sort(compareCatalogVersionDesc)[0];
 
     if (!latestApproved) {
@@ -71,7 +114,9 @@ export function selectLatestEligibleVersions(catalog: ResortCatalog): Selectable
       resortName: resort.resortName,
       version: latestApproved.version,
       packUrl: latestApproved.packUrl,
-      createdAt: latestApproved.createdAt
+      createdAt: latestApproved.createdAt,
+      compatibility: latestApproved.compatibility,
+      checksums: latestApproved.checksums
     });
   }
 
@@ -108,7 +153,7 @@ function assertResortCatalog(input: unknown): ResortCatalog {
     throw new Error("Invalid resort catalog: expected object.");
   }
 
-  if (input.schemaVersion !== "1.0.0") {
+  if (input.schemaVersion !== "1.0.0" && input.schemaVersion !== "2.0.0") {
     throw new Error("Invalid resort catalog: unsupported schemaVersion.");
   }
 
@@ -116,14 +161,17 @@ function assertResortCatalog(input: unknown): ResortCatalog {
     throw new Error("Invalid resort catalog: resorts must be an array.");
   }
 
-  const resorts = input.resorts.map(assertCatalogResort);
+  const schemaVersion = input.schemaVersion;
+  const release = schemaVersion === "2.0.0" ? assertCatalogRelease(input.release) : undefined;
+  const resorts = input.resorts.map((entry) => assertCatalogResort(entry, schemaVersion));
   return {
-    schemaVersion: "1.0.0",
+    schemaVersion,
+    release,
     resorts
   };
 }
 
-function assertCatalogResort(input: unknown): ResortCatalogResort {
+function assertCatalogResort(input: unknown, schemaVersion: ResortCatalog["schemaVersion"]): ResortCatalogResort {
   if (!isObjectRecord(input)) {
     throw new Error("Invalid resort catalog: resort entry must be object.");
   }
@@ -143,11 +191,14 @@ function assertCatalogResort(input: unknown): ResortCatalogResort {
   return {
     resortId: input.resortId,
     resortName: input.resortName,
-    versions: input.versions.map(assertCatalogVersion)
+    versions: input.versions.map((entry) => assertCatalogVersion(entry, schemaVersion))
   };
 }
 
-function assertCatalogVersion(input: unknown): ResortCatalogVersion {
+function assertCatalogVersion(
+  input: unknown,
+  schemaVersion: ResortCatalog["schemaVersion"]
+): ResortCatalogVersion {
   if (!isObjectRecord(input)) {
     throw new Error("Invalid resort catalog: version entry must be object.");
   }
@@ -168,11 +219,114 @@ function assertCatalogVersion(input: unknown): ResortCatalogVersion {
     throw new Error("Invalid resort catalog: createdAt must be string when present.");
   }
 
+  const compatibility =
+    input.compatibility === undefined ? undefined : assertCatalogVersionCompatibility(input.compatibility);
+  const checksums = input.checksums === undefined ? undefined : assertCatalogVersionChecksums(input.checksums);
+
+  if (schemaVersion === "2.0.0") {
+    if (!compatibility) {
+      throw new Error("Invalid resort catalog: compatibility is required for schemaVersion 2.0.0.");
+    }
+    if (!checksums) {
+      throw new Error("Invalid resort catalog: checksums are required for schemaVersion 2.0.0.");
+    }
+  }
+
   return {
     version: input.version,
     approved: input.approved,
     packUrl: input.packUrl,
+    createdAt: input.createdAt,
+    compatibility,
+    checksums
+  };
+}
+
+function assertCatalogRelease(input: unknown): ResortCatalogRelease {
+  if (!isObjectRecord(input)) {
+    throw new Error("Invalid resort catalog: release metadata is required for schemaVersion 2.0.0.");
+  }
+
+  if (input.channel !== "stable") {
+    throw new Error("Invalid resort catalog: release.channel must be 'stable'.");
+  }
+
+  if (!isValidSemverString(input.appVersion)) {
+    throw new Error("Invalid resort catalog: release.appVersion must be semver.");
+  }
+
+  if (!isNonEmptyString(input.manifestUrl)) {
+    throw new Error("Invalid resort catalog: release.manifestUrl is required.");
+  }
+
+  if (!isValidSha256(input.manifestSha256)) {
+    throw new Error("Invalid resort catalog: release.manifestSha256 must be 64-char hex.");
+  }
+
+  if (!isNonEmptyString(input.createdAt)) {
+    throw new Error("Invalid resort catalog: release.createdAt is required.");
+  }
+
+  return {
+    channel: "stable",
+    appVersion: input.appVersion,
+    manifestUrl: input.manifestUrl,
+    manifestSha256: input.manifestSha256,
     createdAt: input.createdAt
+  };
+}
+
+function assertCatalogVersionCompatibility(input: unknown): ResortCatalogVersionCompatibility {
+  if (!isObjectRecord(input)) {
+    throw new Error("Invalid resort catalog: compatibility must be object.");
+  }
+
+  if (!isValidSemverString(input.minAppVersion)) {
+    throw new Error("Invalid resort catalog: compatibility.minAppVersion must be semver.");
+  }
+
+  if (input.maxAppVersion !== undefined && !isValidSemverString(input.maxAppVersion)) {
+    throw new Error("Invalid resort catalog: compatibility.maxAppVersion must be semver when present.");
+  }
+
+  if (input.supportedPackSchemaVersions !== undefined) {
+    if (!Array.isArray(input.supportedPackSchemaVersions)) {
+      throw new Error("Invalid resort catalog: supportedPackSchemaVersions must be an array when present.");
+    }
+
+    if (!input.supportedPackSchemaVersions.every(isNonEmptyString)) {
+      throw new Error("Invalid resort catalog: supportedPackSchemaVersions must contain strings.");
+    }
+  }
+
+  return {
+    minAppVersion: input.minAppVersion,
+    maxAppVersion: input.maxAppVersion,
+    supportedPackSchemaVersions: input.supportedPackSchemaVersions
+  };
+}
+
+function assertCatalogVersionChecksums(input: unknown): ResortCatalogVersionChecksums {
+  if (!isObjectRecord(input)) {
+    throw new Error("Invalid resort catalog: checksums must be object.");
+  }
+
+  if (!isValidSha256(input.packSha256)) {
+    throw new Error("Invalid resort catalog: checksums.packSha256 must be 64-char hex.");
+  }
+
+  if (!isValidSha256(input.pmtilesSha256)) {
+    throw new Error("Invalid resort catalog: checksums.pmtilesSha256 must be 64-char hex.");
+  }
+
+  if (!isValidSha256(input.styleSha256)) {
+    throw new Error("Invalid resort catalog: checksums.styleSha256 must be 64-char hex.");
+  }
+
+  return {
+    packSha256: input.packSha256,
+    pmtilesSha256: input.pmtilesSha256,
+    styleSha256: input.styleSha256
   };
 }
 
@@ -208,6 +362,76 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function isValidSha256(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/iu.test(value);
+}
+
+function isValidSemverString(value: unknown): value is string {
+  return typeof value === "string" && /^(\d+)\.(\d+)\.(\d+)$/u.test(value.trim());
+}
+
+export function isCatalogVersionCompatible(
+  version: ResortCatalogVersion,
+  args: {
+    appVersion: string;
+    supportedPackSchemaVersion: string;
+  }
+): boolean {
+  const compatibility = version.compatibility;
+  if (!compatibility) {
+    return true;
+  }
+
+  if (compareSemver(args.appVersion, compatibility.minAppVersion) < 0) {
+    return false;
+  }
+
+  if (compatibility.maxAppVersion && compareSemver(args.appVersion, compatibility.maxAppVersion) > 0) {
+    return false;
+  }
+
+  const supportedSchemas = compatibility.supportedPackSchemaVersions;
+  if (supportedSchemas && supportedSchemas.length > 0 && !supportedSchemas.includes(args.supportedPackSchemaVersion)) {
+    return false;
+  }
+
+  return true;
+}
+
+function compareSemver(left: string, right: string): number {
+  const leftParts = parseSemverParts(left);
+  const rightParts = parseSemverParts(right);
+  if (!leftParts || !rightParts) {
+    return left.localeCompare(right);
+  }
+
+  for (let index = 0; index < 3; index += 1) {
+    const leftPart = leftParts[index] ?? 0;
+    const rightPart = rightParts[index] ?? 0;
+    if (leftPart !== rightPart) {
+      return leftPart - rightPart;
+    }
+  }
+
+  return 0;
+}
+
+function parseSemverParts(value: string): [number, number, number] | null {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/u.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+
+  const major = Number.parseInt(match[1] ?? "", 10);
+  const minor = Number.parseInt(match[2] ?? "", 10);
+  const patch = Number.parseInt(match[3] ?? "", 10);
+  if (!Number.isInteger(major) || !Number.isInteger(minor) || !Number.isInteger(patch)) {
+    return null;
+  }
+
+  return [major, minor, patch];
 }
 
 type ExportBundle = {

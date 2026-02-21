@@ -568,19 +568,54 @@ describe("resort-publish-latest command helpers", () => {
       const catalogRaw = await readFile(join(publicRoot, "resort-packs", "index.json"), "utf8");
       const catalog = JSON.parse(catalogRaw) as {
         schemaVersion: string;
+        release?: {
+          channel: string;
+          appVersion: string;
+          manifestUrl: string;
+          manifestSha256: string;
+          createdAt: string;
+        };
         resorts: Array<{
           resortId: string;
           resortName: string;
-          versions: Array<{ version: string; approved: boolean; packUrl: string }>;
+          versions: Array<{
+            version: string;
+            approved: boolean;
+            packUrl: string;
+            compatibility?: {
+              minAppVersion: string;
+              supportedPackSchemaVersions?: string[];
+            };
+            checksums?: {
+              packSha256: string;
+              pmtilesSha256: string;
+              styleSha256: string;
+            };
+          }>;
         }>;
       };
-      expect(catalog.schemaVersion).toBe("1.0.0");
+      expect(catalog.schemaVersion).toBe("2.0.0");
+      expect(catalog.release?.channel).toBe("stable");
+      expect(catalog.release?.manifestUrl).toBe("/releases/stable-manifest.json");
+      expect(catalog.release?.manifestSha256).toMatch(/^[a-f0-9]{64}$/iu);
       expect(catalog.resorts).toHaveLength(1);
       expect(catalog.resorts[0]?.resortId).toBe(resortKey);
       expect(catalog.resorts[0]?.resortName).toBe("Kicking Horse");
       expect(catalog.resorts[0]?.versions[0]?.version).toBe("v2");
       expect(catalog.resorts[0]?.versions[0]?.approved).toBe(true);
       expect(catalog.resorts[0]?.versions[0]?.packUrl).toBe("/packs/CA_Golden_Kicking_Horse.latest.validated.json");
+      expect(catalog.resorts[0]?.versions[0]?.compatibility?.minAppVersion).toBe("0.0.1");
+      expect(catalog.resorts[0]?.versions[0]?.checksums?.packSha256).toMatch(/^[a-f0-9]{64}$/iu);
+      const manifestRaw = await readFile(join(publicRoot, "releases", "stable-manifest.json"), "utf8");
+      const manifest = JSON.parse(manifestRaw) as {
+        schemaVersion: string;
+        artifacts: Array<{ kind: string; resortId: string; version: string; url: string; sha256: string }>;
+      };
+      expect(manifest.schemaVersion).toBe("1.0.0");
+      expect(manifest.artifacts.length).toBeGreaterThanOrEqual(3);
+      expect(manifest.artifacts.some((artifact) => artifact.kind === "pack" && artifact.resortId === resortKey)).toBe(
+        true
+      );
       const publishedPmtiles = await readFile(join(publicRoot, "packs", resortKey, "base.pmtiles"));
       const publishedStyle = await readFile(join(publicRoot, "packs", resortKey, "style.json"), "utf8");
       expect([...publishedPmtiles]).toEqual([1, 2, 3, 4]);
