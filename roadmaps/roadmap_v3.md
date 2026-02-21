@@ -111,7 +111,7 @@
 - Define behavior on low-storage devices (block, retry, cleanup guidance).
 
 ## Slice 3: First Release Pipeline (v1.0.0)
-- Status: planned
+- Status: in_progress
 - Goal: ship first formal release with repeatable process.
 - Changes:
   - add release checklist and versioning policy (tagging, changelog, evidence bundle).

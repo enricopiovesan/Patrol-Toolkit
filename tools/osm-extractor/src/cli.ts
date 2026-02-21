@@ -133,6 +133,36 @@ export type ResortPublishedIntegrityResult = {
   }>;
 };
 
+export type ReleaseGoNoGoResult = {
+  resortsRoot: string;
+  publicRoot: string;
+  catalogPath: string;
+  manifestPath: string;
+  checkedAt: string;
+  overallOk: boolean;
+  globalIssues: string[];
+  manifest: {
+    exists: boolean;
+    shaMatchesCatalog: boolean;
+    issues: string[];
+  };
+  summary: {
+    resortsChecked: number;
+    readyValidatedCount: number;
+    publishReadyCount: number;
+  };
+  resorts: Array<{
+    resortKey: string;
+    latestVersion: string | null;
+    ready: boolean;
+    validated: boolean;
+    published: boolean;
+    publishedVersion: string | null;
+    ok: boolean;
+    issues: string[];
+  }>;
+};
+
 type ResortCatalogIndex = {
   schemaVersion: "1.0.0" | "2.0.0";
   release?: ResortCatalogRelease;
@@ -243,6 +273,7 @@ async function main(): Promise<void> {
     command !== "resort-export-latest" &&
     command !== "resort-publish-latest" &&
     command !== "resort-audit-published" &&
+    command !== "release-go-no-go" &&
     command !== "menu" &&
     command !== "extract-resort" &&
     command !== "extract-fleet"
@@ -264,6 +295,7 @@ async function main(): Promise<void> {
         "resort-export-latest",
         "resort-publish-latest",
         "resort-audit-published",
+        "release-go-no-go",
         "menu",
         "extract-resort",
         "extract-fleet"
@@ -972,6 +1004,69 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "release-go-no-go") {
+    const resortsRoot = readFlag(args, "--resorts-root") ?? "./resorts";
+    const appPublicRoot = readFlag(args, "--app-public-root") ?? "./public";
+
+    let result: ReleaseGoNoGoResult;
+    try {
+      result = await runReleaseGoNoGoGate({
+        resortsRoot,
+        appPublicRoot
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CliCommandError("RELEASE_GATE_FAILED", message, {
+        command: "release-go-no-go",
+        resortsRoot,
+        appPublicRoot
+      });
+    }
+
+    if (outputJson) {
+      console.log(
+        JSON.stringify({
+          ok: result.overallOk,
+          releaseGate: result
+        })
+      );
+      return;
+    }
+
+    console.log(
+      `RELEASE_GO_NO_GO resorts=${result.summary.resortsChecked} readyValidated=${result.summary.readyValidatedCount} publishReady=${result.summary.publishReadyCount} ok=${result.overallOk}`
+    );
+    for (const issue of result.globalIssues) {
+      console.log(`GLOBAL_FAIL ${issue}`);
+    }
+    for (const issue of result.manifest.issues) {
+      console.log(`MANIFEST_FAIL ${issue}`);
+    }
+    for (const resort of result.resorts) {
+      console.log(
+        `${resort.ok ? "OK" : "FAIL"} ${resort.resortKey} latest=${resort.latestVersion ?? "none"} published=${
+          resort.publishedVersion ?? "none"
+        }`
+      );
+      if (!resort.ok) {
+        for (const issue of resort.issues) {
+          console.log(`  - ${issue}`);
+        }
+      }
+    }
+
+    if (!result.overallOk) {
+      throw new CliCommandError("RELEASE_GATE_FAILED", "Release go/no-go gate failed.", {
+        globalIssues: result.globalIssues,
+        manifestIssues: result.manifest.issues,
+        failedResorts: result.resorts
+          .filter((entry) => !entry.ok)
+          .map((entry) => ({ resortKey: entry.resortKey, issues: entry.issues }))
+      });
+    }
+    return;
+  }
+
   if (command === "menu") {
     const resortsRoot = readFlag(args, "--resorts-root") ?? "./resorts";
     const appPublicRoot = readFlag(args, "--app-public-root") ?? "./public";
@@ -1607,6 +1702,135 @@ export async function auditPublishedResortIntegrity(args: {
   };
 }
 
+export async function runReleaseGoNoGoGate(args: {
+  resortsRoot: string;
+  appPublicRoot: string;
+}): Promise<ReleaseGoNoGoResult> {
+  const resortsRoot = resolve(args.resortsRoot);
+  const publicRoot = resolve(args.appPublicRoot);
+  const catalogPath = join(publicRoot, "resort-packs", "index.json");
+  const manifestPath = join(publicRoot, "releases", "stable-manifest.json");
+  const checkedAt = new Date().toISOString();
+  const globalIssues: string[] = [];
+
+  const resortKeys = await listResortKeys(resortsRoot);
+  if (resortKeys.length === 0) {
+    globalIssues.push(`No resorts found under ${resortsRoot}.`);
+  }
+
+  const catalog = await readCatalogIndex(catalogPath);
+  const publishedAudit = await auditPublishedResortIntegrity({
+    appPublicRoot: publicRoot
+  }).catch(() => null);
+  const publishedAuditByResort = new Map(
+    (publishedAudit?.resorts ?? []).map((entry) => [entry.resortId, entry] as const)
+  );
+
+  const resorts: ReleaseGoNoGoResult["resorts"] = [];
+  for (const resortKey of resortKeys) {
+    const issues: string[] = [];
+    const resortPath = join(resortsRoot, resortKey);
+    const versions = await readVersionFolders(resortPath);
+    const latestVersionNumber = versions.length > 0 ? Math.max(...versions) : null;
+    const latestVersion = latestVersionNumber === null ? null : `v${String(latestVersionNumber)}`;
+
+    let ready = false;
+    let validated = false;
+    if (latestVersion !== null) {
+      const statusPath = join(resortPath, latestVersion, "status.json");
+      const status = await readJsonFile<ResortStatusLike>(statusPath).catch(() => null);
+      if (!status) {
+        issues.push(`missing status file for latest version (${statusPath})`);
+      } else {
+        ready = status.readiness?.overall === "ready";
+        validated = status.manualValidation?.validated === true;
+        if (!ready) {
+          issues.push(`latest version is not readiness-ready (${latestVersion})`);
+        }
+        if (!validated) {
+          issues.push(`latest version is not manually validated (${latestVersion})`);
+        }
+      }
+    } else {
+      issues.push("no version folders found");
+    }
+
+    const catalogEntry = catalog.resorts.find((entry) => entry.resortId === resortKey);
+    const publishedVersion = catalogEntry?.versions[0]?.version ?? null;
+    const published = publishedVersion !== null;
+    if (!published) {
+      issues.push("resort is not published in app catalog");
+    } else if (latestVersion && publishedVersion !== latestVersion) {
+      issues.push(`published version ${publishedVersion} does not match latest version ${latestVersion}`);
+    }
+
+    if (published) {
+      const audit = publishedAuditByResort.get(resortKey);
+      if (!audit) {
+        issues.push("published resort integrity was not audited");
+      } else if (!audit.ok) {
+        issues.push(...audit.issues);
+      }
+    }
+
+    resorts.push({
+      resortKey,
+      latestVersion,
+      ready,
+      validated,
+      published,
+      publishedVersion,
+      ok: issues.length === 0,
+      issues
+    });
+  }
+
+  const manifestIssues: string[] = [];
+  const manifestStats = await stat(manifestPath).catch(() => null);
+  const manifestExists = Boolean(manifestStats?.isFile());
+  const catalogManifestSha = catalog.release?.manifestSha256 ?? null;
+  let shaMatchesCatalog = false;
+
+  if (!catalog.release) {
+    manifestIssues.push(`catalog missing release metadata (${catalogPath})`);
+  } else if (!manifestExists) {
+    manifestIssues.push(`stable release manifest missing (${manifestPath})`);
+  } else if (!catalogManifestSha || !/^[a-f0-9]{64}$/iu.test(catalogManifestSha)) {
+    manifestIssues.push("catalog release manifestSha256 is missing/invalid");
+  } else {
+    const actualSha = await sha256ForFile(manifestPath);
+    shaMatchesCatalog = actualSha === catalogManifestSha;
+    if (!shaMatchesCatalog) {
+      manifestIssues.push(`stable manifest checksum mismatch (catalog=${catalogManifestSha}, actual=${actualSha})`);
+    }
+  }
+
+  const readyValidatedCount = resorts.filter((entry) => entry.ready && entry.validated).length;
+  const publishReadyCount = resorts.filter((entry) => entry.ok).length;
+  const overallOk = globalIssues.length === 0 && manifestIssues.length === 0 && resorts.every((entry) => entry.ok);
+
+  return {
+    resortsRoot,
+    publicRoot,
+    catalogPath,
+    manifestPath,
+    checkedAt,
+    overallOk,
+    globalIssues,
+    manifest: {
+      exists: manifestExists,
+      shaMatchesCatalog,
+      issues: manifestIssues
+    },
+    summary: {
+      resortsChecked: resorts.length,
+      readyValidatedCount,
+      publishReadyCount
+    },
+    resorts
+  };
+}
+
 async function publishBasemapAssetsForVersion(args: {
   versionPath: string;
   publicRoot: string;
@@ -1779,6 +2003,21 @@ async function readVersionFolders(resortPath: string): Promise<number[]> {
     .filter((entry) => entry.isDirectory())
     .map((entry) => parseVersionFolder(entry.name))
     .filter((value): value is number => value !== null);
+}
+
+async function listResortKeys(resortsRoot: string): Promise<string[]> {
+  let entries;
+  try {
+    entries = await readdir(resortsRoot, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((name) => !name.startsWith("."))
+    .sort((left, right) => left.localeCompare(right));
 }
 
 function parseVersionFolder(name: string): number | null {
@@ -2064,7 +2303,7 @@ export function formatCliError(error: unknown, command: string | null): CliError
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  menu [--resorts-root <path>] [--app-public-root <path>]\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs|all> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--dry-run] [--require-complete] [--json]\n  resort-export-latest --resort-key <value> --output <path> [--resorts-root <path>] [--exported-at <ISO-8601>] [--json]\n  resort-publish-latest --resort-key <value> [--resorts-root <path>] [--app-public-root <path>] [--exported-at <ISO-8601>] [--json]\n  resort-audit-published [--app-public-root <path>] [--resort-key <value>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
+    `ptk-extractor commands:\n\n  menu [--resorts-root <path>] [--app-public-root <path>]\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs|all> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--dry-run] [--require-complete] [--json]\n  resort-export-latest --resort-key <value> --output <path> [--resorts-root <path>] [--exported-at <ISO-8601>] [--json]\n  resort-publish-latest --resort-key <value> [--resorts-root <path>] [--app-public-root <path>] [--exported-at <ISO-8601>] [--json]\n  resort-audit-published [--app-public-root <path>] [--resort-key <value>] [--json]\n  release-go-no-go [--resorts-root <path>] [--app-public-root <path>] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
   );
 }
 
