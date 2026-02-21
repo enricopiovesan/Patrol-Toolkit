@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "1.0.0",
+  "release": {
+    "channel": "stable",
+    "appVersion": "0.0.1",
+    "createdAt": "2026-02-21T05:06:48.300Z"
+  },
+  "artifacts": [
+    {
+      "kind": "pack",
+      "resortId": "CA_Chelsea_Camp_Fortune",
+      "version": "v4",
+      "url": "/packs/CA_Chelsea_Camp_Fortune.latest.validated.json",
+      "sha256": "f9b78ce9a604634ce9a512c4fcce85873a3a277c33c0b706d6d00eab98f4383b",
+      "bytes": 59995
+    },
+    {
+      "kind": "pmtiles",
+      "resortId": "CA_Chelsea_Camp_Fortune",
+      "version": "v4",
+      "url": "/packs/CA_Chelsea_Camp_Fortune/base.pmtiles",
+      "sha256": "ceefdbc9540664b20dd9869eb2b4ef9d6c0fd052f34f173df3b4f1b513252e75",
+      "bytes": 688788
+    },
+    {
+      "kind": "style",
+      "resortId": "CA_Chelsea_Camp_Fortune",
+      "version": "v4",
+      "url": "/packs/CA_Chelsea_Camp_Fortune/style.json",
+      "sha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527",
+      "bytes": 1096
+    },
+    {
+      "kind": "pack",
+      "resortId": "CA_Fernie_Fernie",
+      "version": "v7",
+      "url": "/packs/CA_Fernie_Fernie.latest.validated.json",
+      "sha256": "641281200c8d5a672a5327f9bac52b1109bc4084e6b9bb09b1ee4f7e0bacd2d5",
+      "bytes": 201288
+    },
+    {
+      "kind": "pmtiles",
+      "resortId": "CA_Fernie_Fernie",
+      "version": "v7",
+      "url": "/packs/CA_Fernie_Fernie/base.pmtiles",
+      "sha256": "51ccdfc236f9c53dc072971611f28c90a9f3e0c8b05c9ce94e305ad914af0b2a",
+      "bytes": 443421
+    },
+    {
+      "kind": "style",
+      "resortId": "CA_Fernie_Fernie",
+      "version": "v7",
+      "url": "/packs/CA_Fernie_Fernie/style.json",
+      "sha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527",
+      "bytes": 1096
+    },
+    {
+      "kind": "pack",
+      "resortId": "CA_Golden_Kicking_Horse",
+      "version": "v1",
+      "url": "/packs/CA_Golden_Kicking_Horse.latest.validated.json",
+      "sha256": "c53b72e49d0aa26b1eb621404f9469bfbfd8bf6c6613e2da8eefe51a8cb4ddef",
+      "bytes": 138069
+    },
+    {
+      "kind": "pmtiles",
+      "resortId": "CA_Golden_Kicking_Horse",
+      "version": "v1",
+      "url": "/packs/CA_Golden_Kicking_Horse/base.pmtiles",
+      "sha256": "2c3ec095bb9d444d6d657ad80f78aee3849bb354566e7724033929cdfe51ad2f",
+      "bytes": 507606
+    },
+    {
+      "kind": "style",
+      "resortId": "CA_Golden_Kicking_Horse",
+      "version": "v1",
+      "url": "/packs/CA_Golden_Kicking_Horse/style.json",
+      "sha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527",
+      "bytes": 1096
+    },
+    {
+      "kind": "pack",
+      "resortId": "CA_Kimberley_Kimberley_Resort",
+      "version": "v5",
+      "url": "/packs/CA_Kimberley_Kimberley_Resort.latest.validated.json",
+      "sha256": "ab9f9fa6b7e2198072d2ac310c9b59b91b07e90fcc74bad8129c9e00ce7797c9",
+      "bytes": 166386
+    },
+    {
+      "kind": "pmtiles",
+      "resortId": "CA_Kimberley_Kimberley_Resort",
+      "version": "v5",
+      "url": "/packs/CA_Kimberley_Kimberley_Resort/base.pmtiles",
+      "sha256": "f9b45a579a46bdd744f09fc1f39016f728e01eb5a065b9f21ce6f79b37275a2d",
+      "bytes": 599289
+    },
+    {
+      "kind": "style",
+      "resortId": "CA_Kimberley_Kimberley_Resort",
+      "version": "v5",
+      "url": "/packs/CA_Kimberley_Kimberley_Resort/style.json",
+      "sha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527",
+      "bytes": 1096
+    },
+    {
+      "kind": "pack",
+      "resortId": "CA_Beaupre_Mont_Sainte_Anne",
+      "version": "v4",
+      "url": "/packs/CA_Beaupre_Mont_Sainte_Anne.latest.validated.json",
+      "sha256": "5b97b399da146f93742101b55470d36ab4a00cfd32465f9824470c7b4cc8fb45",
+      "bytes": 215139
+    },
+    {
+      "kind": "pmtiles",
+      "resortId": "CA_Beaupre_Mont_Sainte_Anne",
+      "version": "v4",
+      "url": "/packs/CA_Beaupre_Mont_Sainte_Anne/base.pmtiles",
+      "sha256": "21b92f42a2a6f0357decb1e0f58344b2b04a27d63be5d0a9037af4633806111f",
+      "bytes": 599815
+    },
+    {
+      "kind": "style",
+      "resortId": "CA_Beaupre_Mont_Sainte_Anne",
+      "version": "v4",
+      "url": "/packs/CA_Beaupre_Mont_Sainte_Anne/style.json",
+      "sha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527",
+      "bytes": 1096
+    },
+    {
+      "kind": "pack",
+      "resortId": "CA_Rossland_Red_Mountain_Resort",
+      "version": "v6",
+      "url": "/packs/CA_Rossland_Red_Mountain_Resort.latest.validated.json",
+      "sha256": "b71cd48dcefde071fe347b8b05958c27e2bb1666cb3652e6a01f4b7f13656cab",
+      "bytes": 193669
+    },
+    {
+      "kind": "pmtiles",
+      "resortId": "CA_Rossland_Red_Mountain_Resort",
+      "version": "v6",
+      "url": "/packs/CA_Rossland_Red_Mountain_Resort/base.pmtiles",
+      "sha256": "c3c5639d6f5dbbb7455026d2fd5cbcff3ca642e70709977080f02ea19b1f8d4f",
+      "bytes": 597460
+    },
+    {
+      "kind": "style",
+      "resortId": "CA_Rossland_Red_Mountain_Resort",
+      "version": "v6",
+      "url": "/packs/CA_Rossland_Red_Mountain_Resort/style.json",
+      "sha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527",
+      "bytes": 1096
+    },
+    {
+      "kind": "pack",
+      "resortId": "CA_Whistler_Whistler_Blackcomb",
+      "version": "v4",
+      "url": "/packs/CA_Whistler_Whistler_Blackcomb.latest.validated.json",
+      "sha256": "61367ed69308b4e50e3dbca9016b58bee149331d5764b0978a1a450f0bfd56c1",
+      "bytes": 1993032
+    },
+    {
+      "kind": "pmtiles",
+      "resortId": "CA_Whistler_Whistler_Blackcomb",
+      "version": "v4",
+      "url": "/packs/CA_Whistler_Whistler_Blackcomb/base.pmtiles",
+      "sha256": "3318a5aaf67bd44ed0e4d6736ed53f1959255476eee49370ba2cd681dfa1022b",
+      "bytes": 1899951
+    },
+    {
+      "kind": "style",
+      "resortId": "CA_Whistler_Whistler_Blackcomb",
+      "version": "v4",
+      "url": "/packs/CA_Whistler_Whistler_Blackcomb/style.json",
+      "sha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527",
+      "bytes": 1096
+    }
+  ]
+}
