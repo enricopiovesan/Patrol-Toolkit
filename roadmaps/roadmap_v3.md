@@ -128,6 +128,12 @@
   - install path from release artifacts is verified on clean machine.
   - post-deploy smoke checks pass on stable production URL.
 - PR outcome: release process is operational and auditable.
+- Implemented in current branch:
+  - [x] `release-go-no-go` CLI gate with scope controls (`--published-only`, repeated `--resort-key`).
+  - [x] `release-dry-run` CLI command with consolidated release readiness + integrity summary.
+  - [x] runbook draft added: `docs/releases/v3-release-runbook.md`.
+  - [ ] final clean-machine release-artifact install verification.
+  - [ ] final stable URL post-deploy smoke-signoff for release execution.
 
 ### Release Go/No-Go Gate (Slice 3)
 - All included resorts are `ready + validated + published`.
