@@ -1,5 +1,12 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "2.0.0",
+  "release": {
+    "channel": "stable",
+    "appVersion": "0.0.1",
+    "manifestUrl": "/releases/stable-manifest.json",
+    "manifestSha256": "ebe0b4faae1f019dd74c2a9db1b2e868cea4be34f6c3a9a57972b3b6007ad76c",
+    "createdAt": "2026-02-21T04:54:18.117Z"
+  },
   "resorts": [
     {
       "resortId": "CA_Chelsea_Camp_Fortune",
@@ -33,7 +40,18 @@
           "version": "v1",
           "approved": true,
           "packUrl": "/packs/CA_Golden_Kicking_Horse.latest.validated.json",
-          "createdAt": "2026-02-20T21:58:54.451Z"
+          "createdAt": "2026-02-21T04:54:18.117Z",
+          "compatibility": {
+            "minAppVersion": "0.0.1",
+            "supportedPackSchemaVersions": [
+              "1.0.0"
+            ]
+          },
+          "checksums": {
+            "packSha256": "9d391084dbcc443809d164490645b9f16b4d8923dada2bb741aa1742c4f02175",
+            "pmtilesSha256": "2c3ec095bb9d444d6d657ad80f78aee3849bb354566e7724033929cdfe51ad2f",
+            "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
+          }
         }
       ]
     },
