@@ -57,14 +57,14 @@ Roadmap v2 alignment:
 
 | Roadmap v2 Slice | Status | Current Evidence |
 |---|---|---|
-| Slice 1: Phrase v2 Discovery + Spec | Completed | Phrase spec documented in `roadmaps/roadmap_v2_phrase_spec.md` |
-| Slice 2: Phrase v2 Engine | In progress | Context->decision->render phrase logic and anchor improvements |
-| Slice 3: Run Rendering v2 | Planned | Current runs render, but styling and readability upgrades pending |
-| Slice 4: Run Labels v2 | Planned | Labels tuning not started |
-| Slice 5: Basemap Regeneration Controls | Planned | Basemap generation works; UX/control improvements pending |
-| Slice 6: Offline Diagnostics + SW Hardening | Planned | Core offline works; additional diagnostics/hardening pending |
-| Slice 7: Multi-Resort Validation + Integrity | Planned | Single-resort validation done; multi-resort matrix pending |
-| Slice 8: Docs/Runbook v2 + Exit Signoff | Planned | v0.0.1 docs exist; v2 closure docs pending |
+| Slice 1: Phrase v2 Discovery + Spec | Completed | Phrase v2 spec embedded in `roadmaps/roadmap_v2.md` |
+| Slice 2: Phrase v2 Engine | Completed | Deterministic phrase output with objective distance anchors |
+| Slice 3: Run Rendering v2 | Completed | Line-based runs with difficulty color mapping |
+| Slice 4: Run Labels v2 | Completed | Label zoom gating and readability controls |
+| Slice 5: Basemap Regeneration Controls | Completed | Generate/publish + dry-run + force-rebuild controls in CLI |
+| Slice 6: Offline Diagnostics + SW Hardening | Completed | Offline diagnostics and service-worker hardening merged |
+| Slice 7: Multi-Resort Validation + Integrity | Completed | Integrity audit, publish-readiness gate, unpublish action |
+| Slice 8: Docs/Runbook v2 + Exit Signoff | In progress | v2 runbook/troubleshooting/upgrade notes added; manual signoff pending |
 
 ### Status Snapshot
 
@@ -207,6 +207,13 @@ Field validation and release resources:
 - [v0.0.1 field trial runbook](docs/field-trial/v0.0.1-runbook.md)
 - [v0.0.1 patrol feedback template](docs/field-trial/v0.0.1-feedback-template.md)
 - [v0.0.1 release notes and tagging procedure](docs/releases/v0.0.1.md)
+- [v2 operations runbook](docs/runbooks/v2-operations-runbook.md)
+- [v2 troubleshooting matrix](docs/runbooks/v2-troubleshooting-matrix.md)
+- [v2 upgrade notes](docs/releases/v2-upgrade-notes.md)
+- [v2 acceptance checklist](docs/checklists/v2-exit-acceptance-checklist.md)
+- [v2 evidence bundle template](docs/evidence/v2-exit-evidence-template.md)
+- [v2 acceptance checklist (2026-02-21)](docs/checklists/v2-exit-acceptance-2026-02-21.md)
+- [v2 evidence bundle (2026-02-21)](docs/evidence/v2-exit-evidence-2026-02-21.md)
 - [tools workspace docs](tools/README.md)
 - [OSM extractor get started](tools/osm-extractor/GET_STARTED.md)
 - [OSM extractor CLI docs](tools/osm-extractor/README.md)

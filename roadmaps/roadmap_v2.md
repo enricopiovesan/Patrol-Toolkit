@@ -191,13 +191,15 @@ Acceptance examples:
 - PR outcome: broader production confidence.
 
 ## Slice 8: Docs/Runbook v2 + Exit Signoff
-- Status: planned
+- Status: in progress
 - Goal: close v2 with operable documentation and evidence.
 - Changes:
-  - update docs/runbook with phrase and visualization behavior.
-  - add troubleshooting matrix and upgrade notes.
-  - capture final evidence bundle (timings, artifact sizes, screenshots/checklists).
+  - [x] update docs/runbook with phrase and visualization behavior.
+  - [x] add troubleshooting matrix and upgrade notes.
+  - [x] capture final evidence bundle template (timings, artifact sizes, screenshots/checklists).
+  - [x] capture automated evidence snapshot for v2 signoff.
 - Test:
-  - clean-machine walkthrough succeeds from docs only.
-  - final acceptance checklist fully checked.
+  - [x] automated quality gates pass (`npm run check`, extractor `check`).
+  - [ ] clean-machine walkthrough succeeds from docs only.
+  - [ ] final acceptance checklist fully checked.
 - PR outcome: v2 closure with auditable evidence.
