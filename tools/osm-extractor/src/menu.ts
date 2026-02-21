@@ -891,7 +891,9 @@ async function runKnownResortMenu(args: {
     console.log("9. Generate basemap assets");
     console.log("10. Back");
     console.log("11. Re-select resort identity");
-    const selected = (await args.rl.question("Select option (1-11): ")).trim();
+    console.log("12. Delete resort (all versions + published assets)");
+    console.log("13. Unpublish resort (remove from app catalog only)");
+    const selected = (await args.rl.question("Select option (1-13): ")).trim();
 
     if (selected === "1") {
       const syncStatus = await readResortSyncStatus(workspacePath);
@@ -1406,7 +1408,54 @@ async function runKnownResortMenu(args: {
       continue;
     }
 
-    console.log("Invalid option. Please select 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, or 11.");
+    if (selected === "12") {
+      const confirmation = (
+        await args.rl.question(`Type DELETE ${args.resortKey} to confirm permanent deletion: `)
+      ).trim();
+      if (confirmation !== `DELETE ${args.resortKey}`) {
+        console.log("Deletion cancelled.");
+        continue;
+      }
+
+      const resortPath = dirname(dirname(workspacePath));
+      try {
+        await deleteResortAndPublishedArtifacts({
+          resortKey: args.resortKey,
+          resortPath,
+          appPublicRoot: args.appPublicRoot
+        });
+        console.log(`Deleted resort ${args.resortKey} and all related artifacts.`);
+        keepRunning = false;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.log(`Delete resort failed: ${message}`);
+      }
+      continue;
+    }
+
+    if (selected === "13") {
+      const confirmation = (
+        await args.rl.question(`Type UNPUBLISH ${args.resortKey} to remove published app assets: `)
+      ).trim();
+      if (confirmation !== `UNPUBLISH ${args.resortKey}`) {
+        console.log("Unpublish cancelled.");
+        continue;
+      }
+
+      try {
+        await unpublishResortArtifacts({
+          resortKey: args.resortKey,
+          appPublicRoot: args.appPublicRoot
+        });
+        console.log(`Unpublished resort ${args.resortKey} from app catalog and public packs.`);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.log(`Unpublish resort failed: ${message}`);
+      }
+      continue;
+    }
+
+    console.log("Invalid option. Please select 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, or 13.");
   }
 }
 
@@ -1668,13 +1717,27 @@ async function runBoundaryUpdateForWorkspace(args: {
   rl: MenuReadline;
   workspacePath: string;
 }): Promise<Awaited<ReturnType<typeof setResortBoundary>> | null> {
-  const detection = await detectResortBoundaryCandidates({
+  let detection = await detectResortBoundaryCandidates({
     workspacePath: args.workspacePath,
     searchLimit: 5
   });
-  const polygonCandidates = detection.candidates.filter((candidate) => candidate.ring !== null);
+  let polygonCandidates = detection.candidates.filter((candidate) => candidate.ring !== null);
   if (polygonCandidates.length === 0) {
-    throw new Error("No valid boundary candidates with polygon geometry were found.");
+    const hint = (
+      await args.rl.question("No boundary found. Optional location hint (e.g. Kananaskis, Alberta), or Enter to cancel: ")
+    ).trim();
+    if (hint.length === 0) {
+      throw new Error("No valid boundary candidates with polygon geometry were found.");
+    }
+    detection = await detectResortBoundaryCandidates({
+      workspacePath: args.workspacePath,
+      searchLimit: 5,
+      locationHint: hint
+    });
+    polygonCandidates = detection.candidates.filter((candidate) => candidate.ring !== null);
+    if (polygonCandidates.length === 0) {
+      throw new Error("No valid boundary candidates with polygon geometry were found.");
+    }
   }
 
   console.log(`Boundary candidates (${polygonCandidates.length}):`);
@@ -1921,6 +1984,13 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
   if (!manualValidation.validated) {
     throw new Error("Resort version is not manually validated.");
   }
+  const readinessOverall = status.readiness?.overall;
+  const readinessIssues = Array.isArray(status.readiness?.issues) ? status.readiness.issues : [];
+  if (readinessOverall !== "ready") {
+    throw new Error(
+      `Resort version is not readiness-complete.${readinessIssues.length > 0 ? ` Issues: ${readinessIssues.join("; ")}` : ""}`
+    );
+  }
 
   const workspace = await readResortWorkspace(args.workspacePath);
   const versionPath = dirname(args.workspacePath);
@@ -2078,6 +2148,42 @@ async function readCatalogIndex(path: string): Promise<ResortCatalogIndex> {
     return parsed;
   } catch {
     return { schemaVersion: "1.0.0", resorts: [] };
+  }
+}
+
+async function deleteResortAndPublishedArtifacts(args: {
+  resortKey: string;
+  resortPath: string;
+  appPublicRoot: string;
+}): Promise<void> {
+  await rm(args.resortPath, { recursive: true, force: true });
+  await unpublishResortArtifacts({
+    resortKey: args.resortKey,
+    appPublicRoot: args.appPublicRoot
+  });
+}
+
+async function unpublishResortArtifacts(args: {
+  resortKey: string;
+  appPublicRoot: string;
+}): Promise<void> {
+  const publicRoot = resolve(args.appPublicRoot);
+  const catalogPath = join(publicRoot, "resort-packs", "index.json");
+  const packsDir = join(publicRoot, "packs");
+  const publishedBundlePath = join(packsDir, `${args.resortKey}.latest.validated.json`);
+  const publishedBasemapDir = join(packsDir, args.resortKey);
+
+  await rm(publishedBundlePath, { force: true });
+  await rm(publishedBasemapDir, { recursive: true, force: true });
+  const catalog = await readCatalogIndex(catalogPath);
+  const filtered = catalog.resorts.filter((entry) => entry.resortId !== args.resortKey);
+  if (filtered.length !== catalog.resorts.length || existsSync(catalogPath)) {
+    await mkdir(dirname(catalogPath), { recursive: true });
+    await writeFile(
+      catalogPath,
+      `${JSON.stringify({ schemaVersion: "1.0.0", resorts: filtered } as ResortCatalogIndex, null, 2)}\n`,
+      "utf8"
+    );
   }
 }
 

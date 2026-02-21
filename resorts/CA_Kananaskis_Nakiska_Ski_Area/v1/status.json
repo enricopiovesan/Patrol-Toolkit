@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Kananaskis_Nakiska_Ski_Area",
+  "version": "v1",
+  "createdAt": "2026-02-21T00:12:02.003Z",
+  "query": {
+    "name": "Nakiska Ski Area",
+    "countryCode": "CA",
+    "town": "Kananaskis"
+  },
+  "selection": {
+    "osmType": "node",
+    "osmId": 13454350715,
+    "displayName": "Nakiska Ski Area, Mount Allan Drive, Kananaskis Village, Kananaskis Improvement District, Alberta, Canada",
+    "center": [
+      -115.1512647,
+      50.9419485
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    },
+    "lifts": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    },
+    "runs": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": []
+  },
+  "manualValidation": {
+    "validated": false,
+    "validatedAt": null,
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

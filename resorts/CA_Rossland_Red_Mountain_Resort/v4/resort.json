@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "red mountain resort",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "way",
+      "osmId": 265717653,
+      "displayName": "RED Mountain Resort, 4300, Red Mountain Road, Rossland, Regional District of Kootenay Boundary, British Columbia, V0G 1Y0, Canada",
+      "center": [
+        -117.819483,
+        49.1023413
+      ],
+      "selectedAt": "2026-02-20T23:18:57.943Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "artifactPath": "../../resorts/CA_Rossland_Red_Mountain_Resort/v4/boundary.geojson",
+      "checksumSha256": "2c981cf23005148e87ee51882bdeb9bf4dcf642c567b0e9c0b688354b4f95421",
+      "featureCount": 1,
+      "updatedAt": "2026-02-21T00:57:11.271Z"
+    },
+    "lifts": {
+      "status": "pending"
+    },
+    "runs": {
+      "status": "complete",
+      "queryHash": "7c678e70a64d59870f0132a231e863ec51a76fa1845b98bb2ba598f8e7171dfe",
+      "updatedAt": "2026-02-21T00:56:59.948Z",
+      "artifactPath": "../../resorts/CA_Rossland_Red_Mountain_Resort/v3/runs.geojson",
+      "featureCount": 3,
+      "checksumSha256": "bd0b176d9e64cad3acf9cab84defe818fc1e6a5f62f3708f6dbc4480fa662c39"
+    }
+  }
+}

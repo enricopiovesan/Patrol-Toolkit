@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "Mont-Sainte-Anne",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "way",
+      "osmId": 391681261,
+      "displayName": "Mont-Sainte-Anne, Beaupré, La Côte-de-Beaupré, Capitale-Nationale, Québec, Canada",
+      "center": [
+        -70.9260678,
+        47.0877219
+      ],
+      "selectedAt": "2026-02-20T23:13:46.027Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "artifactPath": "../../resorts/CA_Beaupre_Mont_Sainte_Anne/v2/boundary.geojson",
+      "checksumSha256": "2ada3994d7d84d02447128c04fd29330bf25f2faed26ddbb5c071850c7c56588",
+      "featureCount": 1,
+      "updatedAt": "2026-02-20T23:20:04.550Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "queryHash": "7283aef358c51206219d754a766475dc97d27a5c99c89ae954b32cd7322a97d4",
+      "updatedAt": "2026-02-20T23:20:16.533Z",
+      "artifactPath": "../../resorts/CA_Beaupre_Mont_Sainte_Anne/v4/lifts.geojson",
+      "featureCount": 9,
+      "checksumSha256": "762e3d818885cd44f24bb00c707f77e418c534dea31862b9120b4a091c9c76de"
+    },
+    "runs": {
+      "status": "complete",
+      "queryHash": "55c551dd100204bf69fddaa418c944f54f061d420887af4ccb26793beef33635",
+      "updatedAt": "2026-02-20T23:20:10.333Z",
+      "artifactPath": "../../resorts/CA_Beaupre_Mont_Sainte_Anne/v3/runs.geojson",
+      "featureCount": 80,
+      "checksumSha256": "f30a3c2f3f65fa167d887d9025363a4f8702a904c43eab016e09022646f1c061"
+    }
+  }
+}

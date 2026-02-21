@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "camp fortune",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "way",
+      "osmId": 387976209,
+      "displayName": "Camp Fortune, 300, Chelsea, Les Collines-de-l'Outaouais, Outaouais, Québec, J9B 2N3, Canada",
+      "center": [
+        -75.8435233,
+        45.510795
+      ],
+      "selectedAt": "2026-02-20T23:17:44.369Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "pending"
+    },
+    "lifts": {
+      "status": "pending"
+    },
+    "runs": {
+      "status": "pending"
+    }
+  }
+}

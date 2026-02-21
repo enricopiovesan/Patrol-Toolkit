@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Kimberley_Kimberley_Resort",
+  "version": "v3",
+  "createdAt": "2026-02-20T23:50:24.038Z",
+  "query": {
+    "name": "Kimberley resort",
+    "countryCode": "CA",
+    "town": "Kimberley"
+  },
+  "selection": {
+    "osmType": "way",
+    "osmId": 1388616336,
+    "displayName": "Kimberley Alpine Resort, Kimberley, Regional District of East Kootenay, British Columbia, Canada",
+    "center": [
+      -116.0285341,
+      49.6881982
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Kimberley_Kimberley_Resort/v3/boundary.geojson",
+      "checksumSha256": "10f6bceb04871f5bb99468186e0a38092bc441b010c9a677d0a7f072efb1bd32",
+      "updatedAt": "2026-02-20T23:50:27.209Z"
+    },
+    "runs": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    },
+    "lifts": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": [
+      "lifts: status is 'pending', expected 'complete'",
+      "lifts: artifactPath is missing",
+      "lifts: checksumSha256 is missing",
+      "lifts: featureCount is missing",
+      "lifts: updatedAt is missing",
+      "runs: status is 'pending', expected 'complete'",
+      "runs: artifactPath is missing",
+      "runs: checksumSha256 is missing",
+      "runs: featureCount is missing",
+      "runs: updatedAt is missing"
+    ]
+  },
+  "manualValidation": {
+    "validated": false,
+    "validatedAt": null,
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

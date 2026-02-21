@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "Nakiska Ski Area",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "node",
+      "osmId": 13454350715,
+      "displayName": "Nakiska Ski Area, Mount Allan Drive, Kananaskis Village, Kananaskis Improvement District, Alberta, Canada",
+      "center": [
+        -115.1512647,
+        50.9419485
+      ],
+      "selectedAt": "2026-02-21T00:12:02.003Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "pending"
+    },
+    "lifts": {
+      "status": "pending"
+    },
+    "runs": {
+      "status": "pending"
+    }
+  }
+}

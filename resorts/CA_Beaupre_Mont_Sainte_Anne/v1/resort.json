@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "Mont-Sainte-Anne",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "way",
+      "osmId": 391681261,
+      "displayName": "Mont-Sainte-Anne, Beaupré, La Côte-de-Beaupré, Capitale-Nationale, Québec, Canada",
+      "center": [
+        -70.9260678,
+        47.0877219
+      ],
+      "selectedAt": "2026-02-20T23:13:46.027Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "pending"
+    },
+    "lifts": {
+      "status": "pending"
+    },
+    "runs": {
+      "status": "pending"
+    }
+  }
+}

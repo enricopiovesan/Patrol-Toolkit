@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Kananaskis_Nakiska_Ski_Area",
+  "version": "v4",
+  "createdAt": "2026-02-21T00:37:57.468Z",
+  "query": {
+    "name": "Nakiska Ski Area",
+    "countryCode": "CA",
+    "town": "Kananaskis"
+  },
+  "selection": {
+    "osmType": "node",
+    "osmId": 13454350715,
+    "displayName": "Nakiska Ski Area, Mount Allan Drive, Kananaskis Village, Kananaskis Improvement District, Alberta, Canada",
+    "center": [
+      -115.1512647,
+      50.9419485
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Kananaskis_Nakiska_Ski_Area/v2/boundary.geojson",
+      "checksumSha256": "3da151735bd81ea80b9336d9c252c45534627c82251823c2217a7b01dcdaa1db",
+      "updatedAt": "2026-02-21T00:37:48.709Z"
+    },
+    "runs": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Kananaskis_Nakiska_Ski_Area/v3/runs.geojson",
+      "checksumSha256": "c0102760cd54ab2f5bcab044629475e17fa219c04f1c6039c3b3bbcddeb3a178",
+      "updatedAt": "2026-02-21T00:37:52.906Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "featureCount": 0,
+      "artifactPath": "../../resorts/CA_Kananaskis_Nakiska_Ski_Area/v4/lifts.geojson",
+      "checksumSha256": "b3049ad7a1062091e169bd352424d59721a26b8b6229942aef26d11b0c6a96e1",
+      "updatedAt": "2026-02-21T00:37:57.472Z"
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": [
+      "lifts: featureCount must be >= 1"
+    ]
+  },
+  "manualValidation": {
+    "validated": true,
+    "validatedAt": "2026-02-21T00:38:23.114Z",
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": true,
+        "validatedAt": "2026-02-21T00:38:06.947Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": true,
+        "validatedAt": "2026-02-21T00:38:11.039Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": true,
+        "validatedAt": "2026-02-21T00:38:23.114Z",
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

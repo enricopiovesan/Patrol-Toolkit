@@ -1723,9 +1723,185 @@ describe("menu interactive flows", () => {
           candidates: [candidate]
         })
       });
-      expect(rl.prompts.some((prompt) => prompt.includes("Select option (1-11):"))).toBe(true);
+      expect(rl.prompts.some((prompt) => prompt.includes("Select option (1-13):"))).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("deletes selected resort and related published artifacts from menu", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-delete-resort-"));
+    const publicRoot = await mkdtemp(join(tmpdir(), "menu-flow-delete-public-"));
+    const resortKey = "CA_Golden_Kicking_Horse";
+    const versionPath = join(root, resortKey, "v1");
+    const rl = createFakeReadline(["1", "1", "12", `DELETE ${resortKey}`, "3"]);
+    try {
+      await mkdir(versionPath, { recursive: true });
+      await writeFile(
+        join(versionPath, "resort.json"),
+        JSON.stringify({
+          schemaVersion: "2.0.0",
+          resort: { query: { name: "Kicking Horse", country: "CA" } },
+          layers: {
+            boundary: { status: "pending" },
+            runs: { status: "pending" },
+            lifts: { status: "pending" }
+          }
+        }),
+        "utf8"
+      );
+      await writeFile(
+        join(versionPath, "status.json"),
+        JSON.stringify({
+          schemaVersion: "1.0.0",
+          resortKey,
+          version: "v1",
+          createdAt: "2026-02-19T16:31:09.346Z",
+          query: { name: "Kicking Horse", countryCode: "CA", town: "Golden" },
+          readiness: { overall: "incomplete", issues: [] },
+          manualValidation: { validated: false }
+        }),
+        "utf8"
+      );
+
+      await mkdir(join(publicRoot, "packs", resortKey), { recursive: true });
+      await writeFile(join(publicRoot, "packs", resortKey, "base.pmtiles"), new Uint8Array([1, 2, 3]));
+      await writeFile(join(publicRoot, "packs", resortKey, "style.json"), JSON.stringify({ version: 8 }), "utf8");
+      await writeFile(
+        join(publicRoot, "packs", `${resortKey}.latest.validated.json`),
+        JSON.stringify({ schemaVersion: "1.0.0" }),
+        "utf8"
+      );
+      await mkdir(join(publicRoot, "resort-packs"), { recursive: true });
+      await writeFile(
+        join(publicRoot, "resort-packs", "index.json"),
+        JSON.stringify({
+          schemaVersion: "1.0.0",
+          resorts: [
+            {
+              resortId: resortKey,
+              resortName: "Kicking Horse",
+              versions: [
+                {
+                  version: "v1",
+                  approved: true,
+                  packUrl: `/packs/${resortKey}.latest.validated.json`,
+                  createdAt: "2026-02-20T10:00:00.000Z"
+                }
+              ]
+            }
+          ]
+        }),
+        "utf8"
+      );
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        appPublicRoot: publicRoot,
+        rl,
+        searchFn: async () => ({
+          query: { name: "unused", country: "CA", limit: 5 },
+          candidates: []
+        })
+      });
+
+      await expect(stat(join(root, resortKey))).rejects.toBeDefined();
+      await expect(stat(join(publicRoot, "packs", resortKey, "base.pmtiles"))).rejects.toBeDefined();
+      await expect(stat(join(publicRoot, "packs", `${resortKey}.latest.validated.json`))).rejects.toBeDefined();
+      const catalogRaw = await readFile(join(publicRoot, "resort-packs", "index.json"), "utf8");
+      const catalog = JSON.parse(catalogRaw) as { resorts: Array<{ resortId: string }> };
+      expect(catalog.resorts.some((entry) => entry.resortId === resortKey)).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+      await rm(publicRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("unpublishes selected resort artifacts without deleting resort data", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-unpublish-resort-"));
+    const publicRoot = await mkdtemp(join(tmpdir(), "menu-flow-unpublish-public-"));
+    const resortKey = "CA_Golden_Kicking_Horse";
+    const versionPath = join(root, resortKey, "v1");
+    const rl = createFakeReadline(["1", "1", "13", `UNPUBLISH ${resortKey}`, "10", "3"]);
+    try {
+      await mkdir(versionPath, { recursive: true });
+      await writeFile(
+        join(versionPath, "resort.json"),
+        JSON.stringify({
+          schemaVersion: "2.0.0",
+          resort: { query: { name: "Kicking Horse", country: "CA" } },
+          layers: {
+            boundary: { status: "pending" },
+            runs: { status: "pending" },
+            lifts: { status: "pending" }
+          }
+        }),
+        "utf8"
+      );
+      await writeFile(
+        join(versionPath, "status.json"),
+        JSON.stringify({
+          schemaVersion: "1.0.0",
+          resortKey,
+          version: "v1",
+          createdAt: "2026-02-19T16:31:09.346Z",
+          query: { name: "Kicking Horse", countryCode: "CA", town: "Golden" },
+          readiness: { overall: "incomplete", issues: [] },
+          manualValidation: { validated: false }
+        }),
+        "utf8"
+      );
+
+      await mkdir(join(publicRoot, "packs", resortKey), { recursive: true });
+      await writeFile(join(publicRoot, "packs", resortKey, "base.pmtiles"), new Uint8Array([1, 2, 3]));
+      await writeFile(join(publicRoot, "packs", resortKey, "style.json"), JSON.stringify({ version: 8 }), "utf8");
+      await writeFile(
+        join(publicRoot, "packs", `${resortKey}.latest.validated.json`),
+        JSON.stringify({ schemaVersion: "1.0.0" }),
+        "utf8"
+      );
+      await mkdir(join(publicRoot, "resort-packs"), { recursive: true });
+      await writeFile(
+        join(publicRoot, "resort-packs", "index.json"),
+        JSON.stringify({
+          schemaVersion: "1.0.0",
+          resorts: [
+            {
+              resortId: resortKey,
+              resortName: "Kicking Horse",
+              versions: [
+                {
+                  version: "v1",
+                  approved: true,
+                  packUrl: `/packs/${resortKey}.latest.validated.json`,
+                  createdAt: "2026-02-20T10:00:00.000Z"
+                }
+              ]
+            }
+          ]
+        }),
+        "utf8"
+      );
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        appPublicRoot: publicRoot,
+        rl,
+        searchFn: async () => ({
+          query: { name: "unused", country: "CA", limit: 5 },
+          candidates: []
+        })
+      });
+
+      await expect(stat(join(root, resortKey))).resolves.toBeDefined();
+      await expect(stat(join(publicRoot, "packs", resortKey, "base.pmtiles"))).rejects.toBeDefined();
+      await expect(stat(join(publicRoot, "packs", `${resortKey}.latest.validated.json`))).rejects.toBeDefined();
+      const catalogRaw = await readFile(join(publicRoot, "resort-packs", "index.json"), "utf8");
+      const catalog = JSON.parse(catalogRaw) as { resorts: Array<{ resortId: string }> };
+      expect(catalog.resorts.some((entry) => entry.resortId === resortKey)).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+      await rm(publicRoot, { recursive: true, force: true });
     }
   });
 
@@ -1864,6 +2040,121 @@ describe("menu interactive flows", () => {
         sources: { basemap: { type: "vector" } },
         layers: [{ id: "bg", type: "background" }]
       });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not auto-publish when manual validation is yes but readiness is incomplete", async () => {
+    const root = await mkdtemp(join(tmpdir(), "menu-flow-auto-publish-not-ready-"));
+    const publicRoot = join(root, "public");
+    const resortKey = "CA_Golden_Kicking_Horse";
+    const versionPath = join(root, resortKey, "v1");
+    const workspacePath = join(versionPath, "resort.json");
+    const statusPath = join(versionPath, "status.json");
+    const rl = createFakeReadline([
+      "1",
+      "1",
+      "6",
+      "y",
+      "Enrico",
+      "",
+      "7",
+      "y",
+      "Enrico",
+      "",
+      "8",
+      "y",
+      "Enrico",
+      "",
+      "10",
+      "3"
+    ]);
+    try {
+      await mkdir(versionPath, { recursive: true });
+      await writeFile(
+        workspacePath,
+        JSON.stringify(
+          {
+            schemaVersion: "2.0.0",
+            resort: {
+              query: { name: "Nakiska Ski Area", country: "CA" }
+            },
+            layers: {
+              boundary: { status: "complete", artifactPath: "boundary.geojson", featureCount: 1 },
+              runs: { status: "complete", artifactPath: "runs.geojson", featureCount: 2 },
+              lifts: { status: "complete", artifactPath: "lifts.geojson", featureCount: 0 }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(
+        statusPath,
+        JSON.stringify(
+          {
+            schemaVersion: "1.0.0",
+            resortKey,
+            version: "v1",
+            createdAt: "2026-02-19T16:31:09.346Z",
+            query: { name: "Nakiska Ski Area", countryCode: "CA", town: "Kananaskis" },
+            readiness: { overall: "incomplete", issues: ["lifts: featureCount must be >= 1"] },
+            manualValidation: {
+              validated: false,
+              layers: {
+                boundary: { validated: false },
+                runs: { validated: false },
+                lifts: { validated: false }
+              }
+            }
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+      await writeFile(
+        join(versionPath, "boundary.geojson"),
+        JSON.stringify({
+          type: "Feature",
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [-115.16, 50.94],
+                [-115.14, 50.94],
+                [-115.14, 50.95],
+                [-115.16, 50.95],
+                [-115.16, 50.94]
+              ]
+            ]
+          },
+          properties: {}
+        }),
+        "utf8"
+      );
+      await writeFile(join(versionPath, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(versionPath, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+
+      await runInteractiveMenu({
+        resortsRoot: root,
+        appPublicRoot: publicRoot,
+        rl,
+        rankCandidatesFn: async (candidates) =>
+          candidates.map((entry) => ({
+            candidate: entry,
+            hasPolygonGeometry: false
+          })),
+        searchFn: async () => ({
+          query: { name: "Nakiska Ski Area", country: "CA", limit: 5 },
+          candidates: []
+        })
+      });
+
+      await expect(stat(join(publicRoot, "resort-packs", "index.json"))).rejects.toBeDefined();
+      await expect(stat(join(publicRoot, "packs", `${resortKey}.latest.validated.json`))).rejects.toBeDefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }

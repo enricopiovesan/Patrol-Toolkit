@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Beaupre_Mont_Sainte_Anne",
+  "version": "v2",
+  "createdAt": "2026-02-20T23:19:31.588Z",
+  "query": {
+    "name": "Mont-Sainte-Anne",
+    "countryCode": "CA",
+    "town": "Beaupré"
+  },
+  "selection": {
+    "osmType": "way",
+    "osmId": 391681261,
+    "displayName": "Mont-Sainte-Anne, Beaupré, La Côte-de-Beaupré, Capitale-Nationale, Québec, Canada",
+    "center": [
+      -70.9260678,
+      47.0877219
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Beaupre_Mont_Sainte_Anne/v2/boundary.geojson",
+      "checksumSha256": "2ada3994d7d84d02447128c04fd29330bf25f2faed26ddbb5c071850c7c56588",
+      "updatedAt": "2026-02-20T23:20:04.550Z"
+    },
+    "runs": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    },
+    "lifts": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": [
+      "lifts: status is 'pending', expected 'complete'",
+      "lifts: artifactPath is missing",
+      "lifts: checksumSha256 is missing",
+      "lifts: featureCount is missing",
+      "lifts: updatedAt is missing",
+      "runs: status is 'pending', expected 'complete'",
+      "runs: artifactPath is missing",
+      "runs: checksumSha256 is missing",
+      "runs: featureCount is missing",
+      "runs: updatedAt is missing"
+    ]
+  },
+  "manualValidation": {
+    "validated": false,
+    "validatedAt": null,
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

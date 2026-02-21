@@ -177,13 +177,17 @@ Acceptance examples:
 - PR outcome: robust offline runtime.
 
 ## Slice 7: Multi-Resort Validation + Integrity
-- Status: planned
+- Status: completed
 - Goal: verify robustness across resorts and artifacts.
 - Changes:
-  - validate at least 3 resorts across regions.
-  - add integrity checks from catalog -> pack -> basemap assets.
+  - [x] add CLI published integrity audit (catalog -> pack -> basemap assets).
+  - [x] validate multiple resorts across regions.
+  - [x] enforce publish gate: manual validation + readiness `ready` (prevent invalid published packs).
+  - [x] add menu `Unpublish resort` (remove app catalog + published assets without deleting resort data).
+  - [x] harden boundary detection against far weak matches and improve local relevance for resort boundaries.
 - Test:
-  - all selected resorts pass publish + render checks.
+  - [x] full extractor check suite passes after integrity hardening.
+  - [x] published invalid pack regression covered (no auto-publish when readiness incomplete).
 - PR outcome: broader production confidence.
 
 ## Slice 8: Docs/Runbook v2 + Exit Signoff

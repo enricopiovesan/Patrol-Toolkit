@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "Whistler Blackcomb",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "way",
+      "osmId": 474288286,
+      "displayName": "Whistler Blackcomb, Whistler Village, Whistler Resort Municipality, Squamish-Lillooet Regional District, British Columbia, V8E 0X9, Canada",
+      "center": [
+        -122.9634353,
+        50.0814471
+      ],
+      "selectedAt": "2026-02-21T01:03:05.727Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "artifactPath": "../../resorts/CA_Whistler_Whistler_Blackcomb/v2/boundary.geojson",
+      "checksumSha256": "e3534321af150b79fca5e17212801b110aba07c3a198316743bf8e6c08c1f199",
+      "featureCount": 1,
+      "updatedAt": "2026-02-21T01:05:42.919Z"
+    },
+    "lifts": {
+      "status": "pending"
+    },
+    "runs": {
+      "status": "pending"
+    }
+  }
+}
