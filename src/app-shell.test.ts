@@ -200,6 +200,26 @@ describe("AppShell", () => {
     await waitForCondition(() => readSettingsResult(shell).includes("failed"));
     expect(readSettingsResult(shell)).toContain("1 succeeded, 1 failed");
   });
+
+  it("shows explicit iOS manual install instructions when prompt is unavailable", async () => {
+    mockCatalogFetch();
+    const { AppShell } = await import("./app-shell");
+
+    const shell = new AppShell();
+    document.body.appendChild(shell);
+    await waitForCondition(() => hasResortOptions(shell));
+
+    clickButton(shell, "Settings/Help");
+    await waitForCondition(() => hasButton(shell, "Install app"));
+    clickButton(shell, "Install app");
+
+    await waitForCondition(() =>
+      (shell.shadowRoot?.querySelector(".settings-note")?.textContent ?? "").includes("open in Safari")
+    );
+    const note = shell.shadowRoot?.querySelector(".settings-note")?.textContent ?? "";
+    expect(note).toContain("open in Safari");
+    expect(note).toContain("Add to Home Screen");
+  });
 });
 
 function readStatusText(shell: HTMLElement): string {
