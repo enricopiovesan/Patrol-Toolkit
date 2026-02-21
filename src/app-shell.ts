@@ -13,6 +13,7 @@ import {
 } from "./resort-pack/catalog";
 import { ResortPackRepository } from "./resort-pack/repository";
 import type { LngLat, ResortPack } from "./resort-pack/types";
+import { resolveAppUrl } from "./runtime/base-url";
 
 @customElement("app-shell")
 export class AppShell extends LitElement {
@@ -506,10 +507,10 @@ export class AppShell extends LitElement {
 
     const missing: string[] = [];
     if (!styleOk) {
-      missing.push(normalizeRelativePath(pack.basemap.stylePath));
+      missing.push(resolveAppUrl(normalizeRelativePath(pack.basemap.stylePath)));
     }
     if (!pmtilesOk) {
-      missing.push(normalizeRelativePath(pack.basemap.pmtilesPath));
+      missing.push(resolveAppUrl(normalizeRelativePath(pack.basemap.pmtilesPath)));
     }
 
     this.basemapWarning = `Basemap assets missing for ${pack.resort.name}: ${missing.join(", ")}.`;
@@ -518,7 +519,7 @@ export class AppShell extends LitElement {
 
   private async probeStyleAsset(path: string): Promise<boolean> {
     try {
-      const response = await fetch(normalizeRelativePath(path), { method: "GET" });
+      const response = await fetch(resolveAppUrl(normalizeRelativePath(path)), { method: "GET" });
       return response.ok;
     } catch {
       return false;
@@ -526,7 +527,7 @@ export class AppShell extends LitElement {
   }
 
   private async probePmtilesAsset(path: string): Promise<boolean> {
-    const url = normalizeRelativePath(path);
+    const url = resolveAppUrl(normalizeRelativePath(path));
 
     try {
       const response = await fetch(url, {
@@ -556,8 +557,8 @@ export class AppShell extends LitElement {
     return [
       `online=${online}`,
       `sw=${swControl}`,
-      `style=${normalizeRelativePath(pack.basemap.stylePath)}`,
-      `pmtiles=${normalizeRelativePath(pack.basemap.pmtilesPath)}`
+      `style=${resolveAppUrl(normalizeRelativePath(pack.basemap.stylePath))}`,
+      `pmtiles=${resolveAppUrl(normalizeRelativePath(pack.basemap.pmtilesPath))}`
     ].join("; ");
   }
 

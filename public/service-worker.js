@@ -10,14 +10,25 @@ const LEGACY_CACHE_NAMES = new Set([
   "patrol-tiles"
 ]);
 
+const APP_BASE_PATH = (() => {
+  const scope = self.registration?.scope ?? self.location.origin;
+  const pathname = new URL(scope).pathname;
+  return pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+})();
+
+function withAppBase(path) {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return APP_BASE_PATH.length > 0 ? `${APP_BASE_PATH}${normalized}` : normalized;
+}
+
 const APP_SHELL_URLS = [
-  "/",
-  "/index.html",
-  "/offline.html",
-  "/manifest.webmanifest",
-  "/icons/icon.svg",
-  "/icons/icon-maskable.svg",
-  "/resort-packs/index.json"
+  withAppBase("/"),
+  withAppBase("/index.html"),
+  withAppBase("/offline.html"),
+  withAppBase("/manifest.webmanifest"),
+  withAppBase("/icons/icon.svg"),
+  withAppBase("/icons/icon-maskable.svg"),
+  withAppBase("/resort-packs/index.json")
 ];
 
 const TILE_HOSTS = new Set(["tile.openstreetmap.org"]);
@@ -94,22 +105,24 @@ self.addEventListener("fetch", (event) => {
 });
 
 async function handleNavigationRequest(request) {
+  const indexUrl = withAppBase("/index.html");
+  const offlineUrl = withAppBase("/offline.html");
   try {
     const networkResponse = await fetch(request);
     if (isCacheableResponse(networkResponse)) {
       const cache = await caches.open(SHELL_CACHE);
-      await cache.put("/index.html", networkResponse.clone());
+      await cache.put(indexUrl, networkResponse.clone());
     }
 
     return networkResponse;
   } catch {
     const shellCache = await caches.open(SHELL_CACHE);
-    const cachedDocument = await shellCache.match("/index.html");
+    const cachedDocument = await shellCache.match(indexUrl);
     if (cachedDocument) {
       return cachedDocument;
     }
 
-    const offlineDocument = await shellCache.match("/offline.html");
+    const offlineDocument = await shellCache.match(offlineUrl);
     if (offlineDocument) {
       return offlineDocument;
     }

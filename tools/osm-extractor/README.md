@@ -80,6 +80,42 @@ node tools/osm-extractor/dist/src/cli.js resort-publish-latest \
 npm --prefix tools/osm-extractor run check
 ```
 
+## Release Candidate Gates (v3)
+
+Build CLI first:
+
+```bash
+npm --prefix tools/osm-extractor run build
+```
+
+Dry-run release checks for currently published scope:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js release-dry-run \
+  --resorts-root ./resorts \
+  --app-public-root ./public \
+  --published-only
+```
+
+Run strict go/no-go gate:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js release-go-no-go \
+  --resorts-root ./resorts \
+  --app-public-root ./public \
+  --published-only
+```
+
+Optional explicit scope:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js release-go-no-go \
+  --resorts-root ./resorts \
+  --app-public-root ./public \
+  --resort-key CA_Golden_Kicking_Horse \
+  --resort-key CA_Fernie_Fernie
+```
+
 ## Build CLI
 
 ```bash

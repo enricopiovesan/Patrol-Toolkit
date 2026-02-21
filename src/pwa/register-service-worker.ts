@@ -1,11 +1,12 @@
 export async function registerServiceWorker(
-  serviceWorkerUrl = "/service-worker.js"
+  serviceWorkerUrl = buildServiceWorkerUrl(import.meta.env.BASE_URL)
 ): Promise<ServiceWorkerRegistration | null> {
   if (!("serviceWorker" in navigator)) {
     return null;
   }
 
-  const registration = await navigator.serviceWorker.register(serviceWorkerUrl, { scope: "/" });
+  const scope = import.meta.env.BASE_URL;
+  const registration = await navigator.serviceWorker.register(serviceWorkerUrl, { scope });
 
   if (registration.waiting) {
     registration.waiting.postMessage({ type: "SKIP_WAITING" });
@@ -29,4 +30,10 @@ export async function registerServiceWorker(
   });
 
   return registration;
+}
+
+function buildServiceWorkerUrl(baseUrl: string): string {
+  const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  const withLeadingSlash = normalizedBase.startsWith("/") ? normalizedBase : `/${normalizedBase}`;
+  return `${withLeadingSlash}service-worker.js`;
 }

@@ -1,4 +1,5 @@
 import type { ResortPack } from "../resort-pack/types";
+import { resolveAppUrl } from "../runtime/base-url";
 
 const sentWarmups = new Set<string>();
 
@@ -13,9 +14,9 @@ export function requestPackAssetPrecache(pack: ResortPack | null): void {
   }
 
   const urls = [
-    "/resort-packs/index.json",
-    normalizeRelativePath(pack.basemap.stylePath),
-    normalizeRelativePath(pack.basemap.pmtilesPath)
+    resolveAppUrl("/resort-packs/index.json"),
+    resolveAppUrl(normalizeRelativePath(pack.basemap.stylePath)),
+    resolveAppUrl(normalizeRelativePath(pack.basemap.pmtilesPath))
   ];
   const uniqueUrls = [...new Set(urls)];
   const dedupeKey = `${pack.resort.id}:${uniqueUrls.join("|")}`;

@@ -207,6 +207,7 @@ Field validation and release resources:
 - [v2 operations runbook](docs/runbooks/v2-operations-runbook.md)
 - [v2 troubleshooting matrix](docs/runbooks/v2-troubleshooting-matrix.md)
 - [v2 upgrade notes](docs/releases/v2-upgrade-notes.md)
+- [v3 release runbook (GitHub-only)](docs/releases/v3-release-runbook.md)
 - [v2 acceptance checklist](docs/checklists/v2-exit-acceptance-checklist.md)
 - [v2 evidence bundle template](docs/evidence/v2-exit-evidence-template.md)
 - [v2 acceptance checklist (2026-02-21)](docs/checklists/v2-exit-acceptance-2026-02-21.md)

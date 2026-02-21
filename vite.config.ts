@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  base: process.env.PTK_VITE_BASE ?? "/",
   build: {
     rollupOptions: {
       output: {

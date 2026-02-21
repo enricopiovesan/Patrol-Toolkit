@@ -111,7 +111,7 @@
 - Define behavior on low-storage devices (block, retry, cleanup guidance).
 
 ## Slice 3: First Release Pipeline (v1.0.0)
-- Status: planned
+- Status: completed
 - Goal: ship first formal release with repeatable process.
 - Changes:
   - add release checklist and versioning policy (tagging, changelog, evidence bundle).
@@ -128,6 +128,12 @@
   - install path from release artifacts is verified on clean machine.
   - post-deploy smoke checks pass on stable production URL.
 - PR outcome: release process is operational and auditable.
+- Implemented in current branch:
+  - [x] `release-go-no-go` CLI gate with scope controls (`--published-only`, repeated `--resort-key`).
+  - [x] `release-dry-run` CLI command with consolidated release readiness + integrity summary.
+  - [x] runbook draft added: `docs/releases/v3-release-runbook.md`.
+  - [x] final clean-machine release-artifact install verification.
+  - [x] final stable URL post-deploy smoke-signoff for release execution.
 
 ### Release Go/No-Go Gate (Slice 3)
 - All included resorts are `ready + validated + published`.
