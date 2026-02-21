@@ -1,5 +1,6 @@
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { APP_VERSION } from "./app-version";
 import validPack from "./resort-pack/fixtures/valid-pack.json";
 import type { ResortPack } from "./resort-pack/types";
 import { ResortPackRepository } from "./resort-pack/repository";
@@ -152,6 +153,53 @@ describe("AppShell", () => {
       ).activePack?.resort.id
     ).toBe("demo-resort");
   });
+
+  it("shows app update details from settings panel on manual check", async () => {
+    mockCatalogFetchWithReleaseUpdate();
+    const { AppShell } = await import("./app-shell");
+
+    const shell = new AppShell();
+    document.body.appendChild(shell);
+    await waitForCondition(() => hasResortOptions(shell));
+
+    clickButton(shell, "Settings/Help");
+    await waitForCondition(() => hasButton(shell, "Check for updates"));
+    clickButton(shell, "Check for updates");
+
+    await waitForCondition(() => readSettingsResult(shell).includes("Update available"));
+    expect(readSettingsResult(shell)).toContain("1.0.0");
+    expect(readSettingsResult(shell)).toContain("Stability fixes");
+  });
+
+  it("applies selected pack updates and reports partial failures", async () => {
+    mockCatalogFetchWithPackUpdateFailure();
+    const { AppShell } = await import("./app-shell");
+
+    const shell = new AppShell();
+    document.body.appendChild(shell);
+
+    await waitForCondition(() =>
+      /Active pack: Demo Resort/iu.test(readStatusText(shell))
+    );
+
+    clickButton(shell, "Settings/Help");
+    await waitForCondition(() => hasButton(shell, "Check pack updates"));
+    clickButton(shell, "Check pack updates");
+    await waitForCondition(() => getUpdateCheckboxes(shell).length === 2);
+
+    const checkboxes = getUpdateCheckboxes(shell);
+    if (checkboxes.length !== 2) {
+      throw new Error("Expected at least one update candidate.");
+    }
+    for (const checkbox of checkboxes) {
+      checkbox.checked = true;
+      checkbox.dispatchEvent(new Event("change"));
+    }
+
+    clickButton(shell, "Apply selected pack updates");
+    await waitForCondition(() => readSettingsResult(shell).includes("failed"));
+    expect(readSettingsResult(shell)).toContain("1 succeeded, 1 failed");
+  });
 });
 
 function readStatusText(shell: HTMLElement): string {
@@ -177,6 +225,30 @@ function readWarningText(shell: HTMLElement): string {
 function readWarningDetails(shell: HTMLElement): string {
   const details = shell.shadowRoot?.querySelector(".warning-details")?.textContent;
   return (details ?? "").replace(/\s+/gu, " ").trim();
+}
+
+function readSettingsResult(shell: HTMLElement): string {
+  const results = shell.shadowRoot?.querySelectorAll(".settings-result");
+  const last = results?.[results.length - 1]?.textContent;
+  return (last ?? "").replace(/\s+/gu, " ").trim();
+}
+
+function getUpdateCheckboxes(shell: HTMLElement): HTMLInputElement[] {
+  return Array.from(shell.shadowRoot?.querySelectorAll(".update-item input[type='checkbox']") ?? []) as HTMLInputElement[];
+}
+
+function clickButton(shell: HTMLElement, label: string): void {
+  const buttons = Array.from(shell.shadowRoot?.querySelectorAll("button") ?? []);
+  const target = buttons.find((button) => button.textContent?.trim() === label);
+  if (!target) {
+    throw new Error(`Button '${label}' not found.`);
+  }
+  target.click();
+}
+
+function hasButton(shell: HTMLElement, label: string): boolean {
+  const buttons = Array.from(shell.shadowRoot?.querySelectorAll("button") ?? []);
+  return buttons.some((button) => button.textContent?.trim() === label);
 }
 
 async function createReadyShell(): Promise<HTMLElement> {
@@ -345,5 +417,187 @@ function mockCatalogFetchWithInvalidAlternatePack(): void {
     }
 
     return new Response("", { status: 404 });
+  });
+}
+
+function mockCatalogFetchWithReleaseUpdate(): void {
+  const catalogPayload = {
+    schemaVersion: "2.0.0",
+    release: {
+      channel: "stable",
+      appVersion: "1.0.0",
+      manifestUrl: "/releases/stable-manifest.json",
+      manifestSha256: "a".repeat(64),
+      createdAt: "2026-02-21T16:00:00.000Z",
+      notesSummary: "Stability fixes for update flow."
+    },
+    resorts: [
+      {
+        resortId: "demo-resort",
+        resortName: "Demo Resort",
+        versions: [
+          {
+            version: "v1",
+            approved: true,
+            packUrl: "/packs/demo-resort-v1.json",
+            createdAt: "2026-02-19T16:35:00.000Z",
+            compatibility: {
+              minAppVersion: APP_VERSION,
+              supportedPackSchemaVersions: ["1.0.0"]
+            },
+            checksums: {
+              packSha256: "b".repeat(64),
+              pmtilesSha256: "c".repeat(64),
+              styleSha256: "d".repeat(64)
+            }
+          }
+        ]
+      }
+    ]
+  };
+
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("/resort-packs/index.json")) {
+      return new Response(JSON.stringify(catalogPayload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (url.includes("/packs/demo-resort-v1.json")) {
+      return new Response(JSON.stringify(validPack), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    return new Response("Not Found", { status: 404 });
+  });
+}
+
+function mockCatalogFetchWithPackUpdateFailure(): void {
+  const initialCatalogPayload = {
+    schemaVersion: "2.0.0",
+    release: {
+      channel: "stable",
+      appVersion: APP_VERSION,
+      manifestUrl: "/releases/stable-manifest.json",
+      manifestSha256: "a".repeat(64),
+      createdAt: "2026-02-21T16:00:00.000Z",
+      notesSummary: "Pack update test release."
+    },
+    resorts: [
+      {
+        resortId: "demo-resort",
+        resortName: "Demo Resort",
+        versions: [
+          {
+            version: "v1",
+            approved: true,
+            packUrl: "/packs/demo-resort-v1.json",
+            createdAt: "2026-02-19T16:35:00.000Z",
+            compatibility: {
+              minAppVersion: APP_VERSION,
+              supportedPackSchemaVersions: ["1.0.0"]
+            },
+            checksums: {
+              packSha256: "b".repeat(64),
+              pmtilesSha256: "c".repeat(64),
+              styleSha256: "d".repeat(64)
+            }
+          }
+        ]
+      },
+      {
+        resortId: "broken-resort",
+        resortName: "Zulu Broken Resort",
+        versions: [
+          {
+            version: "v1",
+            approved: true,
+            packUrl: "/packs/broken-resort-v1.json",
+            createdAt: "2026-02-19T16:35:00.000Z",
+            compatibility: {
+              minAppVersion: APP_VERSION,
+              supportedPackSchemaVersions: ["1.0.0"]
+            },
+            checksums: {
+              packSha256: "e".repeat(64),
+              pmtilesSha256: "f".repeat(64),
+              styleSha256: "1".repeat(64)
+            }
+          }
+        ]
+      }
+    ]
+  };
+  const updatedCatalogPayload = {
+    ...initialCatalogPayload,
+    resorts: [
+      {
+        ...initialCatalogPayload.resorts[0],
+        versions: [
+          {
+            ...initialCatalogPayload.resorts[0].versions[0],
+            version: "v2",
+            packUrl: "/packs/demo-resort-v2.json",
+            createdAt: "2026-02-20T16:35:00.000Z"
+          }
+        ]
+      },
+      {
+        ...initialCatalogPayload.resorts[1],
+        versions: [
+          {
+            ...initialCatalogPayload.resorts[1].versions[0],
+            version: "v2",
+            packUrl: "/packs/broken-resort-v2.json",
+            createdAt: "2026-02-20T16:35:00.000Z"
+          }
+        ]
+      }
+    ]
+  };
+  let catalogCallCount = 0;
+
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (url.includes("/resort-packs/index.json")) {
+      catalogCallCount += 1;
+      const payload = catalogCallCount === 1 ? initialCatalogPayload : updatedCatalogPayload;
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (url.includes("/packs/demo-resort-v1.json")) {
+      return new Response(JSON.stringify(validPack), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (url.includes("/packs/demo-resort-v2.json")) {
+      return new Response(JSON.stringify(validPack), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (url.includes("/packs/broken-resort-v1.json")) {
+      return new Response(JSON.stringify(validPack), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    if (url.includes("/packs/broken-resort-v2.json")) {
+      return new Response("bad", { status: 500 });
+    }
+
+    return new Response("Not Found", { status: 404 });
   });
 }

@@ -21,6 +21,24 @@ describe("ResortPackRepository", () => {
     await deleteDatabase(dbName);
   });
 
+  it("persists source metadata for saved packs", async () => {
+    const dbName = createTestDbName();
+    const repository = await ResortPackRepository.open({ dbName });
+    const pack = structuredClone(validPack) as ResortPack;
+
+    await repository.savePack(pack, {
+      sourceVersion: "v7",
+      sourceCreatedAt: "2026-02-21T10:00:00.000Z"
+    });
+
+    const packs = await repository.listPacks();
+    expect(packs[0]?.sourceVersion).toBe("v7");
+    expect(packs[0]?.sourceCreatedAt).toBe("2026-02-21T10:00:00.000Z");
+
+    repository.close();
+    await deleteDatabase(dbName);
+  });
+
   it("persists active pack id across repository reopen", async () => {
     const dbName = createTestDbName();
     const firstSession = await ResortPackRepository.open({ dbName });

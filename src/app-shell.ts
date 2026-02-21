@@ -1,9 +1,11 @@
 import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import "./map/map-view";
+import { APP_VERSION } from "./app-version";
 import { requestPackAssetPrecache } from "./pwa/precache-pack-assets";
 import { composeRadioPhrase } from "./radio/phrase";
 import {
+  isCatalogVersionCompatible,
   loadPackFromCatalogEntry,
   loadResortCatalog,
   selectLatestEligibleVersions,
@@ -31,6 +33,7 @@ export class AppShell extends LitElement {
     }
 
     .header {
+      position: relative;
       border-radius: 12px;
       padding: 1rem 1.25rem;
       background: #ffffff;
@@ -52,6 +55,92 @@ export class AppShell extends LitElement {
       margin-top: 0.85rem;
       display: grid;
       gap: 0.75rem;
+    }
+
+    .settings-toggle {
+      position: absolute;
+      top: 0.85rem;
+      right: 0.85rem;
+      min-height: 38px;
+      border-radius: 9px;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #0f172a;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0 0.75rem;
+    }
+
+    .settings-panel {
+      margin-top: 0.75rem;
+      border: 1px solid #dbe3ea;
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 0.8rem;
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .settings-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .settings-row button {
+      min-height: 36px;
+      border-radius: 8px;
+      border: 1px solid #0f4c5c;
+      background: #ffffff;
+      color: #0f4c5c;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0 0.65rem;
+    }
+
+    .settings-note {
+      font-size: 0.85rem;
+      color: #334155;
+      line-height: 1.4;
+    }
+
+    .settings-result {
+      font-size: 0.86rem;
+      color: #0f172a;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      padding: 0.55rem 0.65rem;
+      word-break: break-word;
+    }
+
+    .update-list {
+      display: grid;
+      gap: 0.35rem;
+      border-radius: 8px;
+      border: 1px solid #dbe3ea;
+      background: #ffffff;
+      padding: 0.55rem 0.65rem;
+      max-height: 170px;
+      overflow: auto;
+    }
+
+    .update-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.86rem;
+      color: #0f172a;
+    }
+
+    .blocked-list {
+      margin: 0;
+      padding-left: 1rem;
+      font-size: 0.82rem;
+      color: #7c2d12;
     }
 
     .pack-row {
@@ -200,10 +289,58 @@ export class AppShell extends LitElement {
   @state()
   private accessor basemapDiagnostics = "";
 
+  @state()
+  private accessor settingsOpen = false;
+
+  @state()
+  private accessor installHint = "Install from browser menu (iOS: Share > Add to Home Screen).";
+
+  @state()
+  private accessor appUpdateResult = "";
+
+  @state()
+  private accessor appUpdateTargetVersion: string | null = null;
+
+  @state()
+  private accessor appUpdateSummary = "";
+
+  @state()
+  private accessor packUpdateResult = "";
+
+  @state()
+  private accessor packUpdateCandidates: Array<{
+    resortId: string;
+    resortName: string;
+    version: string;
+    createdAt?: string;
+    selected: boolean;
+  }> = [];
+
+  @state()
+  private accessor blockedPackUpdates: string[] = [];
+
   private isAutoActivating = false;
   private basemapProbeToken = 0;
+  private deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
+  private readonly onBeforeInstallPrompt = (event: Event) => {
+    if (!isBeforeInstallPromptEvent(event)) {
+      return;
+    }
+    event.preventDefault();
+    this.deferredInstallPrompt = event;
+    this.installHint = "Install available. Tap 'Install app'.";
+  };
+  private readonly onAppInstalled = () => {
+    this.deferredInstallPrompt = null;
+    this.installHint = "App installed. Open from home screen.";
+  };
 
   protected override async firstUpdated(): Promise<void> {
+    if (typeof window !== "undefined") {
+      window.addEventListener("beforeinstallprompt", this.onBeforeInstallPrompt);
+      window.addEventListener("appinstalled", this.onAppInstalled);
+    }
+
     try {
       const repository = await ResortPackRepository.open();
       if (!this.isConnected) {
@@ -222,6 +359,10 @@ export class AppShell extends LitElement {
   }
 
   disconnectedCallback(): void {
+    if (typeof window !== "undefined") {
+      window.removeEventListener("beforeinstallprompt", this.onBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", this.onAppInstalled);
+    }
     this.repository?.close();
     this.repository = null;
     super.disconnectedCallback();
@@ -308,7 +449,10 @@ export class AppShell extends LitElement {
     const previouslyActivePackId = this.activePackId;
     try {
       const pack = await loadPackFromCatalogEntry(selectedEntry);
-      await this.repository.savePack(pack);
+      await this.repository.savePack(pack, {
+        sourceVersion: selectedEntry.version,
+        sourceCreatedAt: selectedEntry.createdAt
+      });
       const activated = await this.repository.setActivePackId(pack.resort.id);
       if (!activated) {
         this.statusMessage = "Unable to activate selected resort pack.";
@@ -445,12 +589,248 @@ export class AppShell extends LitElement {
     this.phraseStatus = "Phrase generated.";
   }
 
+  private toggleSettingsPanel(): void {
+    this.settingsOpen = !this.settingsOpen;
+  }
+
+  private async installApp(): Promise<void> {
+    if (!this.deferredInstallPrompt) {
+      this.installHint = "Install prompt unavailable. Use browser menu to install.";
+      return;
+    }
+
+    await this.deferredInstallPrompt.prompt();
+    const choice = await this.deferredInstallPrompt.userChoice;
+    this.installHint =
+      choice.outcome === "accepted"
+        ? "Install accepted. Open Patrol Toolkit from home screen."
+        : "Install dismissed. You can retry from Settings/Help.";
+    this.deferredInstallPrompt = null;
+  }
+
+  private async checkForAppUpdates(): Promise<void> {
+    try {
+      const catalog = await loadResortCatalog();
+      if (catalog.schemaVersion !== "2.0.0" || !catalog.release) {
+        this.appUpdateResult = "No structured release metadata found.";
+        this.appUpdateTargetVersion = null;
+        this.appUpdateSummary = "";
+        return;
+      }
+
+      const isNewer = compareSemver(catalog.release.appVersion, APP_VERSION) > 0;
+      if (!isNewer) {
+        this.appUpdateResult = `App is up to date (${APP_VERSION}).`;
+        this.appUpdateTargetVersion = null;
+        this.appUpdateSummary = "";
+        return;
+      }
+
+      this.appUpdateTargetVersion = catalog.release.appVersion;
+      this.appUpdateSummary = catalog.release.notesSummary ?? "Release notes summary unavailable.";
+      this.appUpdateResult = `Update available: ${catalog.release.appVersion}`;
+    } catch (error) {
+      this.appUpdateResult = error instanceof Error ? error.message : "Failed to check app updates.";
+      this.appUpdateTargetVersion = null;
+      this.appUpdateSummary = "";
+    }
+  }
+
+  private async applyAppUpdate(): Promise<void> {
+    if (!this.appUpdateTargetVersion) {
+      this.appUpdateResult = "No pending app update to apply.";
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker?.getRegistration?.();
+      await registration?.update();
+      if (registration?.waiting) {
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
+
+      this.appUpdateResult = `Applying update ${this.appUpdateTargetVersion}...`;
+      window.location.reload();
+    } catch {
+      this.appUpdateResult = "Could not trigger update automatically. Close and reopen the app.";
+    }
+  }
+
+  private async checkPackUpdates(): Promise<void> {
+    if (!this.repository) {
+      this.packUpdateResult = "Pack update check unavailable: storage not ready.";
+      return;
+    }
+
+    try {
+      const catalog = await loadResortCatalog();
+      const latestEligible = selectLatestEligibleVersions(catalog);
+      const localPacks = await this.repository.listPacks();
+      const localById = new Map(localPacks.map((item) => [item.id, item]));
+
+      this.packUpdateCandidates = latestEligible
+        .filter((entry) => {
+          const local = localById.get(entry.resortId);
+          if (!local) {
+            return true;
+          }
+          return local.sourceVersion !== entry.version || local.sourceCreatedAt !== entry.createdAt;
+        })
+        .map((entry) => ({
+          resortId: entry.resortId,
+          resortName: entry.resortName,
+          version: entry.version,
+          createdAt: entry.createdAt,
+          selected: false
+        }));
+
+      const blocked: string[] = [];
+      for (const resort of catalog.resorts) {
+        const local = localById.get(resort.resortId);
+        if (!local) {
+          continue;
+        }
+        const latest = [...resort.versions].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0];
+        if (!latest) {
+          continue;
+        }
+
+        const compatible = isCatalogVersionCompatible(latest, {
+          appVersion: APP_VERSION,
+          supportedPackSchemaVersion: "1.0.0"
+        });
+        if (!compatible) {
+          const minVersion = latest.compatibility?.minAppVersion ?? "unknown";
+          blocked.push(`${resort.resortName}: blocked by app compatibility (requires >= ${minVersion}).`);
+        }
+      }
+      this.blockedPackUpdates = blocked;
+
+      if (this.packUpdateCandidates.length === 0 && blocked.length === 0) {
+        this.packUpdateResult = "No pack updates available.";
+      } else {
+        this.packUpdateResult = `Pack update check complete: ${this.packUpdateCandidates.length} selectable, ${blocked.length} blocked.`;
+      }
+    } catch (error) {
+      this.packUpdateCandidates = [];
+      this.blockedPackUpdates = [];
+      this.packUpdateResult = error instanceof Error ? error.message : "Failed to check pack updates.";
+    }
+  }
+
+  private togglePackUpdateSelection(event: Event): void {
+    const input = event.currentTarget as HTMLInputElement;
+    const resortId = input.dataset["resortId"];
+    if (!resortId) {
+      return;
+    }
+
+    this.packUpdateCandidates = this.packUpdateCandidates.map((candidate) =>
+      candidate.resortId === resortId ? { ...candidate, selected: input.checked } : candidate
+    );
+  }
+
+  private async applySelectedPackUpdates(): Promise<void> {
+    if (!this.repository) {
+      this.packUpdateResult = "Pack update apply unavailable: storage not ready.";
+      return;
+    }
+
+    const selectedIds = this.packUpdateCandidates.filter((candidate) => candidate.selected).map((candidate) => candidate.resortId);
+    if (selectedIds.length === 0) {
+      this.packUpdateResult = "Select at least one resort to update.";
+      return;
+    }
+
+    try {
+      const catalog = await loadResortCatalog();
+      const latestEligible = selectLatestEligibleVersions(catalog);
+      const byId = new Map(latestEligible.map((entry) => [entry.resortId, entry]));
+      const successes: string[] = [];
+      const failures: string[] = [];
+
+      for (const resortId of selectedIds) {
+        const entry = byId.get(resortId);
+        if (!entry) {
+          failures.push(`${resortId}: no compatible catalog entry.`);
+          continue;
+        }
+
+        try {
+          const pack = await loadPackFromCatalogEntry(entry);
+          await this.repository.savePack(pack, {
+            sourceVersion: entry.version,
+            sourceCreatedAt: entry.createdAt
+          });
+          requestPackAssetPrecache(pack);
+          successes.push(entry.resortName);
+        } catch (error) {
+          failures.push(`${entry.resortName}: ${error instanceof Error ? error.message : "update failed"}`);
+        }
+      }
+
+      await this.refreshPackState();
+      this.packUpdateCandidates = this.packUpdateCandidates.map((candidate) => ({
+        ...candidate,
+        selected: false
+      }));
+      this.packUpdateResult = `Pack updates complete: ${successes.length} succeeded, ${failures.length} failed.${failures.length > 0 ? ` ${failures.join(" ")}` : ""}`;
+    } catch (error) {
+      this.packUpdateResult = error instanceof Error ? error.message : "Failed to apply pack updates.";
+    }
+  }
+
   render() {
     return html`
       <main class="layout">
         <section class="header">
+          <button class="settings-toggle" @click=${this.toggleSettingsPanel}>Settings/Help</button>
           <h1>Patrol Toolkit</h1>
           <p>Map foundation with live GPS dot for on-mountain positioning.</p>
+          ${this.settingsOpen
+            ? html`<section class="settings-panel" aria-label="Settings and help">
+                <div class="settings-row">
+                  <button @click=${this.installApp}>Install app</button>
+                  <button @click=${this.checkForAppUpdates}>Check for updates</button>
+                  <button @click=${this.applyAppUpdate} ?disabled=${!this.appUpdateTargetVersion}>Apply app update</button>
+                </div>
+                <div class="settings-note">${this.installHint}</div>
+                ${this.appUpdateResult
+                  ? html`<div class="settings-result">
+                      ${this.appUpdateResult}
+                      ${this.appUpdateTargetVersion
+                        ? html`<br /><strong>Target:</strong> ${this.appUpdateTargetVersion}<br /><strong>Summary:</strong>
+                            ${this.appUpdateSummary}`
+                        : null}
+                    </div>`
+                  : null}
+                <div class="settings-row">
+                  <button @click=${this.checkPackUpdates}>Check pack updates</button>
+                  <button @click=${this.applySelectedPackUpdates}>Apply selected pack updates</button>
+                </div>
+                ${this.packUpdateCandidates.length > 0
+                  ? html`<div class="update-list">
+                      ${this.packUpdateCandidates.map(
+                        (candidate) => html`<label class="update-item">
+                          <input
+                            type="checkbox"
+                            data-resort-id=${candidate.resortId}
+                            .checked=${candidate.selected}
+                            @change=${this.togglePackUpdateSelection}
+                          />
+                          <span>${candidate.resortName} (${candidate.version})</span>
+                        </label>`
+                      )}
+                    </div>`
+                  : null}
+                ${this.blockedPackUpdates.length > 0
+                  ? html`<ul class="blocked-list">
+                      ${this.blockedPackUpdates.map((line) => html`<li>${line}</li>`)}
+                    </ul>`
+                  : null}
+                ${this.packUpdateResult ? html`<div class="settings-result">${this.packUpdateResult}</div>` : null}
+              </section>`
+            : null}
           <section class="pack-panel" aria-label="Resort pack management">
             <div class="pack-row">
               ${this.resortOptions.length > 0
@@ -488,6 +868,34 @@ export class AppShell extends LitElement {
       </main>
     `;
   }
+}
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
+function isBeforeInstallPromptEvent(event: Event): event is BeforeInstallPromptEvent {
+  const candidate = event as Partial<BeforeInstallPromptEvent>;
+  return typeof candidate.prompt === "function" && candidate.userChoice instanceof Promise;
+}
+
+function compareSemver(left: string, right: string): number {
+  const leftMatch = /^(\d+)\.(\d+)\.(\d+)$/u.exec(left.trim());
+  const rightMatch = /^(\d+)\.(\d+)\.(\d+)$/u.exec(right.trim());
+  if (!leftMatch || !rightMatch) {
+    return left.localeCompare(right);
+  }
+
+  for (let index = 1; index <= 3; index += 1) {
+    const leftPart = Number.parseInt(leftMatch[index] ?? "0", 10);
+    const rightPart = Number.parseInt(rightMatch[index] ?? "0", 10);
+    if (leftPart !== rightPart) {
+      return leftPart - rightPart;
+    }
+  }
+
+  return 0;
 }
 
 function normalizeRelativePath(path: string): string {

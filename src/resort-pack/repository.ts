@@ -10,13 +10,22 @@ export type ResortPackListItem = {
   id: string;
   name: string;
   updatedAt: string;
+  sourceVersion?: string;
+  sourceCreatedAt?: string;
 };
 
 type StoredResortPack = {
   id: string;
   name: string;
   updatedAt: string;
+  sourceVersion?: string;
+  sourceCreatedAt?: string;
   pack: ResortPack;
+};
+
+export type PackSourceMetadata = {
+  sourceVersion?: string;
+  sourceCreatedAt?: string;
 };
 
 export class ResortPackRepository {
@@ -39,11 +48,13 @@ export class ResortPackRepository {
     this.database.close();
   }
 
-  async savePack(pack: ResortPack): Promise<void> {
+  async savePack(pack: ResortPack, metadata?: PackSourceMetadata): Promise<void> {
     const record: StoredResortPack = {
       id: pack.resort.id,
       name: pack.resort.name,
       updatedAt: new Date().toISOString(),
+      sourceVersion: metadata?.sourceVersion,
+      sourceCreatedAt: metadata?.sourceCreatedAt,
       pack
     };
 
@@ -64,7 +75,9 @@ export class ResortPackRepository {
       .map((record) => ({
         id: record.id,
         name: record.name,
-        updatedAt: record.updatedAt
+        updatedAt: record.updatedAt,
+        sourceVersion: record.sourceVersion,
+        sourceCreatedAt: record.sourceCreatedAt
       }))
       .sort((left, right) => left.name.localeCompare(right.name));
   }
