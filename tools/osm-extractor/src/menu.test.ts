@@ -1897,8 +1897,27 @@ describe("menu interactive flows", () => {
       await expect(stat(join(publicRoot, "packs", resortKey, "base.pmtiles"))).rejects.toBeDefined();
       await expect(stat(join(publicRoot, "packs", `${resortKey}.latest.validated.json`))).rejects.toBeDefined();
       const catalogRaw = await readFile(join(publicRoot, "resort-packs", "index.json"), "utf8");
-      const catalog = JSON.parse(catalogRaw) as { resorts: Array<{ resortId: string }> };
+      const catalog = JSON.parse(catalogRaw) as {
+        schemaVersion: string;
+        release?: {
+          channel?: string;
+          manifestUrl?: string;
+          manifestSha256?: string;
+        };
+        resorts: Array<{ resortId: string }>;
+      };
+      expect(catalog.schemaVersion).toBe("2.0.0");
+      expect(catalog.release?.channel).toBe("stable");
+      expect(catalog.release?.manifestUrl).toBe("/releases/stable-manifest.json");
+      expect(catalog.release?.manifestSha256).toMatch(/^[a-f0-9]{64}$/iu);
       expect(catalog.resorts.some((entry) => entry.resortId === resortKey)).toBe(false);
+      const manifestRaw = await readFile(join(publicRoot, "releases", "stable-manifest.json"), "utf8");
+      const manifest = JSON.parse(manifestRaw) as {
+        schemaVersion: string;
+        artifacts: Array<{ resortId?: string }>;
+      };
+      expect(manifest.schemaVersion).toBe("1.0.0");
+      expect(manifest.artifacts.some((artifact) => artifact.resortId === resortKey)).toBe(false);
     } finally {
       await rm(root, { recursive: true, force: true });
       await rm(publicRoot, { recursive: true, force: true });

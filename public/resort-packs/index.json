@@ -4,8 +4,8 @@
     "channel": "stable",
     "appVersion": "0.0.1",
     "manifestUrl": "/releases/stable-manifest.json",
-    "manifestSha256": "ebe0b4faae1f019dd74c2a9db1b2e868cea4be34f6c3a9a57972b3b6007ad76c",
-    "createdAt": "2026-02-21T04:54:18.117Z"
+    "manifestSha256": "569916abd158af1562f18c9cd2137cc21c72aa030a0face15fe193fd35a5cfb9",
+    "createdAt": "2026-02-21T05:06:48.300Z"
   },
   "resorts": [
     {
@@ -16,7 +16,18 @@
           "version": "v4",
           "approved": true,
           "packUrl": "/packs/CA_Chelsea_Camp_Fortune.latest.validated.json",
-          "createdAt": "2026-02-20T23:34:26.714Z"
+          "createdAt": "2026-02-21T05:06:46.566Z",
+          "compatibility": {
+            "minAppVersion": "0.0.1",
+            "supportedPackSchemaVersions": [
+              "1.0.0"
+            ]
+          },
+          "checksums": {
+            "packSha256": "f9b78ce9a604634ce9a512c4fcce85873a3a277c33c0b706d6d00eab98f4383b",
+            "pmtilesSha256": "ceefdbc9540664b20dd9869eb2b4ef9d6c0fd052f34f173df3b4f1b513252e75",
+            "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
+          }
         }
       ]
     },
@@ -28,7 +39,18 @@
           "version": "v7",
           "approved": true,
           "packUrl": "/packs/CA_Fernie_Fernie.latest.validated.json",
-          "createdAt": "2026-02-20T21:58:54.694Z"
+          "createdAt": "2026-02-21T05:06:46.868Z",
+          "compatibility": {
+            "minAppVersion": "0.0.1",
+            "supportedPackSchemaVersions": [
+              "1.0.0"
+            ]
+          },
+          "checksums": {
+            "packSha256": "641281200c8d5a672a5327f9bac52b1109bc4084e6b9bb09b1ee4f7e0bacd2d5",
+            "pmtilesSha256": "51ccdfc236f9c53dc072971611f28c90a9f3e0c8b05c9ce94e305ad914af0b2a",
+            "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
+          }
         }
       ]
     },
@@ -40,7 +62,7 @@
           "version": "v1",
           "approved": true,
           "packUrl": "/packs/CA_Golden_Kicking_Horse.latest.validated.json",
-          "createdAt": "2026-02-21T04:54:18.117Z",
+          "createdAt": "2026-02-21T05:06:47.247Z",
           "compatibility": {
             "minAppVersion": "0.0.1",
             "supportedPackSchemaVersions": [
@@ -48,7 +70,7 @@
             ]
           },
           "checksums": {
-            "packSha256": "9d391084dbcc443809d164490645b9f16b4d8923dada2bb741aa1742c4f02175",
+            "packSha256": "c53b72e49d0aa26b1eb621404f9469bfbfd8bf6c6613e2da8eefe51a8cb4ddef",
             "pmtilesSha256": "2c3ec095bb9d444d6d657ad80f78aee3849bb354566e7724033929cdfe51ad2f",
             "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
           }
@@ -63,7 +85,18 @@
           "version": "v5",
           "approved": true,
           "packUrl": "/packs/CA_Kimberley_Kimberley_Resort.latest.validated.json",
-          "createdAt": "2026-02-20T23:53:04.440Z"
+          "createdAt": "2026-02-21T05:06:47.616Z",
+          "compatibility": {
+            "minAppVersion": "0.0.1",
+            "supportedPackSchemaVersions": [
+              "1.0.0"
+            ]
+          },
+          "checksums": {
+            "packSha256": "ab9f9fa6b7e2198072d2ac310c9b59b91b07e90fcc74bad8129c9e00ce7797c9",
+            "pmtilesSha256": "f9b45a579a46bdd744f09fc1f39016f728e01eb5a065b9f21ce6f79b37275a2d",
+            "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
+          }
         }
       ]
     },
@@ -75,7 +108,18 @@
           "version": "v4",
           "approved": true,
           "packUrl": "/packs/CA_Beaupre_Mont_Sainte_Anne.latest.validated.json",
-          "createdAt": "2026-02-20T23:28:38.986Z"
+          "createdAt": "2026-02-21T05:06:46.281Z",
+          "compatibility": {
+            "minAppVersion": "0.0.1",
+            "supportedPackSchemaVersions": [
+              "1.0.0"
+            ]
+          },
+          "checksums": {
+            "packSha256": "5b97b399da146f93742101b55470d36ab4a00cfd32465f9824470c7b4cc8fb45",
+            "pmtilesSha256": "21b92f42a2a6f0357decb1e0f58344b2b04a27d63be5d0a9037af4633806111f",
+            "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
+          }
         }
       ]
     },
@@ -87,7 +131,18 @@
           "version": "v6",
           "approved": true,
           "packUrl": "/packs/CA_Rossland_Red_Mountain_Resort.latest.validated.json",
-          "createdAt": "2026-02-21T00:58:44.352Z"
+          "createdAt": "2026-02-21T05:06:47.901Z",
+          "compatibility": {
+            "minAppVersion": "0.0.1",
+            "supportedPackSchemaVersions": [
+              "1.0.0"
+            ]
+          },
+          "checksums": {
+            "packSha256": "b71cd48dcefde071fe347b8b05958c27e2bb1666cb3652e6a01f4b7f13656cab",
+            "pmtilesSha256": "c3c5639d6f5dbbb7455026d2fd5cbcff3ca642e70709977080f02ea19b1f8d4f",
+            "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
+          }
         }
       ]
     },
@@ -99,7 +154,18 @@
           "version": "v4",
           "approved": true,
           "packUrl": "/packs/CA_Whistler_Whistler_Blackcomb.latest.validated.json",
-          "createdAt": "2026-02-21T01:07:47.197Z"
+          "createdAt": "2026-02-21T05:06:48.300Z",
+          "compatibility": {
+            "minAppVersion": "0.0.1",
+            "supportedPackSchemaVersions": [
+              "1.0.0"
+            ]
+          },
+          "checksums": {
+            "packSha256": "61367ed69308b4e50e3dbca9016b58bee149331d5764b0978a1a450f0bfd56c1",
+            "pmtilesSha256": "3318a5aaf67bd44ed0e4d6736ed53f1959255476eee49370ba2cd681dfa1022b",
+            "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
+          }
         }
       ]
     }
