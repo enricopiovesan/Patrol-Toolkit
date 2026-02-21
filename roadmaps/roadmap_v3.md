@@ -52,7 +52,7 @@
 9. Roll back to previous release artifacts if smoke checks fail.
 
 ## Slice 1: PWA + GitHub Distribution Architecture
-- Status: planned
+- Status: completed
 - Goal: define and lock how app + resort packs are distributed from GitHub/GitHub Pages.
 - Changes:
   - define canonical hosting model:
@@ -65,8 +65,8 @@
   - define cache/update policy (when app updates, when packs update, rollback behavior).
   - document required repository structure and publish paths.
 - Test:
-  - architecture checklist reviewed and approved.
-  - no unresolved decision points for release pipeline.
+  - [x] architecture checklist reviewed and approved.
+  - [x] no unresolved decision points for release pipeline.
 - PR outcome: distribution contract locked.
 
 ## Compatibility Matrix (Define in Slice 1, Enforce in Slice 2+)

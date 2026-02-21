@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -133,7 +134,8 @@ export type ResortPublishedIntegrityResult = {
 };
 
 type ResortCatalogIndex = {
-  schemaVersion: "1.0.0";
+  schemaVersion: "1.0.0" | "2.0.0";
+  release?: ResortCatalogRelease;
   resorts: ResortCatalogEntry[];
 };
 
@@ -148,6 +150,45 @@ type ResortCatalogVersion = {
   approved: boolean;
   packUrl: string;
   createdAt: string;
+  compatibility?: ResortCatalogVersionCompatibility;
+  checksums?: ResortCatalogVersionChecksums;
+};
+
+type ResortCatalogRelease = {
+  channel: "stable";
+  appVersion: string;
+  manifestUrl: string;
+  manifestSha256: string;
+  createdAt: string;
+};
+
+type ResortCatalogVersionCompatibility = {
+  minAppVersion: string;
+  maxAppVersion?: string;
+  supportedPackSchemaVersions?: string[];
+};
+
+type ResortCatalogVersionChecksums = {
+  packSha256: string;
+  pmtilesSha256: string;
+  styleSha256: string;
+};
+
+type ReleaseManifest = {
+  schemaVersion: "1.0.0";
+  release: {
+    channel: "stable";
+    appVersion: string;
+    createdAt: string;
+  };
+  artifacts: Array<{
+    kind: "pack" | "pmtiles" | "style";
+    resortId: string;
+    version: string;
+    url: string;
+    sha256: string;
+    bytes: number;
+  }>;
 };
 
 export class CliCommandError extends Error {
@@ -1380,6 +1421,8 @@ export async function publishLatestValidatedResortVersion(args: {
   const outputFileName = `${args.resortKey}.latest.validated.json`;
   const outputPath = join(packsDir, outputFileName);
   const outputUrl = `/packs/${outputFileName}`;
+  const appVersion = await resolvePublishedAppVersion(publicRoot);
+  const manifestUrl = "/releases/stable-manifest.json";
 
   const exportResult = await exportLatestValidatedResortVersion({
     resortsRoot: args.resortsRoot,
@@ -1410,6 +1453,11 @@ export async function publishLatestValidatedResortVersion(args: {
   await mkdir(catalogDir, { recursive: true });
 
   const catalog = await readCatalogIndex(catalogPath);
+  const checksums = {
+    packSha256: await sha256ForFile(outputPath),
+    pmtilesSha256: await sha256ForFile(basemapAssets.pmtilesDestinationPath),
+    styleSha256: await sha256ForFile(basemapAssets.styleDestinationPath)
+  } satisfies ResortCatalogVersionChecksums;
   const updatedResorts = catalog.resorts.filter((entry) => entry.resortId !== args.resortKey);
   updatedResorts.push({
     resortId: args.resortKey,
@@ -1419,14 +1467,48 @@ export async function publishLatestValidatedResortVersion(args: {
         version: exportResult.version,
         approved: true,
         packUrl: outputUrl,
-        createdAt: exportResult.exportedAt
+        createdAt: exportResult.exportedAt,
+        compatibility: {
+          minAppVersion: appVersion,
+          supportedPackSchemaVersions: ["1.0.0"]
+        },
+        checksums
       }
     ]
   });
 
   updatedResorts.sort((left, right) => left.resortName.localeCompare(right.resortName));
-  const nextCatalog: ResortCatalogIndex = {
-    schemaVersion: "1.0.0",
+  const releaseCreatedAt = exportResult.exportedAt;
+  const releaseBase: ResortCatalogRelease = {
+    channel: "stable",
+    appVersion,
+    manifestUrl,
+    manifestSha256: "0".repeat(64),
+    createdAt: releaseCreatedAt
+  };
+
+  let nextCatalog: ResortCatalogIndex = {
+    schemaVersion: "2.0.0",
+    release: releaseBase,
+    resorts: updatedResorts
+  };
+  await writeFile(catalogPath, `${JSON.stringify(nextCatalog, null, 2)}\n`, "utf8");
+
+  const manifestPath = join(publicRoot, "releases", "stable-manifest.json");
+  await writeStableReleaseManifest({
+    manifestPath,
+    appVersion,
+    createdAt: releaseCreatedAt,
+    catalog: nextCatalog,
+    publicRoot
+  });
+  const manifestSha256 = await sha256ForFile(manifestPath);
+  nextCatalog = {
+    schemaVersion: "2.0.0",
+    release: {
+      ...releaseBase,
+      manifestSha256
+    },
     resorts: updatedResorts
   };
   await writeFile(catalogPath, `${JSON.stringify(nextCatalog, null, 2)}\n`, "utf8");
@@ -1720,17 +1802,11 @@ async function readCatalogIndex(path: string): Promise<ResortCatalogIndex> {
   try {
     const parsed = await readJsonFile<unknown>(path);
     if (!isCatalogIndex(parsed)) {
-      return {
-        schemaVersion: "1.0.0",
-        resorts: []
-      };
+      return emptyCatalogIndex();
     }
     return parsed;
   } catch {
-    return {
-      schemaVersion: "1.0.0",
-      resorts: []
-    };
+    return emptyCatalogIndex();
   }
 }
 
@@ -1738,10 +1814,33 @@ function isCatalogIndex(input: unknown): input is ResortCatalogIndex {
   if (typeof input !== "object" || input === null) {
     return false;
   }
-  const value = input as { schemaVersion?: unknown; resorts?: unknown };
-  if (value.schemaVersion !== "1.0.0" || !Array.isArray(value.resorts)) {
+  const value = input as { schemaVersion?: unknown; resorts?: unknown; release?: unknown };
+  if ((value.schemaVersion !== "1.0.0" && value.schemaVersion !== "2.0.0") || !Array.isArray(value.resorts)) {
     return false;
   }
+
+  if (value.schemaVersion === "2.0.0") {
+    if (typeof value.release !== "object" || value.release === null) {
+      return false;
+    }
+    const release = value.release as {
+      channel?: unknown;
+      appVersion?: unknown;
+      manifestUrl?: unknown;
+      manifestSha256?: unknown;
+      createdAt?: unknown;
+    };
+    if (
+      release.channel !== "stable" ||
+      typeof release.appVersion !== "string" ||
+      typeof release.manifestUrl !== "string" ||
+      typeof release.manifestSha256 !== "string" ||
+      typeof release.createdAt !== "string"
+    ) {
+      return false;
+    }
+  }
+
   return value.resorts.every((entry) => {
     if (typeof entry !== "object" || entry === null) {
       return false;
@@ -1754,15 +1853,170 @@ function isCatalogIndex(input: unknown): input is ResortCatalogIndex {
       if (typeof version !== "object" || version === null) {
         return false;
       }
-      const data = version as { version?: unknown; approved?: unknown; packUrl?: unknown; createdAt?: unknown };
-      return (
+      const data = version as {
+        version?: unknown;
+        approved?: unknown;
+        packUrl?: unknown;
+        createdAt?: unknown;
+        compatibility?: unknown;
+        checksums?: unknown;
+      };
+      const baseValid =
         typeof data.version === "string" &&
         typeof data.approved === "boolean" &&
         typeof data.packUrl === "string" &&
-        typeof data.createdAt === "string"
-      );
+        typeof data.createdAt === "string";
+      if (!baseValid) {
+        return false;
+      }
+      if (data.compatibility !== undefined) {
+        if (typeof data.compatibility !== "object" || data.compatibility === null) {
+          return false;
+        }
+        const compatibility = data.compatibility as {
+          minAppVersion?: unknown;
+          maxAppVersion?: unknown;
+          supportedPackSchemaVersions?: unknown;
+        };
+        if (typeof compatibility.minAppVersion !== "string") {
+          return false;
+        }
+        if (compatibility.maxAppVersion !== undefined && typeof compatibility.maxAppVersion !== "string") {
+          return false;
+        }
+        if (
+          compatibility.supportedPackSchemaVersions !== undefined &&
+          (!Array.isArray(compatibility.supportedPackSchemaVersions) ||
+            !compatibility.supportedPackSchemaVersions.every((item) => typeof item === "string"))
+        ) {
+          return false;
+        }
+      }
+      if (data.checksums !== undefined) {
+        if (typeof data.checksums !== "object" || data.checksums === null) {
+          return false;
+        }
+        const checksums = data.checksums as {
+          packSha256?: unknown;
+          pmtilesSha256?: unknown;
+          styleSha256?: unknown;
+        };
+        if (
+          typeof checksums.packSha256 !== "string" ||
+          typeof checksums.pmtilesSha256 !== "string" ||
+          typeof checksums.styleSha256 !== "string"
+        ) {
+          return false;
+        }
+      }
+      return true;
     });
   });
+}
+
+function emptyCatalogIndex(): ResortCatalogIndex {
+  return {
+    schemaVersion: "2.0.0",
+    release: {
+      channel: "stable",
+      appVersion: "0.0.1",
+      manifestUrl: "/releases/stable-manifest.json",
+      manifestSha256: "0".repeat(64),
+      createdAt: new Date(0).toISOString()
+    },
+    resorts: []
+  };
+}
+
+async function resolvePublishedAppVersion(publicRoot: string): Promise<string> {
+  const packagePath = resolve(publicRoot, "..", "package.json");
+  try {
+    const parsed = await readJsonFile<unknown>(packagePath);
+    if (typeof parsed === "object" && parsed !== null) {
+      const value = parsed as { version?: unknown };
+      if (typeof value.version === "string" && /^(\d+)\.(\d+)\.(\d+)$/u.test(value.version)) {
+        return value.version;
+      }
+    }
+  } catch {
+    // Fall through to default.
+  }
+  return "0.0.1";
+}
+
+async function sha256ForFile(path: string): Promise<string> {
+  const content = await readFile(path);
+  return createHash("sha256").update(content).digest("hex");
+}
+
+async function writeStableReleaseManifest(args: {
+  manifestPath: string;
+  appVersion: string;
+  createdAt: string;
+  catalog: ResortCatalogIndex;
+  publicRoot: string;
+}): Promise<void> {
+  const artifacts: ReleaseManifest["artifacts"] = [];
+  for (const resort of args.catalog.resorts) {
+    const version = resort.versions[0];
+    if (!version) {
+      continue;
+    }
+    const packRelativePath = version.packUrl.replace(/^\/+/u, "");
+    const packAbsolutePath = join(args.publicRoot, packRelativePath);
+    const packStats = await stat(packAbsolutePath).catch(() => null);
+    const checksums = version.checksums;
+    if (!packStats || !checksums) {
+      continue;
+    }
+
+    artifacts.push({
+      kind: "pack",
+      resortId: resort.resortId,
+      version: version.version,
+      url: version.packUrl,
+      sha256: checksums.packSha256,
+      bytes: packStats.size
+    });
+    const pmtilesPath = join(args.publicRoot, "packs", resort.resortId, "base.pmtiles");
+    const stylePath = join(args.publicRoot, "packs", resort.resortId, "style.json");
+    const [pmtilesStats, styleStats] = await Promise.all([
+      stat(pmtilesPath).catch(() => null),
+      stat(stylePath).catch(() => null)
+    ]);
+    if (pmtilesStats) {
+      artifacts.push({
+        kind: "pmtiles",
+        resortId: resort.resortId,
+        version: version.version,
+        url: `/packs/${resort.resortId}/base.pmtiles`,
+        sha256: checksums.pmtilesSha256,
+        bytes: pmtilesStats.size
+      });
+    }
+    if (styleStats) {
+      artifacts.push({
+        kind: "style",
+        resortId: resort.resortId,
+        version: version.version,
+        url: `/packs/${resort.resortId}/style.json`,
+        sha256: checksums.styleSha256,
+        bytes: styleStats.size
+      });
+    }
+  }
+
+  const manifest: ReleaseManifest = {
+    schemaVersion: "1.0.0",
+    release: {
+      channel: "stable",
+      appVersion: args.appVersion,
+      createdAt: args.createdAt
+    },
+    artifacts
+  };
+  await mkdir(dirname(args.manifestPath), { recursive: true });
+  await writeFile(args.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 }
 
 function hasExportBundleLayers(input: unknown): boolean {

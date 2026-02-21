@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -1955,7 +1956,8 @@ function formatLayerValidationSummary(value: LayerManualValidationState): string
 }
 
 type ResortCatalogIndex = {
-  schemaVersion: "1.0.0";
+  schemaVersion: "1.0.0" | "2.0.0";
+  release?: ResortCatalogRelease;
   resorts: ResortCatalogEntry[];
 };
 
@@ -1970,6 +1972,45 @@ type ResortCatalogVersion = {
   approved: boolean;
   packUrl: string;
   createdAt: string;
+  compatibility?: ResortCatalogVersionCompatibility;
+  checksums?: ResortCatalogVersionChecksums;
+};
+
+type ResortCatalogRelease = {
+  channel: "stable";
+  appVersion: string;
+  manifestUrl: string;
+  manifestSha256: string;
+  createdAt: string;
+};
+
+type ResortCatalogVersionCompatibility = {
+  minAppVersion: string;
+  maxAppVersion?: string;
+  supportedPackSchemaVersions?: string[];
+};
+
+type ResortCatalogVersionChecksums = {
+  packSha256: string;
+  pmtilesSha256: string;
+  styleSha256: string;
+};
+
+type ReleaseManifest = {
+  schemaVersion: "1.0.0";
+  release: {
+    channel: "stable";
+    appVersion: string;
+    createdAt: string;
+  };
+  artifacts: Array<{
+    kind: "pack" | "pmtiles" | "style";
+    resortId: string;
+    version: string;
+    url: string;
+    sha256: string;
+    bytes: number;
+  }>;
 };
 
 async function publishCurrentValidatedVersionToAppCatalog(args: {
@@ -2003,6 +2044,8 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
   const outputFileName = `${args.resortKey}.latest.validated.json`;
   const outputPath = join(packsDir, outputFileName);
   const outputUrl = `/packs/${outputFileName}`;
+  const appVersion = await resolvePublishedAppVersion(publicRoot);
+  const manifestUrl = "/releases/stable-manifest.json";
   await publishBasemapAssetsForVersion({
     versionPath,
     publicRoot,
@@ -2032,6 +2075,11 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
   await mkdir(packsDir, { recursive: true });
   await mkdir(catalogDir, { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(bundle, null, 2)}\n`, "utf8");
+  const checksums = {
+    packSha256: await sha256ForFile(outputPath),
+    pmtilesSha256: await sha256ForFile(join(publicRoot, "packs", args.resortKey, "base.pmtiles")),
+    styleSha256: await sha256ForFile(join(publicRoot, "packs", args.resortKey, "style.json"))
+  } satisfies ResortCatalogVersionChecksums;
 
   const catalogPath = join(catalogDir, "index.json");
   const catalog = await readCatalogIndex(catalogPath);
@@ -2045,16 +2093,51 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
         version,
         approved: true,
         packUrl: outputUrl,
-        createdAt: exportedAt
+        createdAt: exportedAt,
+        compatibility: {
+          minAppVersion: appVersion,
+          supportedPackSchemaVersions: ["1.0.0"]
+        },
+        checksums
       }
     ]
   });
   updatedResorts.sort((left, right) => left.resortName.localeCompare(right.resortName));
+  const releaseBase: ResortCatalogRelease = {
+    channel: "stable",
+    appVersion,
+    manifestUrl,
+    manifestSha256: "0".repeat(64),
+    createdAt: exportedAt
+  };
+  let nextCatalog: ResortCatalogIndex = {
+    schemaVersion: "2.0.0",
+    release: releaseBase,
+    resorts: updatedResorts
+  };
   await writeFile(
     catalogPath,
-    `${JSON.stringify({ schemaVersion: "1.0.0", resorts: updatedResorts } as ResortCatalogIndex, null, 2)}\n`,
+    `${JSON.stringify(nextCatalog, null, 2)}\n`,
     "utf8"
   );
+  const manifestPath = join(publicRoot, "releases", "stable-manifest.json");
+  await writeStableReleaseManifest({
+    manifestPath,
+    appVersion,
+    createdAt: exportedAt,
+    catalog: nextCatalog,
+    publicRoot
+  });
+  const manifestSha256 = await sha256ForFile(manifestPath);
+  nextCatalog = {
+    schemaVersion: "2.0.0",
+    release: {
+      ...releaseBase,
+      manifestSha256
+    },
+    resorts: updatedResorts
+  };
+  await writeFile(catalogPath, `${JSON.stringify(nextCatalog, null, 2)}\n`, "utf8");
 
   return {
     version,
@@ -2143,11 +2226,11 @@ async function readCatalogIndex(path: string): Promise<ResortCatalogIndex> {
     const raw = await readFile(path, "utf8");
     const parsed = JSON.parse(raw) as unknown;
     if (!isCatalogIndex(parsed)) {
-      return { schemaVersion: "1.0.0", resorts: [] };
+      return emptyCatalogIndex();
     }
     return parsed;
   } catch {
-    return { schemaVersion: "1.0.0", resorts: [] };
+    return emptyCatalogIndex();
   }
 }
 
@@ -2178,12 +2261,39 @@ async function unpublishResortArtifacts(args: {
   const catalog = await readCatalogIndex(catalogPath);
   const filtered = catalog.resorts.filter((entry) => entry.resortId !== args.resortKey);
   if (filtered.length !== catalog.resorts.length || existsSync(catalogPath)) {
+    const appVersion = await resolvePublishedAppVersion(publicRoot);
+    const releaseBase: ResortCatalogRelease = {
+      channel: "stable",
+      appVersion,
+      manifestUrl: "/releases/stable-manifest.json",
+      manifestSha256: "0".repeat(64),
+      createdAt: new Date().toISOString()
+    };
+    let nextCatalog: ResortCatalogIndex = {
+      schemaVersion: "2.0.0",
+      release: releaseBase,
+      resorts: filtered
+    };
     await mkdir(dirname(catalogPath), { recursive: true });
-    await writeFile(
-      catalogPath,
-      `${JSON.stringify({ schemaVersion: "1.0.0", resorts: filtered } as ResortCatalogIndex, null, 2)}\n`,
-      "utf8"
-    );
+    await writeFile(catalogPath, `${JSON.stringify(nextCatalog, null, 2)}\n`, "utf8");
+    const manifestPath = join(publicRoot, "releases", "stable-manifest.json");
+    await writeStableReleaseManifest({
+      manifestPath,
+      appVersion,
+      createdAt: releaseBase.createdAt,
+      catalog: nextCatalog,
+      publicRoot
+    });
+    const manifestSha256 = await sha256ForFile(manifestPath);
+    nextCatalog = {
+      schemaVersion: "2.0.0",
+      release: {
+        ...releaseBase,
+        manifestSha256
+      },
+      resorts: filtered
+    };
+    await writeFile(catalogPath, `${JSON.stringify(nextCatalog, null, 2)}\n`, "utf8");
   }
 }
 
@@ -3195,9 +3305,31 @@ function isCatalogIndex(input: unknown): input is ResortCatalogIndex {
   if (typeof input !== "object" || input === null) {
     return false;
   }
-  const value = input as { schemaVersion?: unknown; resorts?: unknown };
-  if (value.schemaVersion !== "1.0.0" || !Array.isArray(value.resorts)) {
+  const value = input as { schemaVersion?: unknown; resorts?: unknown; release?: unknown };
+  if ((value.schemaVersion !== "1.0.0" && value.schemaVersion !== "2.0.0") || !Array.isArray(value.resorts)) {
     return false;
+  }
+
+  if (value.schemaVersion === "2.0.0") {
+    if (typeof value.release !== "object" || value.release === null) {
+      return false;
+    }
+    const release = value.release as {
+      channel?: unknown;
+      appVersion?: unknown;
+      manifestUrl?: unknown;
+      manifestSha256?: unknown;
+      createdAt?: unknown;
+    };
+    if (
+      release.channel !== "stable" ||
+      typeof release.appVersion !== "string" ||
+      typeof release.manifestUrl !== "string" ||
+      typeof release.manifestSha256 !== "string" ||
+      typeof release.createdAt !== "string"
+    ) {
+      return false;
+    }
   }
   return value.resorts.every((entry) => {
     if (typeof entry !== "object" || entry === null) {
@@ -3211,7 +3343,14 @@ function isCatalogIndex(input: unknown): input is ResortCatalogIndex {
       if (typeof version !== "object" || version === null) {
         return false;
       }
-      const data = version as { version?: unknown; approved?: unknown; packUrl?: unknown; createdAt?: unknown };
+      const data = version as {
+        version?: unknown;
+        approved?: unknown;
+        packUrl?: unknown;
+        createdAt?: unknown;
+        compatibility?: unknown;
+        checksums?: unknown;
+      };
       return (
         typeof data.version === "string" &&
         typeof data.approved === "boolean" &&
@@ -3220,6 +3359,104 @@ function isCatalogIndex(input: unknown): input is ResortCatalogIndex {
       );
     });
   });
+}
+
+function emptyCatalogIndex(): ResortCatalogIndex {
+  return {
+    schemaVersion: "2.0.0",
+    release: {
+      channel: "stable",
+      appVersion: "0.0.1",
+      manifestUrl: "/releases/stable-manifest.json",
+      manifestSha256: "0".repeat(64),
+      createdAt: new Date(0).toISOString()
+    },
+    resorts: []
+  };
+}
+
+async function resolvePublishedAppVersion(publicRoot: string): Promise<string> {
+  const packagePath = resolve(publicRoot, "..", "package.json");
+  try {
+    const raw = await readFile(packagePath, "utf8");
+    const parsed = JSON.parse(raw) as { version?: unknown };
+    if (typeof parsed.version === "string" && /^(\d+)\.(\d+)\.(\d+)$/u.test(parsed.version)) {
+      return parsed.version;
+    }
+  } catch {
+    // fall through
+  }
+  return "0.0.1";
+}
+
+async function sha256ForFile(path: string): Promise<string> {
+  const content = await readFile(path);
+  return createHash("sha256").update(content).digest("hex");
+}
+
+async function writeStableReleaseManifest(args: {
+  manifestPath: string;
+  appVersion: string;
+  createdAt: string;
+  catalog: ResortCatalogIndex;
+  publicRoot: string;
+}): Promise<void> {
+  const artifacts: ReleaseManifest["artifacts"] = [];
+  for (const resort of args.catalog.resorts) {
+    const version = resort.versions[0];
+    if (!version || !version.checksums) {
+      continue;
+    }
+    const packRelativePath = version.packUrl.replace(/^\/+/u, "");
+    const packPath = join(args.publicRoot, packRelativePath);
+    const [packStats, pmtilesStats, styleStats] = await Promise.all([
+      stat(packPath).catch(() => null),
+      stat(join(args.publicRoot, "packs", resort.resortId, "base.pmtiles")).catch(() => null),
+      stat(join(args.publicRoot, "packs", resort.resortId, "style.json")).catch(() => null)
+    ]);
+    if (packStats) {
+      artifacts.push({
+        kind: "pack",
+        resortId: resort.resortId,
+        version: version.version,
+        url: version.packUrl,
+        sha256: version.checksums.packSha256,
+        bytes: packStats.size
+      });
+    }
+    if (pmtilesStats) {
+      artifacts.push({
+        kind: "pmtiles",
+        resortId: resort.resortId,
+        version: version.version,
+        url: `/packs/${resort.resortId}/base.pmtiles`,
+        sha256: version.checksums.pmtilesSha256,
+        bytes: pmtilesStats.size
+      });
+    }
+    if (styleStats) {
+      artifacts.push({
+        kind: "style",
+        resortId: resort.resortId,
+        version: version.version,
+        url: `/packs/${resort.resortId}/style.json`,
+        sha256: version.checksums.styleSha256,
+        bytes: styleStats.size
+      });
+    }
+  }
+
+  const manifest: ReleaseManifest = {
+    schemaVersion: "1.0.0",
+    release: {
+      channel: "stable",
+      appVersion: args.appVersion,
+      createdAt: args.createdAt
+    },
+    artifacts
+  };
+  await mkdir(dirname(args.manifestPath), { recursive: true });
+  await writeFile(args.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 }
 
 export function toCanonicalResortKey(resortKey: string): string {
