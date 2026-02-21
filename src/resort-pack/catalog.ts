@@ -8,6 +8,7 @@ export type ResortCatalogRelease = {
   manifestUrl: string;
   manifestSha256: string;
   createdAt: string;
+  notesSummary?: string;
 };
 
 export type ResortCatalogVersionCompatibility = {
@@ -267,12 +268,17 @@ function assertCatalogRelease(input: unknown): ResortCatalogRelease {
     throw new Error("Invalid resort catalog: release.createdAt is required.");
   }
 
+  if (input.notesSummary !== undefined && !isNonEmptyString(input.notesSummary)) {
+    throw new Error("Invalid resort catalog: release.notesSummary must be string when present.");
+  }
+
   return {
     channel: "stable",
     appVersion: input.appVersion,
     manifestUrl: input.manifestUrl,
     manifestSha256: input.manifestSha256,
-    createdAt: input.createdAt
+    createdAt: input.createdAt,
+    notesSummary: input.notesSummary
   };
 }
 
