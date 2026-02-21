@@ -75,7 +75,7 @@ As of `2026-02-21`, `public/resort-packs/index.json` includes:
 | Slice 5 | Completed | Basemap regenerate controls |
 | Slice 6 | Completed | Offline diagnostics + SW hardening |
 | Slice 7 | Completed | Multi-resort integrity + publish hardening |
-| Slice 8 | In progress | Docs/runbook/signoff evidence |
+| Slice 8 | Completed | Docs/runbook/signoff evidence |
 
 ---
 
@@ -143,7 +143,7 @@ This architecture allows Patrol Toolkit to scale across multiple resorts without
 
 ### v2 Program (Current)
 - Slices 1-7 complete
-- Slice 8 docs/signoff in progress
+- Slice 8 docs/signoff complete
 - Focus: operational closure and auditable handoff artifacts
 
 ### Next Program Focus

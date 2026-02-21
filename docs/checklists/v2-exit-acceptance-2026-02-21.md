@@ -13,16 +13,16 @@
 - [x] `Unpublish resort` removes only app-published artifacts.
 
 ## App Workflow
-- [ ] Resort switch updates overlays and basemap correctly.
-- [ ] Runs render as lines with difficulty colors.
-- [ ] Run labels are readable at intended zooms.
-- [ ] Phrase output includes objective anchor distance.
+- [x] Resort switch updates overlays and basemap correctly.
+- [x] Runs render as lines with difficulty colors.
+- [x] Run labels are readable at intended zooms.
+- [x] Phrase output includes objective anchor distance.
 
 ## Offline Workflow
-- [ ] App shell loads offline after warm cache.
-- [ ] Offline basemap and overlays render.
-- [ ] Phrase generation works offline.
+- [x] App shell loads offline after warm cache.
+- [x] Offline basemap and overlays render.
+- [x] Phrase generation works offline.
 
 ## Evidence
 - [x] Evidence bundle completed (`docs/evidence/v2-exit-evidence-2026-02-21.md`).
-- [ ] Screenshots attached for online/offline map and phrase examples.
+- [x] Screenshots attached for online/offline map and phrase examples.
