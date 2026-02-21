@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Kananaskis_Nakiska_Ski_Area",
+  "version": "v2",
+  "createdAt": "2026-02-21T00:37:26.676Z",
+  "query": {
+    "name": "Nakiska Ski Area",
+    "countryCode": "CA",
+    "town": "Kananaskis"
+  },
+  "selection": {
+    "osmType": "node",
+    "osmId": 13454350715,
+    "displayName": "Nakiska Ski Area, Mount Allan Drive, Kananaskis Village, Kananaskis Improvement District, Alberta, Canada",
+    "center": [
+      -115.1512647,
+      50.9419485
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Kananaskis_Nakiska_Ski_Area/v2/boundary.geojson",
+      "checksumSha256": "3da151735bd81ea80b9336d9c252c45534627c82251823c2217a7b01dcdaa1db",
+      "updatedAt": "2026-02-21T00:37:48.709Z"
+    },
+    "runs": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    },
+    "lifts": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": [
+      "lifts: status is 'pending', expected 'complete'",
+      "lifts: artifactPath is missing",
+      "lifts: checksumSha256 is missing",
+      "lifts: featureCount is missing",
+      "lifts: updatedAt is missing",
+      "runs: status is 'pending', expected 'complete'",
+      "runs: artifactPath is missing",
+      "runs: checksumSha256 is missing",
+      "runs: featureCount is missing",
+      "runs: updatedAt is missing"
+    ]
+  },
+  "manualValidation": {
+    "validated": false,
+    "validatedAt": null,
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

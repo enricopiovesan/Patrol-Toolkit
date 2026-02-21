@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Rossland_Red_Mountain_Resort",
+  "version": "v6",
+  "createdAt": "2026-02-21T00:57:23.343Z",
+  "query": {
+    "name": "red mountain resort",
+    "countryCode": "CA",
+    "town": "rossland"
+  },
+  "selection": {
+    "osmType": "way",
+    "osmId": 265717653,
+    "displayName": "RED Mountain Resort, 4300, Red Mountain Road, Rossland, Regional District of Kootenay Boundary, British Columbia, V0G 1Y0, Canada",
+    "center": [
+      -117.819483,
+      49.1023413
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Rossland_Red_Mountain_Resort/v4/boundary.geojson",
+      "checksumSha256": "2c981cf23005148e87ee51882bdeb9bf4dcf642c567b0e9c0b688354b4f95421",
+      "updatedAt": "2026-02-21T00:57:11.271Z"
+    },
+    "runs": {
+      "status": "complete",
+      "featureCount": 112,
+      "artifactPath": "../../resorts/CA_Rossland_Red_Mountain_Resort/v5/runs.geojson",
+      "checksumSha256": "4b65aa40b730be5cdecbfca6a98ac7679942ae5fa00c1854880f74679e52dd20",
+      "updatedAt": "2026-02-21T00:57:14.664Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "featureCount": 8,
+      "artifactPath": "../../resorts/CA_Rossland_Red_Mountain_Resort/v6/lifts.geojson",
+      "checksumSha256": "0008b47781582b7d0614674e38b7ee77b83d0fbfaef7806a5d5371ef0dd9df37",
+      "updatedAt": "2026-02-21T00:57:23.345Z"
+    }
+  },
+  "readiness": {
+    "overall": "ready",
+    "issues": []
+  },
+  "manualValidation": {
+    "validated": true,
+    "validatedAt": "2026-02-21T00:57:41.195Z",
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": true,
+        "validatedAt": "2026-02-21T00:57:33.105Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": true,
+        "validatedAt": "2026-02-21T00:57:37.430Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": true,
+        "validatedAt": "2026-02-21T00:57:41.195Z",
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

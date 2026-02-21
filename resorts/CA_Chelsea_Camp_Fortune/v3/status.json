@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Chelsea_Camp_Fortune",
+  "version": "v3",
+  "createdAt": "2026-02-20T23:32:06.189Z",
+  "query": {
+    "name": "camp fortune",
+    "countryCode": "CA",
+    "town": "chelsea"
+  },
+  "selection": {
+    "osmType": "way",
+    "osmId": 387976209,
+    "displayName": "Camp Fortune, 300, Chelsea, Les Collines-de-l'Outaouais, Outaouais, Québec, J9B 2N3, Canada",
+    "center": [
+      -75.8435233,
+      45.510795
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Chelsea_Camp_Fortune/v2/boundary.geojson",
+      "checksumSha256": "afb3b228ecd90e056f4b46272193320c40b5a908c8c74d0fcfda5971893cb502",
+      "updatedAt": "2026-02-20T23:32:01.959Z"
+    },
+    "runs": {
+      "status": "complete",
+      "featureCount": 35,
+      "artifactPath": "../../resorts/CA_Chelsea_Camp_Fortune/v3/runs.geojson",
+      "checksumSha256": "9daf9c8db0135d5228aa6ec67b513b02c32e561c787efe18dfaeeda6203b1863",
+      "updatedAt": "2026-02-20T23:32:06.191Z"
+    },
+    "lifts": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": [
+      "lifts: status is 'pending', expected 'complete'",
+      "lifts: artifactPath is missing",
+      "lifts: checksumSha256 is missing",
+      "lifts: featureCount is missing",
+      "lifts: updatedAt is missing"
+    ]
+  },
+  "manualValidation": {
+    "validated": false,
+    "validatedAt": null,
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Whistler_Whistler_Blackcomb",
+  "version": "v3",
+  "createdAt": "2026-02-21T01:05:47.021Z",
+  "query": {
+    "name": "Whistler Blackcomb",
+    "countryCode": "CA",
+    "town": "Whistler"
+  },
+  "selection": {
+    "osmType": "way",
+    "osmId": 474288286,
+    "displayName": "Whistler Blackcomb, Whistler Village, Whistler Resort Municipality, Squamish-Lillooet Regional District, British Columbia, V8E 0X9, Canada",
+    "center": [
+      -122.9634353,
+      50.0814471
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Whistler_Whistler_Blackcomb/v2/boundary.geojson",
+      "checksumSha256": "e3534321af150b79fca5e17212801b110aba07c3a198316743bf8e6c08c1f199",
+      "updatedAt": "2026-02-21T01:05:42.919Z"
+    },
+    "runs": {
+      "status": "complete",
+      "featureCount": 804,
+      "artifactPath": "../../resorts/CA_Whistler_Whistler_Blackcomb/v3/runs.geojson",
+      "checksumSha256": "d264e27ce734676117e4ebf999dfd7f3ce29609d7c0ca3c25a1eb24eb4c61f95",
+      "updatedAt": "2026-02-21T01:05:47.025Z"
+    },
+    "lifts": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": [
+      "lifts: status is 'pending', expected 'complete'",
+      "lifts: artifactPath is missing",
+      "lifts: checksumSha256 is missing",
+      "lifts: featureCount is missing",
+      "lifts: updatedAt is missing"
+    ]
+  },
+  "manualValidation": {
+    "validated": false,
+    "validatedAt": null,
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

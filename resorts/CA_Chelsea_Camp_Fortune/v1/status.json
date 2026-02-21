@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Chelsea_Camp_Fortune",
+  "version": "v1",
+  "createdAt": "2026-02-20T23:17:44.369Z",
+  "query": {
+    "name": "camp fortune",
+    "countryCode": "CA",
+    "town": "chelsea"
+  },
+  "selection": {
+    "osmType": "way",
+    "osmId": 387976209,
+    "displayName": "Camp Fortune, 300, Chelsea, Les Collines-de-l'Outaouais, Outaouais, Québec, J9B 2N3, Canada",
+    "center": [
+      -75.8435233,
+      45.510795
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    },
+    "runs": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    },
+    "lifts": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": [
+      "boundary: status is 'pending', expected 'complete'",
+      "boundary: artifactPath is missing",
+      "boundary: checksumSha256 is missing",
+      "boundary: featureCount is missing",
+      "boundary: updatedAt is missing",
+      "lifts: status is 'pending', expected 'complete'",
+      "lifts: artifactPath is missing",
+      "lifts: checksumSha256 is missing",
+      "lifts: featureCount is missing",
+      "lifts: updatedAt is missing",
+      "runs: status is 'pending', expected 'complete'",
+      "runs: artifactPath is missing",
+      "runs: checksumSha256 is missing",
+      "runs: featureCount is missing",
+      "runs: updatedAt is missing"
+    ]
+  },
+  "manualValidation": {
+    "validated": false,
+    "validatedAt": null,
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

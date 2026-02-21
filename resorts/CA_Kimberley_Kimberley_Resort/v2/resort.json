@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "Kimberley resort",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "way",
+      "osmId": 1388616336,
+      "displayName": "Kimberley Alpine Resort, Kimberley, Regional District of East Kootenay, British Columbia, Canada",
+      "center": [
+        -116.0285341,
+        49.6881982
+      ],
+      "selectedAt": "2026-02-20T23:10:12.566Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "artifactPath": "../../resorts/CA_Kimberley_Kimberley_Resort/v2/boundary.geojson",
+      "checksumSha256": "affaae0a48a9bdc0444fe1ee1a2855d8706b111cad54d2985ec02c95c157dee3",
+      "featureCount": 1,
+      "updatedAt": "2026-02-20T23:49:42.936Z"
+    },
+    "lifts": {
+      "status": "pending"
+    },
+    "runs": {
+      "status": "pending"
+    }
+  }
+}

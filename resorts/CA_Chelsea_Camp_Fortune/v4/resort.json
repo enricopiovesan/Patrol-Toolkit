@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "camp fortune",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "way",
+      "osmId": 387976209,
+      "displayName": "Camp Fortune, 300, Chelsea, Les Collines-de-l'Outaouais, Outaouais, Québec, J9B 2N3, Canada",
+      "center": [
+        -75.8435233,
+        45.510795
+      ],
+      "selectedAt": "2026-02-20T23:17:44.369Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "artifactPath": "../../resorts/CA_Chelsea_Camp_Fortune/v2/boundary.geojson",
+      "checksumSha256": "afb3b228ecd90e056f4b46272193320c40b5a908c8c74d0fcfda5971893cb502",
+      "featureCount": 1,
+      "updatedAt": "2026-02-20T23:32:01.959Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "queryHash": "4f47e688f75e255886565f89c6b7c85da876f0f0098277e24d97cbf20ac82721",
+      "updatedAt": "2026-02-20T23:32:30.624Z",
+      "artifactPath": "../../resorts/CA_Chelsea_Camp_Fortune/v4/lifts.geojson",
+      "featureCount": 9,
+      "checksumSha256": "327ec343815dfd9922358af0aa2ef35dd44a973eee548d03bd8e2422b34b194d"
+    },
+    "runs": {
+      "status": "complete",
+      "queryHash": "807ec8159b2fbcbf0ff0e1f3bcc85c7f299b8a621c0fa7376726246dbcdf9c16",
+      "updatedAt": "2026-02-20T23:32:06.191Z",
+      "artifactPath": "../../resorts/CA_Chelsea_Camp_Fortune/v3/runs.geojson",
+      "featureCount": 35,
+      "checksumSha256": "9daf9c8db0135d5228aa6ec67b513b02c32e561c787efe18dfaeeda6203b1863"
+    }
+  }
+}

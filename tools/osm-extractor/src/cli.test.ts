@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
+  auditPublishedResortIntegrity,
   CliCommandError,
   exportLatestValidatedResortVersion,
   formatCliError,
@@ -403,7 +404,8 @@ describe("resort-export-latest command helpers", () => {
       await writeFile(
         join(v2, "status.json"),
         JSON.stringify({
-          manualValidation: { validated: true, validatedAt: "2026-02-21T10:00:00.000Z" }
+          manualValidation: { validated: true, validatedAt: "2026-02-21T10:00:00.000Z" },
+          readiness: { overall: "ready", issues: [] }
         }),
         "utf8"
       );
@@ -473,7 +475,36 @@ describe("resort-export-latest command helpers", () => {
           resortKey,
           outputPath
         })
-      ).rejects.toThrow(/No manually validated version found/i);
+      ).rejects.toThrow(/No manually validated ready version found/i);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("skips manually validated versions that are not readiness-complete", async () => {
+    const root = await mkdtemp(join(tmpdir(), "resort-export-not-ready-"));
+    const resortKey = "CA_Golden_Kicking_Horse";
+    const v2 = join(root, resortKey, "v2");
+    const outputPath = join(root, "bundle.json");
+
+    try {
+      await mkdir(v2, { recursive: true });
+      await writeFile(
+        join(v2, "status.json"),
+        JSON.stringify({
+          manualValidation: { validated: true, validatedAt: "2026-02-21T10:00:00.000Z" },
+          readiness: { overall: "incomplete", issues: ["lifts: featureCount must be >= 1"] }
+        }),
+        "utf8"
+      );
+
+      await expect(
+        exportLatestValidatedResortVersion({
+          resortsRoot: root,
+          resortKey,
+          outputPath
+        })
+      ).rejects.toThrow(/No manually validated ready version found/i);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -493,7 +524,8 @@ describe("resort-publish-latest command helpers", () => {
       await writeFile(
         join(v2, "status.json"),
         JSON.stringify({
-          manualValidation: { validated: true, validatedAt: "2026-02-21T10:00:00.000Z" }
+          manualValidation: { validated: true, validatedAt: "2026-02-21T10:00:00.000Z" },
+          readiness: { overall: "ready", issues: [] }
         }),
         "utf8"
       );
@@ -557,6 +589,125 @@ describe("resort-publish-latest command helpers", () => {
         sources: { basemap: { type: "vector" } },
         layers: [{ id: "bg", type: "background" }]
       });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("resort-audit-published command helpers", () => {
+  it("passes when catalog pack files and basemap assets are valid", async () => {
+    const root = await mkdtemp(join(tmpdir(), "resort-audit-ok-"));
+    const publicRoot = join(root, "public");
+    const catalogDir = join(publicRoot, "resort-packs");
+    const packsDir = join(publicRoot, "packs");
+    const resortKey = "CA_Golden_Kicking_Horse";
+
+    try {
+      await mkdir(catalogDir, { recursive: true });
+      await mkdir(join(packsDir, resortKey), { recursive: true });
+      await writeFile(
+        join(catalogDir, "index.json"),
+        JSON.stringify({
+          schemaVersion: "1.0.0",
+          resorts: [
+            {
+              resortId: resortKey,
+              resortName: "Kicking Horse",
+              versions: [
+                {
+                  version: "v1",
+                  approved: true,
+                  packUrl: `/packs/${resortKey}.latest.validated.json`,
+                  createdAt: "2026-02-21T10:30:00.000Z"
+                }
+              ]
+            }
+          ]
+        }),
+        "utf8"
+      );
+      await writeFile(
+        join(packsDir, `${resortKey}.latest.validated.json`),
+        JSON.stringify({
+          schemaVersion: "1.0.0",
+          layers: {
+            boundary: { type: "FeatureCollection", features: [] },
+            runs: { type: "FeatureCollection", features: [] },
+            lifts: { type: "FeatureCollection", features: [] }
+          }
+        }),
+        "utf8"
+      );
+      await writeFile(join(packsDir, resortKey, "base.pmtiles"), new Uint8Array([1, 2, 3]));
+      await writeFile(
+        join(packsDir, resortKey, "style.json"),
+        JSON.stringify({
+          version: 8,
+          sources: {
+            basemap: {
+              type: "vector",
+              url: "pmtiles:///packs/CA_Golden_Kicking_Horse/base.pmtiles"
+            }
+          },
+          layers: [{ id: "bg", type: "background" }]
+        }),
+        "utf8"
+      );
+
+      const result = await auditPublishedResortIntegrity({
+        appPublicRoot: publicRoot
+      });
+
+      expect(result.overallOk).toBe(true);
+      expect(result.resorts).toHaveLength(1);
+      expect(result.resorts[0]?.ok).toBe(true);
+      expect(result.resorts[0]?.issues).toEqual([]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("reports integrity issues for missing published artifacts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "resort-audit-fail-"));
+    const publicRoot = join(root, "public");
+    const catalogDir = join(publicRoot, "resort-packs");
+    const resortKey = "CA_Golden_Kicking_Horse";
+
+    try {
+      await mkdir(catalogDir, { recursive: true });
+      await writeFile(
+        join(catalogDir, "index.json"),
+        JSON.stringify({
+          schemaVersion: "1.0.0",
+          resorts: [
+            {
+              resortId: resortKey,
+              resortName: "Kicking Horse",
+              versions: [
+                {
+                  version: "v1",
+                  approved: true,
+                  packUrl: `/packs/${resortKey}.latest.validated.json`,
+                  createdAt: "2026-02-21T10:30:00.000Z"
+                }
+              ]
+            }
+          ]
+        }),
+        "utf8"
+      );
+
+      const result = await auditPublishedResortIntegrity({
+        appPublicRoot: publicRoot
+      });
+
+      expect(result.overallOk).toBe(false);
+      expect(result.resorts).toHaveLength(1);
+      expect(result.resorts[0]?.ok).toBe(false);
+      expect(result.resorts[0]?.issues.join("\n")).toMatch(/missing published pack JSON/i);
+      expect(result.resorts[0]?.issues.join("\n")).toMatch(/missing PMTiles file/i);
+      expect(result.resorts[0]?.issues.join("\n")).toMatch(/Invalid basemap style JSON/i);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Kimberley_Kimberley_Resort",
+  "version": "v5",
+  "createdAt": "2026-02-20T23:50:35.809Z",
+  "query": {
+    "name": "Kimberley resort",
+    "countryCode": "CA",
+    "town": "Kimberley"
+  },
+  "selection": {
+    "osmType": "way",
+    "osmId": 1388616336,
+    "displayName": "Kimberley Alpine Resort, Kimberley, Regional District of East Kootenay, British Columbia, Canada",
+    "center": [
+      -116.0285341,
+      49.6881982
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Kimberley_Kimberley_Resort/v3/boundary.geojson",
+      "checksumSha256": "10f6bceb04871f5bb99468186e0a38092bc441b010c9a677d0a7f072efb1bd32",
+      "updatedAt": "2026-02-20T23:50:27.209Z"
+    },
+    "runs": {
+      "status": "complete",
+      "featureCount": 74,
+      "artifactPath": "../../resorts/CA_Kimberley_Kimberley_Resort/v4/runs.geojson",
+      "checksumSha256": "b5745ac7b09c8a052b9ac20235eded0e51a5763b290cf261a329444bca143747",
+      "updatedAt": "2026-02-20T23:50:33.569Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "featureCount": 9,
+      "artifactPath": "../../resorts/CA_Kimberley_Kimberley_Resort/v5/lifts.geojson",
+      "checksumSha256": "a79d425539030bb11f0e4def0c428e311909fbbb1ea1ac4ad71748db4c53f997",
+      "updatedAt": "2026-02-20T23:50:35.810Z"
+    }
+  },
+  "readiness": {
+    "overall": "ready",
+    "issues": []
+  },
+  "manualValidation": {
+    "validated": true,
+    "validatedAt": "2026-02-20T23:53:04.435Z",
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": true,
+        "validatedAt": "2026-02-20T23:51:07.551Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": true,
+        "validatedAt": "2026-02-20T23:52:56.338Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": true,
+        "validatedAt": "2026-02-20T23:53:04.435Z",
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

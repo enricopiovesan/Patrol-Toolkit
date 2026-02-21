@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Beaupre_Mont_Sainte_Anne",
+  "version": "v4",
+  "createdAt": "2026-02-20T23:20:16.531Z",
+  "query": {
+    "name": "Mont-Sainte-Anne",
+    "countryCode": "CA",
+    "town": "Beaupré"
+  },
+  "selection": {
+    "osmType": "way",
+    "osmId": 391681261,
+    "displayName": "Mont-Sainte-Anne, Beaupré, La Côte-de-Beaupré, Capitale-Nationale, Québec, Canada",
+    "center": [
+      -70.9260678,
+      47.0877219
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Beaupre_Mont_Sainte_Anne/v2/boundary.geojson",
+      "checksumSha256": "2ada3994d7d84d02447128c04fd29330bf25f2faed26ddbb5c071850c7c56588",
+      "updatedAt": "2026-02-20T23:20:04.550Z"
+    },
+    "runs": {
+      "status": "complete",
+      "featureCount": 80,
+      "artifactPath": "../../resorts/CA_Beaupre_Mont_Sainte_Anne/v3/runs.geojson",
+      "checksumSha256": "f30a3c2f3f65fa167d887d9025363a4f8702a904c43eab016e09022646f1c061",
+      "updatedAt": "2026-02-20T23:20:10.333Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "featureCount": 9,
+      "artifactPath": "../../resorts/CA_Beaupre_Mont_Sainte_Anne/v4/lifts.geojson",
+      "checksumSha256": "762e3d818885cd44f24bb00c707f77e418c534dea31862b9120b4a091c9c76de",
+      "updatedAt": "2026-02-20T23:20:16.533Z"
+    }
+  },
+  "readiness": {
+    "overall": "ready",
+    "issues": []
+  },
+  "manualValidation": {
+    "validated": true,
+    "validatedAt": "2026-02-20T23:28:38.982Z",
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": true,
+        "validatedAt": "2026-02-20T23:20:30.123Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": true,
+        "validatedAt": "2026-02-20T23:28:33.625Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": true,
+        "validatedAt": "2026-02-20T23:28:38.982Z",
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

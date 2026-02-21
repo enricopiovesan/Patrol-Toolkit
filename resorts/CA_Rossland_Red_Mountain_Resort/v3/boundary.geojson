@@ -1,0 +1,82 @@
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -117.819772,
+          49.1024909
+        ],
+        [
+          -117.8197648,
+          49.1022009
+        ],
+        [
+          -117.8196451,
+          49.1022038
+        ],
+        [
+          -117.8196396,
+          49.1022338
+        ],
+        [
+          -117.8194698,
+          49.102239
+        ],
+        [
+          -117.819466,
+          49.1021689
+        ],
+        [
+          -117.8191974,
+          49.1021789
+        ],
+        [
+          -117.8191979,
+          49.102483
+        ],
+        [
+          -117.8196151,
+          49.1024734
+        ],
+        [
+          -117.8196533,
+          49.1024436
+        ],
+        [
+          -117.8196691,
+          49.1024937
+        ],
+        [
+          -117.819772,
+          49.1024909
+        ]
+      ]
+    ]
+  },
+  "properties": {
+    "osmType": "way",
+    "osmId": 265717653,
+    "displayName": "RED Mountain Resort, 4300, Red Mountain Road, Rossland, Regional District of Kootenay Boundary, British Columbia, V0G 1Y0, Canada",
+    "selectedAt": "2026-02-21T00:56:56.813Z",
+    "score": 130,
+    "source": "selection",
+    "areaKm2": 0.0012870170176029205,
+    "distanceToSelectionCenterKm": 0,
+    "containsSelectionCenter": true,
+    "ringClosed": true,
+    "signals": [
+      "has-polygon",
+      "ring-closed",
+      "contains-selection-center",
+      "name-matches-query",
+      "from-current-selection",
+      "way-geometry",
+      "very-close-center"
+    ],
+    "issues": [
+      "Boundary area is outside expected ski resort range (0.1-1000 km2)."
+    ]
+  }
+}

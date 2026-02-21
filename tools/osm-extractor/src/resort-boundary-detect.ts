@@ -52,6 +52,12 @@ export type ResortBoundaryDetectionResult = {
   candidates: ResortBoundaryCandidate[];
 };
 
+type WinterSportsBoundarySeed = {
+  candidate: ResortSearchCandidate;
+  ring: [number, number][];
+  geometryType: "Polygon";
+};
+
 export function buildNominatimLookupUrl(candidate: { osmType: "relation" | "way" | "node"; osmId: number }): string {
   const url = new URL("https://nominatim.openstreetmap.org/lookup");
   const prefix = candidate.osmType === "relation" ? "R" : candidate.osmType === "way" ? "W" : "N";
@@ -68,11 +74,18 @@ export function buildWinterSportsOverpassQuery(args: {
   maxLon: number;
   maxLat: number;
   timeoutSeconds: number;
+  nameToken?: string;
 }): string {
+  const nameQuery = args.nameToken ? buildNameOverpassQuery(args.nameToken, args.minLat, args.minLon, args.maxLat, args.maxLon) : "";
   return `[out:json][timeout:${args.timeoutSeconds}];
 (
   way["landuse"="winter_sports"](${args.minLat},${args.minLon},${args.maxLat},${args.maxLon});
   relation["landuse"="winter_sports"](${args.minLat},${args.minLon},${args.maxLat},${args.maxLon});
+  way["leisure"="ski_resort"](${args.minLat},${args.minLon},${args.maxLat},${args.maxLon});
+  relation["leisure"="ski_resort"](${args.minLat},${args.minLon},${args.maxLat},${args.maxLon});
+  way["site"="piste"](${args.minLat},${args.minLon},${args.maxLat},${args.maxLon});
+  relation["site"="piste"](${args.minLat},${args.minLon},${args.maxLat},${args.maxLon});
+${nameQuery}
 );
 out geom tags;`;
 }
@@ -81,6 +94,7 @@ export async function detectResortBoundaryCandidates(
   args: {
     workspacePath: string;
     searchLimit: number;
+    locationHint?: string | null;
   },
   deps?: {
     fetchFn?: typeof fetch;
@@ -97,12 +111,37 @@ export async function detectResortBoundaryCandidates(
   const searchFn = deps?.searchFn ?? searchResortCandidates;
   const userAgent = deps?.userAgent ?? "patrol-toolkit-osm-extractor/0.1";
   const throttleMs = deps?.fetchFn ? 0 : 1100;
+  const disableCache = Boolean(deps?.fetchFn);
 
-  const fallbackSearch = await searchFn({
-    name: workspace.resort.query.name,
-    country: workspace.resort.query.country,
-    limit: args.searchLimit
-  });
+  const fallbackCandidates: ResortSearchCandidate[] = [];
+  const searchSeen = new Set<string>();
+  const queryVariants = buildSearchQueryVariants(workspace.resort.query.name, selection.displayName, args.locationHint ?? null);
+  const queryLower = workspace.resort.query.name.toLowerCase();
+  for (const nameVariant of queryVariants) {
+    const searchResult = await searchFn({
+      name: nameVariant,
+      country: workspace.resort.query.country,
+      limit: args.searchLimit
+    });
+    for (const candidate of searchResult.candidates) {
+      const key = `${candidate.osmType}:${candidate.osmId}`;
+      if (searchSeen.has(key)) {
+        continue;
+      }
+      if (
+        !isSearchCandidateRelevant({
+          queryName: workspace.resort.query.name,
+          queryLower,
+          candidate,
+          selectionCenter: selection.center
+        })
+      ) {
+        continue;
+      }
+      searchSeen.add(key);
+      fallbackCandidates.push(candidate);
+    }
+  }
 
   const seedCandidates: Array<{ source: "selection" | "search"; candidate: ResortSearchCandidate }> = [
     {
@@ -121,7 +160,7 @@ export async function detectResortBoundaryCandidates(
     }
   ];
 
-  for (const candidate of fallbackSearch.candidates) {
+  for (const candidate of fallbackCandidates) {
     if (candidate.osmType === selection.osmType && candidate.osmId === selection.osmId) {
       continue;
     }
@@ -133,10 +172,13 @@ export async function detectResortBoundaryCandidates(
     queryName: workspace.resort.query.name,
     fetchFn,
     userAgent,
-    throttleMs
+    throttleMs,
+    disableCache
   });
-  for (const candidate of winterSportsCandidates) {
-    seedCandidates.push({ source: "search", candidate });
+  const winterSportsSeedByKey = new Map<string, WinterSportsBoundarySeed>();
+  for (const seed of winterSportsCandidates) {
+    seedCandidates.push({ source: "search", candidate: seed.candidate });
+    winterSportsSeedByKey.set(`${seed.candidate.osmType}:${seed.candidate.osmId}`, seed);
   }
 
   const seen = new Set<string>();
@@ -151,15 +193,23 @@ export async function detectResortBoundaryCandidates(
     const lookup = await lookupBoundary(seed.candidate, {
       fetchFn,
       userAgent,
-      throttleMs
+      throttleMs,
+      disableCache
     });
+    const fallbackGeometry = winterSportsSeedByKey.get(key);
     resolved.push(
       scoreBoundaryCandidate({
         source: seed.source,
         candidate: seed.candidate,
         lookup,
         selectionCenter: selection.center,
-        queryName: workspace.resort.query.name
+        queryName: workspace.resort.query.name,
+        fallbackGeometry: fallbackGeometry
+          ? {
+              geometryType: fallbackGeometry.geometryType,
+              ring: fallbackGeometry.ring
+            }
+          : undefined
       })
     );
   }
@@ -181,14 +231,16 @@ async function fetchWinterSportsBoundaryCandidates(args: {
   fetchFn: typeof fetch;
   userAgent: string;
   throttleMs: number;
-}): Promise<ResortSearchCandidate[]> {
+  disableCache: boolean;
+}): Promise<WinterSportsBoundarySeed[]> {
   const bbox = computeCenterBbox(args.selectionCenter, 25_000);
   const query = buildWinterSportsOverpassQuery({
     minLon: bbox.minLon,
     minLat: bbox.minLat,
     maxLon: bbox.maxLon,
     maxLat: bbox.maxLat,
-    timeoutSeconds: 30
+    timeoutSeconds: 30,
+    nameToken: toOverpassNameToken(args.queryName)
   });
 
   const raw = (await resilientFetchJson({
@@ -202,17 +254,20 @@ async function fetchWinterSportsBoundaryCandidates(args: {
     body: query,
     fetchFn: args.fetchFn,
     throttleMs: args.throttleMs,
-    cache: {
-      dir: defaultCacheDir(),
-      ttlMs: 60 * 60 * 1000,
-      key: `winter-sports-boundary:${query}`
-    }
+    cache: args.disableCache
+      ? undefined
+      : {
+          dir: defaultCacheDir(),
+          ttlMs: 60 * 60 * 1000,
+          key: `winter-sports-boundary:${query}`
+        }
   }).catch(() => null)) as { elements?: OverpassWinterSportsElement[] } | null;
   if (!raw || !Array.isArray(raw.elements)) {
     return [];
   }
 
-  const candidates: ResortSearchCandidate[] = [];
+  const candidates: WinterSportsBoundarySeed[] = [];
+  const queryLower = args.queryName.toLowerCase();
   for (const element of raw.elements) {
     const elementId = element.id;
     if ((element.type !== "way" && element.type !== "relation") || typeof elementId !== "number" || !Number.isInteger(elementId)) {
@@ -228,17 +283,25 @@ async function fetchWinterSportsBoundaryCandidates(args: {
       element.tags?.name?.trim() ||
       element.tags?.["name:en"]?.trim() ||
       `${args.queryName} winter sports area ${element.type}/${String(element.id)}`;
+    const hasNameRelevance = hasSignificantNameOverlap(args.queryName, displayName) || displayName.toLowerCase().includes(queryLower);
+    if (!hasNameRelevance) {
+      continue;
+    }
 
     candidates.push({
-      osmType: element.type,
-      osmId: elementId,
-      displayName,
-      center,
-      countryCode: null,
-      country: null,
-      region: null,
-      importance: 1,
-      source: "nominatim"
+      candidate: {
+        osmType: element.type,
+        osmId: elementId,
+        displayName,
+        center,
+        countryCode: null,
+        country: null,
+        region: null,
+        importance: 1,
+        source: "nominatim"
+      },
+      ring,
+      geometryType: "Polygon"
     });
   }
 
@@ -251,6 +314,7 @@ async function lookupBoundary(
     fetchFn: typeof fetch;
     userAgent: string;
     throttleMs: number;
+    disableCache: boolean;
   }
 ): Promise<LookupRecord | null> {
   const url = buildNominatimLookupUrl(candidate);
@@ -263,11 +327,13 @@ async function lookupBoundary(
     },
     fetchFn: deps.fetchFn,
     throttleMs: deps.throttleMs,
-    cache: {
-      dir: defaultCacheDir(),
-      ttlMs: 60 * 60 * 1000,
-      key: `boundary-lookup:${candidate.osmType}:${candidate.osmId}:${url}`
-    }
+    cache: deps.disableCache
+      ? undefined
+      : {
+          dir: defaultCacheDir(),
+          ttlMs: 60 * 60 * 1000,
+          key: `boundary-lookup:${candidate.osmType}:${candidate.osmId}:${url}`
+        }
   }).catch(() => null);
   if (raw === null) {
     return null;
@@ -288,10 +354,16 @@ function scoreBoundaryCandidate(args: {
   lookup: LookupRecord | null;
   selectionCenter: [number, number];
   queryName: string;
+  fallbackGeometry?: {
+    geometryType: "Polygon";
+    ring: [number, number][];
+  };
 }): ResortBoundaryCandidate {
   const displayName = args.lookup?.display_name?.trim() || args.candidate.displayName;
   const center: [number, number] = toCenter(args.lookup) ?? args.candidate.center;
-  const { geometryType, ring } = extractRing(args.lookup?.geojson);
+  const extracted = extractRing(args.lookup?.geojson);
+  const geometryType = extracted.ring ? extracted.geometryType : (args.fallbackGeometry?.geometryType ?? extracted.geometryType);
+  const ring = extracted.ring ?? args.fallbackGeometry?.ring ?? null;
 
   const issues: string[] = [];
   const signals: string[] = [];
@@ -304,6 +376,9 @@ function scoreBoundaryCandidate(args: {
   if (ring) {
     score += 40;
     signals.push("has-polygon");
+    if (!extracted.ring && args.fallbackGeometry) {
+      signals.push("from-overpass-geometry");
+    }
   } else {
     issues.push("No polygon geometry available from lookup.");
   }
@@ -327,9 +402,22 @@ function scoreBoundaryCandidate(args: {
   }
   const displayNameLower = displayName.toLowerCase();
   const queryLower = args.queryName.toLowerCase();
+  const queryTokens = toSignificantNameTokens(args.queryName);
+  const displayTokens = toSignificantNameTokens(displayName);
+  const sharedTokenCount = queryTokens.filter((token) => displayTokens.includes(token)).length;
+
   if (displayNameLower.includes(queryLower)) {
-    score += 10;
+    score += 16;
     signals.push("name-matches-query");
+  } else if (sharedTokenCount >= 2) {
+    score += 10;
+    signals.push("name-token-overlap");
+  } else if (sharedTokenCount === 1) {
+    score += 4;
+    signals.push("name-token-weak-overlap");
+  } else {
+    score -= 18;
+    issues.push("Candidate name does not match selected resort name.");
   }
   if (displayNameLower.includes("winter sports")) {
     score += 20;
@@ -377,6 +465,131 @@ function scoreBoundaryCandidate(args: {
       issues
     }
   };
+}
+
+function toSignificantNameTokens(value: string): string[] {
+  const stopwords = new Set([
+    "ski",
+    "area",
+    "resort",
+    "mountain",
+    "the",
+    "and",
+    "of",
+    "at"
+  ]);
+
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/giu, " ")
+    .split(/\s+/u)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 4 && !stopwords.has(token))
+    .filter((token, index, all) => all.indexOf(token) === index);
+}
+
+function hasSignificantNameOverlap(left: string, right: string): boolean {
+  const leftTokens = toSignificantNameTokens(left);
+  const rightTokens = toSignificantNameTokens(right);
+  return leftTokens.some((token) => rightTokens.includes(token));
+}
+
+function buildSearchQueryVariants(queryName: string, selectionDisplayName: string | null, locationHint: string | null): string[] {
+  const variants = new Set<string>();
+  const trimmed = queryName.trim();
+  if (trimmed.length > 0) {
+    variants.add(trimmed);
+  }
+  const normalizedHint = locationHint?.trim();
+  if (normalizedHint) {
+    variants.add(`${trimmed} ${normalizedHint}`.trim());
+  }
+
+  const contextHints = extractLocationHints(selectionDisplayName);
+  for (const hint of contextHints) {
+    variants.add(`${trimmed} ${hint}`.trim());
+  }
+
+  return [...variants].slice(0, 4);
+}
+
+function extractLocationHints(selectionDisplayName: string | null): string[] {
+  if (!selectionDisplayName) {
+    return [];
+  }
+  const parts = selectionDisplayName
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  if (parts.length === 0) {
+    return [];
+  }
+
+  const ignored = new Set(["canada"]);
+  const hints: string[] = [];
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index];
+    if (!part) {
+      continue;
+    }
+    const lower = part.toLowerCase();
+    if (ignored.has(lower) || /\d/u.test(part) || lower.includes("postal")) {
+      continue;
+    }
+    hints.push(part);
+    if (hints.length >= 2) {
+      break;
+    }
+  }
+  return hints;
+}
+
+function isSearchCandidateRelevant(args: {
+  queryName: string;
+  queryLower: string;
+  candidate: ResortSearchCandidate;
+  selectionCenter: [number, number];
+}): boolean {
+  const distanceKm = haversineDistanceKm(args.selectionCenter, args.candidate.center);
+  const displayLower = args.candidate.displayName.toLowerCase();
+  const fullMatch = displayLower.includes(args.queryLower);
+  const tokenMatch = hasSignificantNameOverlap(args.queryName, args.candidate.displayName);
+
+  if (distanceKm > 1000) {
+    return false;
+  }
+  if (distanceKm > 300 && !fullMatch) {
+    return false;
+  }
+  if (distanceKm > 120 && !fullMatch && !tokenMatch) {
+    return false;
+  }
+  return true;
+}
+
+function toOverpassNameToken(queryName: string): string | undefined {
+  const tokens = toSignificantNameTokens(queryName);
+  const first = tokens[0]?.trim();
+  if (first && first.length >= 4) {
+    return first;
+  }
+  const trimmed = queryName.trim().split(/\s+/u)[0]?.trim();
+  if (!trimmed || trimmed.length < 4) {
+    return undefined;
+  }
+  return trimmed;
+}
+
+function buildNameOverpassQuery(
+  nameToken: string,
+  minLat: number,
+  minLon: number,
+  maxLat: number,
+  maxLon: number
+): string {
+  const escaped = nameToken.replace(/([\\.^$|?*+()[\]{}])/gu, "\\$1");
+  return `  way["name"~"${escaped}",i](${minLat},${minLon},${maxLat},${maxLon});
+  relation["name"~"${escaped}",i](${minLat},${minLon},${maxLat},${maxLon});`;
 }
 
 function haversineDistanceKm(from: [number, number], to: [number, number]): number {

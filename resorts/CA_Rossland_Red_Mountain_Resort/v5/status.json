@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Rossland_Red_Mountain_Resort",
+  "version": "v5",
+  "createdAt": "2026-02-21T00:57:14.657Z",
+  "query": {
+    "name": "red mountain resort",
+    "countryCode": "CA",
+    "town": "rossland"
+  },
+  "selection": {
+    "osmType": "way",
+    "osmId": 265717653,
+    "displayName": "RED Mountain Resort, 4300, Red Mountain Road, Rossland, Regional District of Kootenay Boundary, British Columbia, V0G 1Y0, Canada",
+    "center": [
+      -117.819483,
+      49.1023413
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Rossland_Red_Mountain_Resort/v4/boundary.geojson",
+      "checksumSha256": "2c981cf23005148e87ee51882bdeb9bf4dcf642c567b0e9c0b688354b4f95421",
+      "updatedAt": "2026-02-21T00:57:11.271Z"
+    },
+    "runs": {
+      "status": "complete",
+      "featureCount": 112,
+      "artifactPath": "../../resorts/CA_Rossland_Red_Mountain_Resort/v5/runs.geojson",
+      "checksumSha256": "4b65aa40b730be5cdecbfca6a98ac7679942ae5fa00c1854880f74679e52dd20",
+      "updatedAt": "2026-02-21T00:57:14.664Z"
+    },
+    "lifts": {
+      "status": "pending",
+      "featureCount": null,
+      "artifactPath": null,
+      "checksumSha256": null,
+      "updatedAt": null
+    }
+  },
+  "readiness": {
+    "overall": "incomplete",
+    "issues": [
+      "lifts: status is 'pending', expected 'complete'",
+      "lifts: artifactPath is missing",
+      "lifts: checksumSha256 is missing",
+      "lifts: featureCount is missing",
+      "lifts: updatedAt is missing"
+    ]
+  },
+  "manualValidation": {
+    "validated": false,
+    "validatedAt": null,
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": false,
+        "validatedAt": null,
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}
