@@ -596,7 +596,12 @@ export class AppShell extends LitElement {
 
   private async installApp(): Promise<void> {
     if (!this.deferredInstallPrompt) {
-      this.installHint = "Install prompt unavailable. Use browser menu to install.";
+      if (isStandaloneInstalled()) {
+        this.installHint = "Patrol Toolkit is already installed. Open it from your home screen.";
+        return;
+      }
+      this.installHint =
+        "Install prompt unavailable on this browser. iPhone/iPad: open in Safari, tap Share, then Add to Home Screen. Android/Desktop: browser menu > Install app/Add to Home Screen.";
       return;
     }
 
@@ -906,4 +911,19 @@ function normalizeRelativePath(path: string): string {
   }
 
   return `/${trimmed.replace(/^\.\/+/, "")}`;
+}
+
+function isStandaloneInstalled(): boolean {
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    try {
+      if (window.matchMedia("(display-mode: standalone)").matches) {
+        return true;
+      }
+    } catch {
+      // Ignore unsupported matchMedia.
+    }
+  }
+
+  const navigatorLike = globalThis.navigator as Navigator & { standalone?: boolean };
+  return navigatorLike.standalone === true;
 }
