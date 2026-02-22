@@ -4,6 +4,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { LocationTracker, type GeoPosition } from "../location/location-tracker";
 import type { ResortPack } from "../resort-pack/types";
 import { buildResortOverlayData } from "./overlays";
+import { buildLiftLayers } from "./lift-layers";
 import { ensurePackPmtilesArchiveLoaded, ensurePmtilesProtocolRegistered } from "./pmtiles-protocol";
 import { buildRunLayers } from "./run-layers";
 import { OFFLINE_FALLBACK_STYLE, resolveStyleForPack } from "./style-loader";
@@ -18,8 +19,6 @@ const RESORT_LIFTS_SOURCE_ID = "resort-lifts";
 const RESORT_LIFT_TOWERS_SOURCE_ID = "resort-lift-towers";
 const RESORT_BOUNDARY_FILL_LAYER = "resort-boundary-fill";
 const RESORT_BOUNDARY_LINE_LAYER = "resort-boundary-line";
-const RESORT_LIFTS_LINE_LAYER = "resort-lifts-line";
-const RESORT_LIFT_TOWERS_LAYER = "resort-lift-towers";
 const DEFAULT_CENTER: [number, number] = [7.2, 45.1];
 
 export type PositionUpdateDetail = {
@@ -325,27 +324,11 @@ export class MapView extends LitElement {
     this.map.addLayer(runLayers.arrowLayer as never);
     this.map.addLayer(runLayers.labelLayer as never);
 
-    this.map.addLayer({
-      id: RESORT_LIFTS_LINE_LAYER,
-      type: "line",
-      source: RESORT_LIFTS_SOURCE_ID,
-      paint: {
-        "line-color": "#b91c1c",
-        "line-width": 2.2
-      }
-    });
-
-    this.map.addLayer({
-      id: RESORT_LIFT_TOWERS_LAYER,
-      type: "circle",
-      source: RESORT_LIFT_TOWERS_SOURCE_ID,
-      paint: {
-        "circle-color": "#7f1d1d",
-        "circle-radius": 3.5,
-        "circle-stroke-color": "#fee2e2",
-        "circle-stroke-width": 1
-      }
-    });
+    const liftLayers = buildLiftLayers(RESORT_LIFTS_SOURCE_ID, RESORT_LIFT_TOWERS_SOURCE_ID);
+    this.map.addLayer(liftLayers.lineLayer as never);
+    this.map.addLayer(liftLayers.labelLayer as never);
+    this.map.addLayer(liftLayers.towerCircleLayer as never);
+    this.map.addLayer(liftLayers.towerLabelLayer as never);
   }
 
   private syncResortLayers(): void {
