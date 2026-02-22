@@ -27,15 +27,57 @@ export function buildRunLineWidthExpression(): unknown[] {
   return ["interpolate", ["linear"], ["zoom"], 10, 2, 13, 3, 16, 4.5];
 }
 
+export function buildRunLineDasharrayExpression(): unknown[] {
+  return ["case", ["==", ["get", "difficulty"], "double-black"], ["literal", [2.4, 1.4]], ["literal", [1, 0]]];
+}
+
 export function buildRunLinePaint(): {
   "line-color": unknown[];
   "line-width": unknown[];
+  "line-dasharray": unknown[];
   "line-opacity": number;
 } {
   return {
     "line-color": buildRunLineColorExpression(),
     "line-width": buildRunLineWidthExpression(),
+    "line-dasharray": buildRunLineDasharrayExpression(),
     "line-opacity": 0.94
+  };
+}
+
+export function buildRunArrowLayout(): {
+  "text-field": string;
+  "symbol-placement": "line";
+  "symbol-spacing": number;
+  "text-size": unknown[];
+  "text-font": string[];
+  "text-keep-upright": boolean;
+  "text-ignore-placement": boolean;
+  "text-allow-overlap": boolean;
+} {
+  return {
+    "text-field": "➜",
+    "symbol-placement": "line",
+    "symbol-spacing": 120,
+    "text-size": ["interpolate", ["linear"], ["zoom"], 13, 10, 16, 13],
+    "text-font": ["Noto Sans Regular"],
+    "text-keep-upright": false,
+    "text-ignore-placement": true,
+    "text-allow-overlap": true
+  };
+}
+
+export function buildRunArrowPaint(): {
+  "text-color": string;
+  "text-halo-color": string;
+  "text-halo-width": number;
+  "text-opacity": unknown[];
+} {
+  return {
+    "text-color": "#111827",
+    "text-halo-color": "#f8fafc",
+    "text-halo-width": 0.9,
+    "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0, 13, 0.75, 16, 0.9]
   };
 }
 

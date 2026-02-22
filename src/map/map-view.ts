@@ -322,6 +322,7 @@ export class MapView extends LitElement {
 
     const runLayers = buildRunLayers(RESORT_RUNS_SOURCE_ID);
     this.map.addLayer(runLayers.lineLayer as never);
+    this.map.addLayer(runLayers.arrowLayer as never);
     this.map.addLayer(runLayers.labelLayer as never);
 
     this.map.addLayer({

@@ -143,7 +143,7 @@
 - Rollback artifact/path validated before go-live.
 
 ## Slice 4: Run Direction Arrows (Downhill)
-- Status: planned
+- Status: in_progress
 - Goal: add clear downhill direction indicators on runs, inspired by openskimap patterns.
 - Changes:
   - compute deterministic arrow direction per run segment from geometry/elevation semantics.
@@ -179,6 +179,8 @@
 - Changes:
   - define schema additions for named area perimeters in resort packs.
   - add CLI support to auto-fetch/store/validate area perimeter geometries from OSM tags when available.
+  - treat OSM `piste` polygons/multipolygons as area candidates (ridges/bowls/sections), not directional runs.
+  - keep directional run rendering limited to run centerline line geometries only.
   - define "good geometry" acceptance rules for area import:
     - valid polygon/multipolygon geometry
     - non-self-intersecting rings
