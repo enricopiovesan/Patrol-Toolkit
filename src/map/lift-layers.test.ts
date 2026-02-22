@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   buildLiftLayers,
+  RESORT_LIFTS_LABEL_FILTER,
+  RESORT_LIFTS_LABEL_LAYER_MIN_ZOOM,
   RESORT_LIFTS_LABEL_LAYER_ID,
   RESORT_LIFTS_LINE_LAYER_ID,
+  RESORT_LIFT_TOWER_LABEL_FILTER,
+  RESORT_LIFT_TOWERS_LABEL_LAYER_MIN_ZOOM,
   RESORT_LIFT_TOWERS_CIRCLE_LAYER_ID,
+  RESORT_LIFT_TOWERS_LAYER_MIN_ZOOM,
   RESORT_LIFT_TOWERS_LABEL_LAYER_ID
 } from "./lift-layers";
 
@@ -25,6 +30,8 @@ describe("lift layer specs", () => {
     expect(layers.labelLayer.id).toBe(RESORT_LIFTS_LABEL_LAYER_ID);
     expect(layers.labelLayer.type).toBe("symbol");
     expect(layers.labelLayer.source).toBe("resort-lifts");
+    expect(layers.labelLayer.minzoom).toBe(RESORT_LIFTS_LABEL_LAYER_MIN_ZOOM);
+    expect(layers.labelLayer.filter).toEqual(RESORT_LIFTS_LABEL_FILTER);
     expect(layers.labelLayer.layout).toEqual({
       "text-field": ["get", "name"],
       "symbol-placement": "line",
@@ -41,6 +48,7 @@ describe("lift layer specs", () => {
       id: RESORT_LIFT_TOWERS_CIRCLE_LAYER_ID,
       type: "circle",
       source: "resort-lift-towers",
+      minzoom: RESORT_LIFT_TOWERS_LAYER_MIN_ZOOM,
       paint: {
         "circle-color": "#7f1d1d",
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 2.5, 15, 3.5, 17, 4.5],
@@ -53,6 +61,8 @@ describe("lift layer specs", () => {
     expect(layers.towerLabelLayer.id).toBe(RESORT_LIFT_TOWERS_LABEL_LAYER_ID);
     expect(layers.towerLabelLayer.type).toBe("symbol");
     expect(layers.towerLabelLayer.source).toBe("resort-lift-towers");
+    expect(layers.towerLabelLayer.minzoom).toBe(RESORT_LIFT_TOWERS_LABEL_LAYER_MIN_ZOOM);
+    expect(layers.towerLabelLayer.filter).toEqual(RESORT_LIFT_TOWER_LABEL_FILTER);
     expect(layers.towerLabelLayer.layout).toEqual({
       "text-field": ["to-string", ["get", "towerNumber"]],
       "text-size": ["interpolate", ["linear"], ["zoom"], 15, 9, 17, 11],
