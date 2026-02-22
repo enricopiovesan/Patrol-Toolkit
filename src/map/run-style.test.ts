@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildRunArrowLayout,
+  buildRunArrowPaint,
+  buildRunLineDasharrayExpression,
   buildRunLineColorExpression,
   buildRunLabelLayout,
   buildRunLabelPaint,
@@ -38,6 +41,15 @@ describe("run style mapping", () => {
     expect(buildRunLineWidthExpression()).toEqual(["interpolate", ["linear"], ["zoom"], 10, 2, 13, 3, 16, 4.5]);
   });
 
+  it("builds dashed styling for double-black runs", () => {
+    expect(buildRunLineDasharrayExpression()).toEqual([
+      "case",
+      ["==", ["get", "difficulty"], "double-black"],
+      ["literal", [2.4, 1.4]],
+      ["literal", [1, 0]]
+    ]);
+  });
+
   it("builds the run line paint config used by map layers", () => {
     expect(buildRunLinePaint()).toEqual({
       "line-color": [
@@ -54,7 +66,30 @@ describe("run style mapping", () => {
         "#475569"
       ],
       "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2, 13, 3, 16, 4.5],
+      "line-dasharray": ["case", ["==", ["get", "difficulty"], "double-black"], ["literal", [2.4, 1.4]], ["literal", [1, 0]]],
       "line-opacity": 0.94
+    });
+  });
+
+  it("builds run arrow layout for line-following directional markers", () => {
+    expect(buildRunArrowLayout()).toEqual({
+      "text-field": "➜",
+      "symbol-placement": "line",
+      "symbol-spacing": 120,
+      "text-size": ["interpolate", ["linear"], ["zoom"], 13, 10, 16, 13],
+      "text-font": ["Noto Sans Regular"],
+      "text-keep-upright": false,
+      "text-ignore-placement": true,
+      "text-allow-overlap": true
+    });
+  });
+
+  it("builds run arrow paint with neutral haloed styling", () => {
+    expect(buildRunArrowPaint()).toEqual({
+      "text-color": "#111827",
+      "text-halo-color": "#f8fafc",
+      "text-halo-width": 0.9,
+      "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0, 13, 0.75, 16, 0.9]
     });
   });
 
