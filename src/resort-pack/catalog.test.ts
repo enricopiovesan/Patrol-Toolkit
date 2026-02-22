@@ -270,6 +270,30 @@ describe("resort catalog selection", () => {
           },
           properties: {}
         },
+        areas: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Polygon",
+                coordinates: [
+                  [
+                    [-116.968, 51.295],
+                    [-116.962, 51.295],
+                    [-116.962, 51.291],
+                    [-116.968, 51.295]
+                  ]
+                ]
+              },
+              properties: {
+                id: "area-1",
+                name: "Redemption Ridge",
+                kind: "ridge"
+              }
+            }
+          ]
+        },
         runs: {
           type: "FeatureCollection",
           features: [
@@ -323,6 +347,8 @@ describe("resort catalog selection", () => {
     expect(pack.resort.id).toBe("CA_Golden_Kicking_Horse");
     expect(pack.resort.name).toBe("Kicking Horse");
     expect(pack.boundary?.type).toBe("Polygon");
+    expect(pack.areas).toHaveLength(1);
+    expect(pack.areas?.[0]?.kind).toBe("ridge");
     expect(pack.runs).toHaveLength(1);
     expect(pack.lifts).toHaveLength(1);
   });

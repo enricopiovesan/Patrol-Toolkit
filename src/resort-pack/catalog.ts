@@ -449,6 +449,7 @@ type ExportBundle = {
   };
   layers?: {
     boundary?: unknown;
+    areas?: unknown;
     runs?: unknown;
     lifts?: unknown;
   };
@@ -460,6 +461,7 @@ function convertExportBundleToResortPack(input: unknown, fallbackResortId: strin
   const resortName = stringOrFallback(bundle.status?.query?.name, fallbackResortId);
 
   const boundary = extractBoundaryPolygon(bundle.layers?.boundary);
+  const areas = extractAreas(bundle.layers?.areas);
   const runs = extractRuns(bundle.layers?.runs);
   const lifts = extractLifts(bundle.layers?.lifts);
 
@@ -478,6 +480,7 @@ function convertExportBundleToResortPack(input: unknown, fallbackResortId: strin
     thresholds: {
       liftProximityMeters: 90
     },
+    areas: areas.length > 0 ? areas : undefined,
     lifts,
     runs
   };
@@ -558,6 +561,49 @@ function extractRuns(input: unknown): ResortPack["runs"] {
   return runs;
 }
 
+function extractAreas(input: unknown): NonNullable<ResortPack["areas"]> {
+  if (!isObjectRecord(input) || input.type !== "FeatureCollection" || !Array.isArray(input.features)) {
+    return [];
+  }
+
+  const areas: NonNullable<ResortPack["areas"]> = [];
+  type AreaPerimeter = NonNullable<ResortPack["areas"]>[number]["perimeter"];
+  for (let index = 0; index < input.features.length; index += 1) {
+    const feature = input.features[index];
+    if (!isObjectRecord(feature) || !isObjectRecord(feature.geometry)) {
+      continue;
+    }
+
+    const geometry = feature.geometry;
+    let perimeter: AreaPerimeter | null = null;
+    if (geometry.type === "Polygon" && Array.isArray(geometry.coordinates)) {
+      perimeter = { type: "Polygon", coordinates: geometry.coordinates as [number, number][][] };
+    } else if (geometry.type === "MultiPolygon" && Array.isArray(geometry.coordinates)) {
+      const first = geometry.coordinates[0];
+      if (Array.isArray(first)) {
+        perimeter = { type: "Polygon", coordinates: first as [number, number][][] };
+      }
+    }
+
+    if (!perimeter) {
+      continue;
+    }
+
+    const properties = isObjectRecord(feature.properties) ? feature.properties : {};
+    const id = stringOrFallback(properties.id, `area-${index + 1}`);
+    const name = stringOrFallback(properties.name, id);
+    const kind = mapAreaKind(properties.kind);
+    areas.push({
+      id,
+      name,
+      kind,
+      perimeter
+    });
+  }
+
+  return areas;
+}
+
 function extractLifts(input: unknown): ResortPack["lifts"] {
   if (!isObjectRecord(input) || input.type !== "FeatureCollection" || !Array.isArray(input.features)) {
     return [];
@@ -624,6 +670,27 @@ function mapDifficulty(value: unknown): ResortPack["runs"][number]["difficulty"]
     return "double-black";
   }
   return "blue";
+}
+
+function mapAreaKind(value: unknown): NonNullable<ResortPack["areas"]>[number]["kind"] {
+  if (typeof value !== "string") {
+    return "area";
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "ridge") {
+    return "ridge";
+  }
+  if (normalized === "bowl") {
+    return "bowl";
+  }
+  if (normalized === "zone") {
+    return "zone";
+  }
+  if (normalized === "section") {
+    return "section";
+  }
+  return "area";
 }
 
 function inferTimezone(countryCode: string | undefined): string {
