@@ -1,4 +1,5 @@
 import {
+  buildLiftCasingPaint,
   buildLiftLabelLayout,
   buildLiftLabelPaint,
   buildLiftLinePaint,
@@ -8,6 +9,7 @@ import {
 } from "./lift-style";
 
 export const RESORT_LIFTS_LINE_LAYER_ID = "resort-lifts-line";
+export const RESORT_LIFTS_CASING_LAYER_ID = "resort-lifts-casing";
 export const RESORT_LIFTS_LABEL_LAYER_ID = "resort-lifts-label";
 export const RESORT_LIFT_TOWERS_CIRCLE_LAYER_ID = "resort-lift-towers";
 export const RESORT_LIFT_TOWERS_LABEL_LAYER_ID = "resort-lift-tower-labels";
@@ -21,6 +23,12 @@ export function buildLiftLayers(
   liftSourceId: string,
   towerSourceId: string
 ): {
+  casingLayer: {
+    id: string;
+    type: "line";
+    source: string;
+    paint: ReturnType<typeof buildLiftCasingPaint>;
+  };
   lineLayer: {
     id: string;
     type: "line";
@@ -54,6 +62,12 @@ export function buildLiftLayers(
   };
 } {
   return {
+    casingLayer: {
+      id: RESORT_LIFTS_CASING_LAYER_ID,
+      type: "line",
+      source: liftSourceId,
+      paint: buildLiftCasingPaint()
+    },
     lineLayer: {
       id: RESORT_LIFTS_LINE_LAYER_ID,
       type: "line",
