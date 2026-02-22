@@ -159,7 +159,7 @@
 - PR outcome: runs show clear travel direction without clutter.
 
 ## Slice 5: Lift Labels + Tower Number Display
-- Status: planned
+- Status: in_progress
 - Goal: show lift names and tower numbers in a readable, operational way.
 - Changes:
   - render lifts as thicker colored corridors/lines, visually distinct from runs.
