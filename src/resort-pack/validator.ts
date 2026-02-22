@@ -38,6 +38,7 @@ function mapSchemaErrors(errors: ErrorObject[] | null | undefined): ResortPackVa
 
 function validateSemanticRules(pack: ResortPack): ResortPackValidationIssue[] {
   const errors: ResortPackValidationIssue[] = [];
+  const areaIds = new Set<string>();
   const runIds = new Set<string>();
   const liftIds = new Set<string>();
 
@@ -72,6 +73,33 @@ function validateSemanticRules(pack: ResortPack): ResortPackValidationIssue[] {
         code: "invalid_geometry",
         path: "#/boundary/coordinates/0",
         message: "Boundary polygon outer ring must be closed."
+      });
+    }
+  }
+
+  for (let index = 0; index < (pack.areas ?? []).length; index += 1) {
+    const area = pack.areas?.[index];
+    if (!area) {
+      continue;
+    }
+    const areaPath = `#/areas/${index}`;
+
+    if (areaIds.has(area.id)) {
+      errors.push({
+        code: "duplicate_id",
+        path: `${areaPath}/id`,
+        message: `Duplicate area id '${area.id}'.`
+      });
+    } else {
+      areaIds.add(area.id);
+    }
+
+    const outerRing = area.perimeter.coordinates[0] ?? [];
+    if (!isClosedRing(outerRing)) {
+      errors.push({
+        code: "invalid_geometry",
+        path: `${areaPath}/perimeter/coordinates/0`,
+        message: "Area perimeter outer ring must be closed."
       });
     }
   }

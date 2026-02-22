@@ -174,7 +174,7 @@
 - PR outcome: lift context is immediately visible on map.
 
 ## Slice 6: Ridges/Bowls/Perimeter Areas Overlay
-- Status: planned
+- Status: in_progress
 - Goal: represent named mountain areas (ridges, bowls, etc.) as perimeter overlays similar to boundaries.
 - Changes:
   - define schema additions for named area perimeters in resort packs.

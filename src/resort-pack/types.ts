@@ -10,6 +10,15 @@ export type GeoPolygon = {
   coordinates: LngLat[][];
 };
 
+export type ResortAreaKind = "ridge" | "bowl" | "zone" | "section" | "area";
+
+export type ResortArea = {
+  id: string;
+  name: string;
+  kind: ResortAreaKind;
+  perimeter: GeoPolygon;
+};
+
 export type LiftTower = {
   number: number;
   coordinates: LngLat;
@@ -46,6 +55,7 @@ export type ResortPack = {
   thresholds: {
     liftProximityMeters: number;
   };
+  areas?: ResortArea[];
   lifts: Lift[];
   runs: Run[];
 };
