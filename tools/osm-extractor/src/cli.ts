@@ -69,6 +69,7 @@ type ResortWorkspaceLike = {
   };
   layers?: {
     boundary?: ResortWorkspaceLayerStateLike;
+    areas?: ResortWorkspaceLayerStateLike;
     lifts?: ResortWorkspaceLayerStateLike;
     runs?: ResortWorkspaceLayerStateLike;
   };
@@ -1578,6 +1579,7 @@ export async function exportLatestValidatedResortVersion(args: {
   const workspace = await readJsonFile<ResortWorkspaceLike>(workspacePath);
 
   const boundary = await readLayerArtifactJson(versionPath, workspace.layers?.boundary?.artifactPath);
+  const areas = await readLayerArtifactJson(versionPath, workspace.layers?.areas?.artifactPath);
   const runs = await readLayerArtifactJson(versionPath, workspace.layers?.runs?.artifactPath);
   const lifts = await readLayerArtifactJson(versionPath, workspace.layers?.lifts?.artifactPath);
 
@@ -1593,6 +1595,7 @@ export async function exportLatestValidatedResortVersion(args: {
     workspace,
     layers: {
       boundary,
+      areas,
       runs,
       lifts
     }

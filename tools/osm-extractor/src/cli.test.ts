@@ -420,6 +420,7 @@ describe("resort-export-latest command helpers", () => {
           },
           layers: {
             boundary: { status: "complete", artifactPath: "resorts/CA_golden_kicking_horse/v2/boundary.geojson" },
+            areas: { status: "complete", artifactPath: "resorts/CA_golden_kicking_horse/v2/areas.geojson" },
             lifts: { status: "complete", artifactPath: "resorts/CA_golden_kicking_horse/v2/lifts.geojson" },
             runs: { status: "complete", artifactPath: "resorts/CA_golden_kicking_horse/v2/runs.geojson" }
           }
@@ -427,6 +428,7 @@ describe("resort-export-latest command helpers", () => {
         "utf8"
       );
       await writeFile(join(v2, "boundary.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
+      await writeFile(join(v2, "areas.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
       await writeFile(join(v2, "runs.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
       await writeFile(join(v2, "lifts.geojson"), JSON.stringify({ type: "FeatureCollection", features: [] }), "utf8");
 
@@ -443,11 +445,12 @@ describe("resort-export-latest command helpers", () => {
       const exportedRaw = await readFile(outputPath, "utf8");
       const exported = JSON.parse(exportedRaw) as {
         export: { version: string; resortKey: string };
-        layers: { boundary: unknown; runs: unknown; lifts: unknown };
+        layers: { boundary: unknown; areas?: unknown; runs: unknown; lifts: unknown };
       };
       expect(exported.export.version).toBe("v2");
       expect(exported.export.resortKey).toBe(resortKey);
       expect(exported.layers.boundary).not.toBeNull();
+      expect(exported.layers.areas).not.toBeNull();
       expect(exported.layers.runs).not.toBeNull();
       expect(exported.layers.lifts).not.toBeNull();
     } finally {
