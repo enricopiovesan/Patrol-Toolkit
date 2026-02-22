@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildLiftLayers,
+  RESORT_LIFTS_CASING_LAYER_ID,
   RESORT_LIFTS_LABEL_FILTER,
   RESORT_LIFTS_LABEL_LAYER_MIN_ZOOM,
   RESORT_LIFTS_LABEL_LAYER_ID,
@@ -15,6 +16,17 @@ import {
 describe("lift layer specs", () => {
   it("builds deterministic lift and tower layer configs", () => {
     const layers = buildLiftLayers("resort-lifts", "resort-lift-towers");
+
+    expect(layers.casingLayer).toEqual({
+      id: RESORT_LIFTS_CASING_LAYER_ID,
+      type: "line",
+      source: "resort-lifts",
+      paint: {
+        "line-color": "#fff7ed",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4.2, 13, 5.8, 16, 7.4],
+        "line-opacity": 0.95
+      }
+    });
 
     expect(layers.lineLayer).toEqual({
       id: RESORT_LIFTS_LINE_LAYER_ID,

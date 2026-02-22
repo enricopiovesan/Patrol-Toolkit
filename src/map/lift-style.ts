@@ -2,6 +2,22 @@ export function buildLiftLineWidthExpression(): unknown[] {
   return ["interpolate", ["linear"], ["zoom"], 10, 2.2, 13, 3.2, 16, 4.6];
 }
 
+export function buildLiftCasingLineWidthExpression(): unknown[] {
+  return ["interpolate", ["linear"], ["zoom"], 10, 4.2, 13, 5.8, 16, 7.4];
+}
+
+export function buildLiftCasingPaint(): {
+  "line-color": string;
+  "line-width": unknown[];
+  "line-opacity": number;
+} {
+  return {
+    "line-color": "#fff7ed",
+    "line-width": buildLiftCasingLineWidthExpression(),
+    "line-opacity": 0.95
+  };
+}
+
 export function buildLiftLinePaint(): {
   "line-color": string;
   "line-width": unknown[];

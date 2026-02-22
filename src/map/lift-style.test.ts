@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildLiftCasingLineWidthExpression,
+  buildLiftCasingPaint,
   buildLiftLabelLayout,
   buildLiftLabelPaint,
   buildLiftLinePaint,
@@ -12,6 +14,18 @@ import {
 describe("lift style mapping", () => {
   it("builds zoom-scaled lift line width expression", () => {
     expect(buildLiftLineWidthExpression()).toEqual(["interpolate", ["linear"], ["zoom"], 10, 2.2, 13, 3.2, 16, 4.6]);
+  });
+
+  it("builds zoom-scaled lift casing width expression", () => {
+    expect(buildLiftCasingLineWidthExpression()).toEqual(["interpolate", ["linear"], ["zoom"], 10, 4.2, 13, 5.8, 16, 7.4]);
+  });
+
+  it("builds lift casing paint config", () => {
+    expect(buildLiftCasingPaint()).toEqual({
+      "line-color": "#fff7ed",
+      "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4.2, 13, 5.8, 16, 7.4],
+      "line-opacity": 0.95
+    });
   });
 
   it("builds lift line paint config", () => {
