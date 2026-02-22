@@ -61,6 +61,46 @@ export const resortPackSchema = {
         liftProximityMeters: { type: "number", exclusiveMinimum: 0 }
       }
     },
+    areas: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "name", "kind", "perimeter"],
+        properties: {
+          id: { type: "string", minLength: 1 },
+          name: { type: "string", minLength: 1 },
+          kind: { enum: ["ridge", "bowl", "zone", "section", "area"] },
+          perimeter: {
+            type: "object",
+            additionalProperties: false,
+            required: ["type", "coordinates"],
+            properties: {
+              type: { const: "Polygon" },
+              coordinates: {
+                type: "array",
+                minItems: 1,
+                items: {
+                  type: "array",
+                  minItems: 4,
+                  items: {
+                    type: "array",
+                    minItems: 2,
+                    maxItems: 2,
+                    items: [
+                      { type: "number", minimum: -180, maximum: 180 },
+                      { type: "number", minimum: -90, maximum: 90 }
+                    ],
+                    additionalItems: false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     lifts: {
       type: "array",
       minItems: 1,

@@ -6,9 +6,29 @@ import { buildResortOverlayData } from "./overlays";
 describe("buildResortOverlayData", () => {
   it("builds runs and lifts overlays from pack geometry", () => {
     const pack = structuredClone(validPack) as ResortPack;
+    pack.areas = [
+      {
+        id: "ridge-1",
+        name: "Redemption Ridge",
+        kind: "ridge",
+        perimeter: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [-106.951, 39.193],
+              [-106.95, 39.193],
+              [-106.95, 39.192],
+              [-106.951, 39.193]
+            ]
+          ]
+        }
+      }
+    ];
     const overlays = buildResortOverlayData(pack);
 
     expect(overlays.boundary.features).toHaveLength(0);
+    expect(overlays.areas.features).toHaveLength(1);
+    expect(overlays.areas.features[0]?.properties?.kind).toBe("ridge");
     expect(overlays.runs.features).toHaveLength(pack.runs.length);
     expect(overlays.runs.features[0]?.geometry.type).toBe("LineString");
     expect(overlays.runs.features[0]?.properties?.difficulty).toBe(pack.runs[0]?.difficulty);
@@ -38,6 +58,7 @@ describe("buildResortOverlayData", () => {
   it("returns empty collections when pack is missing", () => {
     const overlays = buildResortOverlayData(null);
     expect(overlays.boundary.features).toHaveLength(0);
+    expect(overlays.areas.features).toHaveLength(0);
     expect(overlays.runs.features).toHaveLength(0);
     expect(overlays.lifts.features).toHaveLength(0);
     expect(overlays.liftTowers.features).toHaveLength(0);

@@ -3,6 +3,7 @@ import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { LocationTracker, type GeoPosition } from "../location/location-tracker";
 import type { ResortPack } from "../resort-pack/types";
+import { buildAreaLayers } from "./area-layers";
 import { buildResortOverlayData } from "./overlays";
 import { buildLiftLayers } from "./lift-layers";
 import { ensurePackPmtilesArchiveLoaded, ensurePmtilesProtocolRegistered } from "./pmtiles-protocol";
@@ -14,6 +15,7 @@ const LOCATION_SOURCE_ID = "current-location";
 const LOCATION_ACCURACY_LAYER = "current-location-accuracy";
 const LOCATION_DOT_LAYER = "current-location-dot";
 const RESORT_BOUNDARY_SOURCE_ID = "resort-boundary";
+const RESORT_AREAS_SOURCE_ID = "resort-areas";
 const RESORT_RUNS_SOURCE_ID = "resort-runs";
 const RESORT_LIFTS_SOURCE_ID = "resort-lifts";
 const RESORT_LIFT_TOWERS_SOURCE_ID = "resort-lift-towers";
@@ -294,6 +296,7 @@ export class MapView extends LitElement {
 
     const empty = buildResortOverlayData(null);
     this.map.addSource(RESORT_BOUNDARY_SOURCE_ID, { type: "geojson", data: empty.boundary });
+    this.map.addSource(RESORT_AREAS_SOURCE_ID, { type: "geojson", data: empty.areas });
     this.map.addSource(RESORT_RUNS_SOURCE_ID, { type: "geojson", data: empty.runs });
     this.map.addSource(RESORT_LIFTS_SOURCE_ID, { type: "geojson", data: empty.lifts });
     this.map.addSource(RESORT_LIFT_TOWERS_SOURCE_ID, { type: "geojson", data: empty.liftTowers });
@@ -319,6 +322,11 @@ export class MapView extends LitElement {
       }
     });
 
+    const areaLayers = buildAreaLayers(RESORT_AREAS_SOURCE_ID);
+    this.map.addLayer(areaLayers.fillLayer as never);
+    this.map.addLayer(areaLayers.lineLayer as never);
+    this.map.addLayer(areaLayers.labelLayer as never);
+
     const runLayers = buildRunLayers(RESORT_RUNS_SOURCE_ID);
     this.map.addLayer(runLayers.lineLayer as never);
     this.map.addLayer(runLayers.arrowLayer as never);
@@ -337,15 +345,17 @@ export class MapView extends LitElement {
     }
 
     const boundarySource = this.map.getSource(RESORT_BOUNDARY_SOURCE_ID) as GeoJSONSource | undefined;
+    const areasSource = this.map.getSource(RESORT_AREAS_SOURCE_ID) as GeoJSONSource | undefined;
     const runsSource = this.map.getSource(RESORT_RUNS_SOURCE_ID) as GeoJSONSource | undefined;
     const liftsSource = this.map.getSource(RESORT_LIFTS_SOURCE_ID) as GeoJSONSource | undefined;
     const towersSource = this.map.getSource(RESORT_LIFT_TOWERS_SOURCE_ID) as GeoJSONSource | undefined;
-    if (!boundarySource || !runsSource || !liftsSource || !towersSource) {
+    if (!boundarySource || !areasSource || !runsSource || !liftsSource || !towersSource) {
       return;
     }
 
     const overlays = buildResortOverlayData(this.pack);
     boundarySource.setData(overlays.boundary);
+    areasSource.setData(overlays.areas);
     runsSource.setData(overlays.runs);
     liftsSource.setData(overlays.lifts);
     towersSource.setData(overlays.liftTowers);

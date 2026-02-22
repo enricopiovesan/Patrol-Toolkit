@@ -150,6 +150,109 @@ describe("validateResortPack", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("accepts optional named area perimeters", () => {
+    const pack = clonePack();
+    pack.areas = [
+      {
+        id: "bowl-1",
+        name: "Terminator Bowl",
+        kind: "bowl",
+        perimeter: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [-106.952, 39.194],
+              [-106.948, 39.194],
+              [-106.948, 39.191],
+              [-106.952, 39.194]
+            ]
+          ]
+        }
+      }
+    ];
+
+    const result = validateResortPack(pack);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects duplicate area ids", () => {
+    const pack = clonePack();
+    pack.areas = [
+      {
+        id: "ridge-1",
+        name: "Redemption Ridge",
+        kind: "ridge",
+        perimeter: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [-106.952, 39.194],
+              [-106.948, 39.194],
+              [-106.948, 39.191],
+              [-106.952, 39.194]
+            ]
+          ]
+        }
+      },
+      {
+        id: "ridge-1",
+        name: "Other Ridge",
+        kind: "ridge",
+        perimeter: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [-106.952, 39.194],
+              [-106.948, 39.194],
+              [-106.948, 39.191],
+              [-106.952, 39.194]
+            ]
+          ]
+        }
+      }
+    ];
+
+    const result = validateResortPack(pack);
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("Expected semantic validation failure");
+    }
+    expect(result.errors.some((error) => error.code === "duplicate_id" && error.path === "#/areas/1/id")).toBe(true);
+  });
+
+  it("rejects unclosed area perimeter ring", () => {
+    const pack = clonePack();
+    pack.areas = [
+      {
+        id: "ridge-1",
+        name: "Redemption Ridge",
+        kind: "ridge",
+        perimeter: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [-106.952, 39.194],
+              [-106.948, 39.194],
+              [-106.948, 39.191],
+              [-106.952, 39.191]
+            ]
+          ]
+        }
+      }
+    ];
+
+    const result = validateResortPack(pack);
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("Expected semantic validation failure");
+    }
+    expect(
+      result.errors.some(
+        (error) => error.code === "invalid_geometry" && error.path === "#/areas/0/perimeter/coordinates/0"
+      )
+    ).toBe(true);
+  });
+
   it("rejects unclosed boundary polygon ring", () => {
     const pack = clonePack();
     pack.boundary = {
