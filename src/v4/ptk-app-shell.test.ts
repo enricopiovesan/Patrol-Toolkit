@@ -362,22 +362,27 @@ describe("ptk-app-shell", () => {
   });
 
   it("switches theme at runtime and persists selection", async () => {
+    repoState.activePackId = "CA_Fernie_Fernie";
+    repoState.installedPacks = [
+      {
+        id: "CA_Fernie_Fernie",
+        name: "Fernie",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v7"
+      }
+    ];
     await import("./ptk-app-shell");
     setWindowWidth(1024);
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
-    await waitFor(() => countResortCards(element) === 2);
+    await waitFor(() => readMeta(element).includes("page=resort"));
 
     const host = element.shadowRoot?.querySelector(".root");
     expect(host?.getAttribute("data-theme")).toBe("default");
 
-    const button = Array.from(element.shadowRoot?.querySelectorAll(".theme-segmented button") ?? []).find(
-      (node) => (node.textContent ?? "").includes("High contrast")
-    ) as HTMLButtonElement | undefined;
-    if (!button) {
-      throw new Error("High contrast theme button not found.");
-    }
-    button.click();
+    clickResortPageButtonByLabel(element, "Settings / Help");
+    await waitFor(() => Boolean(findSettingsPanel(element)));
+    clickSettingsPanelButtonByLabel(element, "High contrast");
     await (element as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete;
 
     expect(host?.getAttribute("data-theme")).toBe("high-contrast");
@@ -394,6 +399,26 @@ describe("ptk-app-shell", () => {
 
     const host = element.shadowRoot?.querySelector(".root");
     expect(host?.getAttribute("data-theme")).toBe("high-contrast");
+  });
+
+  it("opens settings panel from resort page", async () => {
+    repoState.activePackId = "CA_Fernie_Fernie";
+    repoState.installedPacks = [
+      {
+        id: "CA_Fernie_Fernie",
+        name: "Fernie",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v7"
+      }
+    ];
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+
+    await waitFor(() => readMeta(element).includes("page=resort"));
+    clickResortPageButtonByLabel(element, "Settings / Help");
+    await waitFor(() => Boolean(findSettingsPanel(element)));
+    expect(readSettingsPanelText(element)).toContain("Check for updates");
   });
 });
 
@@ -504,6 +529,26 @@ function clickResortPageButtonByLabel(element: HTMLElement, label: string): void
     throw new Error(`Resort page button not found: ${label}`);
   }
   button.click();
+}
+
+function findSettingsPanel(element: HTMLElement): HTMLElement | null {
+  return element.shadowRoot?.querySelector("ptk-settings-help-panel") as HTMLElement | null;
+}
+
+function clickSettingsPanelButtonByLabel(element: HTMLElement, label: string): void {
+  const panel = findSettingsPanel(element);
+  const button = Array.from(panel?.shadowRoot?.querySelectorAll("button") ?? []).find((node) =>
+    (node.textContent ?? "").includes(label)
+  ) as HTMLButtonElement | undefined;
+  if (!button) {
+    throw new Error(`Settings panel button not found: ${label}`);
+  }
+  button.click();
+}
+
+function readSettingsPanelText(element: HTMLElement): string {
+  const panel = findSettingsPanel(element);
+  return (panel?.shadowRoot?.textContent ?? "").replace(/\s+/gu, " ").trim();
 }
 
 async function waitFor(assertion: () => boolean, timeoutMs = 2000): Promise<void> {
