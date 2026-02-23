@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing } from "lit";
+import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { v4DesignTokens } from "./design-tokens";
 import type { ViewportMode } from "./viewport";
@@ -59,13 +59,6 @@ export class PtkToolPanel extends LitElement {
       color: var(--ptk-text-secondary);
     }
 
-    .hint {
-      margin-top: var(--ptk-space-3);
-      padding-top: var(--ptk-space-3);
-      border-top: 1px solid var(--ptk-border-muted);
-      font-size: var(--ptk-font-body-s-size);
-      color: var(--ptk-text-muted);
-    }
   `;
 
   @property({ type: String })
@@ -92,9 +85,6 @@ export class PtkToolPanel extends LitElement {
         <div class="body">
           <slot></slot>
         </div>
-        ${hidden
-          ? nothing
-          : html`<div class="hint">Responsive primitive for /new UI path (Slice 2 foundation).</div>`}
       </section>
     `;
   }
