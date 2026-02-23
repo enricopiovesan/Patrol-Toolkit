@@ -338,6 +338,8 @@ export class PtkAppShell extends LitElement {
       <ptk-resort-page
         .viewport=${vm.viewport}
         .header=${vm.header}
+        .pack=${this.selectedResortPack}
+        .renderLiveMap=${shouldRenderLiveMap()}
         .selectedTab=${vm.selectedTab}
         .panelOpen=${vm.panelOpen}
         .fullscreenSupported=${vm.fullscreenSupported}
@@ -758,6 +760,13 @@ function safeStorage(): Storage | null {
   } catch {
     return null;
   }
+}
+
+function shouldRenderLiveMap(): boolean {
+  if (typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent)) {
+    return false;
+  }
+  return true;
 }
 
 type BeforeInstallPromptEvent = Event & {

@@ -1,8 +1,12 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import "./ptk-resort-page";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PtkResortPage } from "./ptk-resort-page";
 
 describe("ptk-resort-page", () => {
+  beforeEach(async () => {
+    ensureCreateObjectUrlPolyfill();
+    await import("./ptk-resort-page");
+  });
+
   afterEach(() => {
     document.body.innerHTML = "";
   });
@@ -28,6 +32,7 @@ describe("ptk-resort-page", () => {
     expect(text).toContain("My location");
     expect(text).toContain("Runs Check");
     expect(text).toContain("Sweeps");
+    expect(element.shadowRoot?.querySelector(".map-test-surface")).toBeTruthy();
   });
 
   it("hides fullscreen control on large when unsupported", async () => {
@@ -76,6 +81,7 @@ function createElement(): PtkResortPage {
   element.panelOpen = true;
   element.fullscreenSupported = true;
   element.fullscreenActive = false;
+  element.renderLiveMap = false;
   return element;
 }
 
@@ -90,6 +96,13 @@ function readText(element: PtkResortPage): string {
   const text = (root.textContent ?? "").replace(/\s+/gu, " ").trim();
   styleNodes.forEach((node, index) => (node.textContent = previous[index] ?? ""));
   return text;
+}
+
+function ensureCreateObjectUrlPolyfill(): void {
+  const urlObject = window.URL as typeof window.URL & { createObjectURL?: (value: Blob) => string };
+  if (typeof urlObject.createObjectURL !== "function") {
+    urlObject.createObjectURL = () => "blob:mock";
+  }
 }
 
 function readButtons(element: PtkResortPage): string[] {

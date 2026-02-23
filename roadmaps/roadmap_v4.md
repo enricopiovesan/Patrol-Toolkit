@@ -194,7 +194,7 @@
 - PR outcome: Settings/Help panel is production-ready on `/new`.
 
 ## Slice 7: Resort Page (`/new`) - Map Controls Redesign + Integration
-- Status: planned
+- Status: completed
 - Goal: align map controls to v4 UI spec and simplify control surface.
 - Deliverables:
   - implement v4 map controls:

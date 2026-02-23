@@ -111,6 +111,7 @@ vi.mock("../resort-pack/repository", () => ({
 
 describe("ptk-app-shell", () => {
   beforeEach(() => {
+    ensureCreateObjectUrlPolyfill();
     repoState.installedPacks = [];
     repoState.activePackId = null;
     repoState.packsById = {
@@ -428,6 +429,13 @@ function setWindowWidth(width: number): void {
     writable: true,
     value: width
   });
+}
+
+function ensureCreateObjectUrlPolyfill(): void {
+  const urlObject = window.URL as typeof window.URL & { createObjectURL?: (value: Blob) => string };
+  if (typeof urlObject.createObjectURL !== "function") {
+    urlObject.createObjectURL = () => "blob:mock";
+  }
 }
 
 function readMeta(element: HTMLElement): string {

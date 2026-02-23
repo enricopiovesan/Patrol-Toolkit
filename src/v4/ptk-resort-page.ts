@@ -4,8 +4,11 @@ import { v4DesignTokens } from "./design-tokens";
 import type { ResortPageHeaderViewModel } from "./resort-page-model";
 import type { ResortPageTabId } from "./resort-page-state";
 import type { ViewportMode } from "./viewport";
+import type { ResortPack } from "../resort-pack/types";
 import "./ptk-page-header";
 import "./ptk-tool-panel";
+import "../map/map-view";
+import type { MapView } from "../map/map-view";
 
 @customElement("ptk-resort-page")
 export class PtkResortPage extends LitElement {
@@ -22,6 +25,20 @@ export class PtkResortPage extends LitElement {
       min-height: 0;
       display: grid;
       gap: var(--ptk-space-3);
+    }
+
+    .workspace.fullscreen {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      padding: var(--ptk-space-3);
+      background: var(--ptk-surface-app);
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .workspace.fullscreen .panel-shell {
+      display: none;
     }
 
     .workspace.small {
@@ -162,6 +179,16 @@ export class PtkResortPage extends LitElement {
       box-shadow: var(--ptk-shadow-sm);
     }
 
+    .map-frame.fullscreen {
+      min-height: 0;
+      height: 100%;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .workspace.fullscreen .map-frame {
+      height: 100%;
+    }
+
     .map-header {
       display: grid;
       gap: var(--ptk-space-2);
@@ -185,42 +212,31 @@ export class PtkResortPage extends LitElement {
     .map-canvas {
       border-radius: var(--ptk-radius-md);
       border: 1px solid var(--ptk-border-muted);
-      background:
-        radial-gradient(circle at 20% 20%, rgb(255 255 255 / 0.18), transparent 42%),
-        radial-gradient(circle at 80% 18%, rgb(255 255 255 / 0.12), transparent 38%),
-        linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.02)),
-        var(--ptk-surface-map);
       min-height: 260px;
       position: relative;
       overflow: hidden;
+      background: var(--ptk-surface-map);
     }
 
-    .map-grid {
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px);
-      background-size: 32px 32px;
-      opacity: 0.5;
+    .workspace.fullscreen .map-canvas {
+      min-height: 0;
+      height: 100%;
     }
 
-    .map-overlay-label {
-      position: absolute;
-      left: var(--ptk-space-3);
-      bottom: var(--ptk-space-3);
-      border-radius: var(--ptk-radius-pill);
-      border: 1px solid var(--ptk-border-default);
-      background: rgb(255 255 255 / 0.85);
-      color: var(--ptk-text-primary);
-      padding: 4px 10px;
-      font-size: var(--ptk-font-body-s-size);
-      font-weight: var(--ptk-font-weight-semibold);
+    .map-test-surface {
+      width: 100%;
+      height: 100%;
+      min-height: inherit;
+      background: transparent;
     }
 
     .back-row {
       display: flex;
       justify-content: flex-start;
+    }
+
+    .workspace.fullscreen .back-row {
+      display: none;
     }
 
     .hidden-panel-tools {
@@ -255,15 +271,26 @@ export class PtkResortPage extends LitElement {
   @property({ type: String })
   accessor shellTheme: "default" | "high-contrast" = "default";
 
+  @property({ attribute: false })
+  accessor pack: ResortPack | null = null;
+
+  @property({ type: Boolean })
+  accessor renderLiveMap = true;
+
   protected render() {
+    const workspaceClasses = {
+      workspace: true,
+      [this.viewport]: true,
+      fullscreen: this.fullscreenActive
+    };
     return html`
-      <section class=${`workspace ${this.viewport}`} aria-label="Resort Page">
+      <section class=${classMap(workspaceClasses)} aria-label="Resort Page">
         <div class=${`panel-shell ${this.viewport}`}>
           <ptk-tool-panel .viewport=${this.viewport} .open=${this.panelOpen} title="Resort tools">
             ${this.renderPanelContent()}
           </ptk-tool-panel>
         </div>
-        <section class="map-frame" aria-label="Resort map surface">
+        <section class=${`map-frame ${this.fullscreenActive ? "fullscreen" : ""}`} aria-label="Resort map surface">
           <div class="map-header">
             <div class="map-header-row">
               <ptk-page-header
@@ -290,9 +317,10 @@ export class PtkResortPage extends LitElement {
                 : nothing}
             </div>
           </div>
-          <div class="map-canvas" aria-label="Map canvas placeholder">
-            <div class="map-grid"></div>
-            <div class="map-overlay-label">Map-first layout surface</div>
+          <div class="map-canvas" aria-label="Resort map canvas">
+            ${this.renderLiveMap
+              ? html`<map-view .pack=${this.pack} .showStatusBar=${false} .showBuiltInControls=${false}></map-view>`
+              : html`<div class="map-test-surface" aria-hidden="true"></div>`}
           </div>
           <div class="back-row">
             <button class="ghost-button" type="button" @click=${this.handleBack}>
@@ -399,6 +427,8 @@ export class PtkResortPage extends LitElement {
   };
 
   private readonly handleCenterToUser = (): void => {
+    const mapView = this.shadowRoot?.querySelector("map-view") as MapView | null;
+    mapView?.recenterToUserPosition();
     this.dispatchEvent(new CustomEvent("ptk-resort-center-user", { bubbles: true, composed: true }));
   };
 
@@ -409,4 +439,11 @@ export class PtkResortPage extends LitElement {
   private readonly handleBack = (): void => {
     this.dispatchEvent(new CustomEvent("ptk-resort-back", { bubbles: true, composed: true }));
   };
+}
+
+function classMap(classes: Record<string, boolean>): string {
+  return Object.entries(classes)
+    .filter(([, enabled]) => enabled)
+    .map(([name]) => name)
+    .join(" ");
 }
