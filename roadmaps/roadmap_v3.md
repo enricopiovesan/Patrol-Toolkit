@@ -178,23 +178,22 @@
 - Goal: represent named mountain areas (ridges, bowls, etc.) as perimeter overlays similar to boundaries.
 - Changes:
   - define schema additions for named area perimeters in resort packs.
-  - add CLI support to auto-fetch/store/validate area perimeter geometries from OSM tags when available.
-  - treat OSM `piste` polygons/multipolygons as area candidates (ridges/bowls/sections), not directional runs.
+  - support optional named area perimeters in published resort bundles (no new v3 CLI ingestion flow).
+  - treat `piste` polygons/multipolygons as area overlays when present in bundle data, not directional runs.
   - keep directional run rendering limited to run centerline line geometries only.
-  - define "good geometry" acceptance rules for area import:
-    - valid polygon/multipolygon geometry
-    - non-self-intersecting rings
-    - minimum/maximum area sanity bounds
-    - intersects or is near resort boundary envelope
-    - has usable name tag
   - keep OSM as source of truth (no local manual override dataset).
   - render perimeter overlays with distinct style from resort boundary.
   - add labels and optional visibility thresholds by zoom.
+- Progress so far:
+  - [x] app-side area overlay rendering (fill + dashed perimeter + labels)
+  - [x] resort pack schema/types/validator support for optional `areas`
+  - [x] export/import bundle plumbing for `layers.areas` -> app `pack.areas`
+  - [ ] publish and visual signoff with real resort area data (when area data is included in bundle)
 - Test:
   - schema + validator tests for area geometries and names.
-  - CLI integration tests for ingest/update/publish.
+  - bundle export/import tests for optional `areas` data.
   - app visual checks for readability online/offline.
-  - when no good OSM area data exists, UI remains silent and shows no area overlay.
+  - when no area data exists in the bundle, UI remains silent and shows no area overlay.
 - PR outcome: operational mountain sub-areas are mapped and usable.
 
 ## Slice 7: v3 Exit Signoff
