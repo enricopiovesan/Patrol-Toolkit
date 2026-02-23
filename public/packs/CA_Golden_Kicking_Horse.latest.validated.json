@@ -2,14 +2,14 @@
   "schemaVersion": "1.0.0",
   "export": {
     "resortKey": "CA_Golden_Kicking_Horse",
-    "version": "v1",
-    "exportedAt": "2026-02-21T05:06:47.247Z"
+    "version": "v4",
+    "exportedAt": "2026-02-23T01:36:42.561Z"
   },
   "status": {
     "schemaVersion": "1.0.0",
     "resortKey": "CA_golden_kicking_horse",
-    "version": "v1",
-    "createdAt": "2026-02-19T04:39:22.426Z",
+    "version": "v4",
+    "createdAt": "2026-02-23T01:34:43.439Z",
     "query": {
       "name": "kicking horse",
       "countryCode": "CA",
@@ -28,23 +28,23 @@
       "boundary": {
         "status": "complete",
         "featureCount": 1,
-        "artifactPath": "resorts/CA_golden_kicking_horse/v1/boundary.geojson",
-        "checksumSha256": "e2ce76c139456070f011158dfa1a98571d75e2595e8a8b430a76a0dacdd0d9e9",
-        "updatedAt": "2026-02-19T05:48:58.388Z"
+        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v2/boundary.geojson",
+        "checksumSha256": "95547065a0cb3a1d2b4358e5dbc1a2d67b73a5b57713ec48ee5b27a08f7807fc",
+        "updatedAt": "2026-02-23T01:34:30.283Z"
       },
       "runs": {
         "status": "complete",
-        "featureCount": 72,
-        "artifactPath": "resorts/CA_golden_kicking_horse/v1/runs.geojson",
-        "checksumSha256": "dcfd652aaa8ec865c4010ee8a12ef1441bf38dd23db33b28b58143d44602e4b7",
-        "updatedAt": "2026-02-19T05:49:16.730Z"
+        "featureCount": 70,
+        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v3/runs.geojson",
+        "checksumSha256": "f5843d475d2bf442b01781241e0408104d583a9bf45b037901c7a55cbc64322d",
+        "updatedAt": "2026-02-23T01:34:35.496Z"
       },
       "lifts": {
         "status": "complete",
         "featureCount": 7,
-        "artifactPath": "resorts/CA_golden_kicking_horse/v1/lifts.geojson",
+        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v4/lifts.geojson",
         "checksumSha256": "db46537371dcaa4172f9b20398564dccf51fc7eb0a31c3b837ef699038d86931",
-        "updatedAt": "2026-02-19T05:49:34.910Z"
+        "updatedAt": "2026-02-23T01:34:43.440Z"
       }
     },
     "readiness": {
@@ -53,25 +53,25 @@
     },
     "manualValidation": {
       "validated": true,
-      "validatedAt": "2026-02-19T21:39:02.202Z",
+      "validatedAt": "2026-02-23T01:35:07.052Z",
       "validatedBy": null,
       "notes": null,
       "layers": {
         "boundary": {
           "validated": true,
-          "validatedAt": "2026-02-19T21:38:50.972Z",
+          "validatedAt": "2026-02-23T01:34:55.940Z",
           "validatedBy": null,
           "notes": null
         },
         "runs": {
           "validated": true,
-          "validatedAt": "2026-02-19T21:38:55.004Z",
+          "validatedAt": "2026-02-23T01:35:00.308Z",
           "validatedBy": null,
           "notes": null
         },
         "lifts": {
           "validated": true,
-          "validatedAt": "2026-02-19T21:39:02.202Z",
+          "validatedAt": "2026-02-23T01:35:07.052Z",
           "validatedBy": null,
           "notes": null
         }
@@ -99,26 +99,26 @@
     "layers": {
       "boundary": {
         "status": "complete",
-        "artifactPath": "resorts/CA_golden_kicking_horse/v1/boundary.geojson",
-        "checksumSha256": "e2ce76c139456070f011158dfa1a98571d75e2595e8a8b430a76a0dacdd0d9e9",
+        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v2/boundary.geojson",
+        "checksumSha256": "95547065a0cb3a1d2b4358e5dbc1a2d67b73a5b57713ec48ee5b27a08f7807fc",
         "featureCount": 1,
-        "updatedAt": "2026-02-19T05:48:58.388Z"
+        "updatedAt": "2026-02-23T01:34:30.283Z"
       },
       "lifts": {
         "status": "complete",
-        "queryHash": "e4c2fcd7144be1ce7ee3b4e1d82df0081ee042364d9b2e628f42ad98173136de",
-        "updatedAt": "2026-02-19T05:49:34.910Z",
-        "artifactPath": "resorts/CA_golden_kicking_horse/v1/lifts.geojson",
+        "queryHash": "badf131debbe7ab0ef093a60088ca5a00a17607e2ee4bc3bff0b342485a5f4cd",
+        "updatedAt": "2026-02-23T01:34:43.440Z",
+        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v4/lifts.geojson",
         "featureCount": 7,
         "checksumSha256": "db46537371dcaa4172f9b20398564dccf51fc7eb0a31c3b837ef699038d86931"
       },
       "runs": {
         "status": "complete",
-        "queryHash": "3148c61427de2178f7c9f68aa29217be59772e232e36a7e1a295554a6af76d46",
-        "updatedAt": "2026-02-19T05:49:16.730Z",
-        "artifactPath": "resorts/CA_golden_kicking_horse/v1/runs.geojson",
-        "featureCount": 72,
-        "checksumSha256": "dcfd652aaa8ec865c4010ee8a12ef1441bf38dd23db33b28b58143d44602e4b7"
+        "queryHash": "cc4e80b6c2574994e0b0ad09c66e79e82b3eea357d9762a30172080bc09d9228",
+        "updatedAt": "2026-02-23T01:34:35.496Z",
+        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v3/runs.geojson",
+        "featureCount": 70,
+        "checksumSha256": "f5843d475d2bf442b01781241e0408104d583a9bf45b037901c7a55cbc64322d"
       }
     }
   },
@@ -129,6 +129,30 @@
         "type": "Polygon",
         "coordinates": [
           [
+            [
+              -117.1006468,
+              51.2839115
+            ],
+            [
+              -117.0994883,
+              51.2821817
+            ],
+            [
+              -117.0964977,
+              51.2797104
+            ],
+            [
+              -117.0939922,
+              51.2781538
+            ],
+            [
+              -117.0927346,
+              51.2777422
+            ],
+            [
+              -117.092194,
+              51.2775098
+            ],
             [
               -117.0922025,
               51.2772094
@@ -238,32 +262,52 @@
               51.2889131
             ],
             [
-              -117.0747261,
-              51.28886
+              -117.0764834,
+              51.2885655
             ],
             [
-              -117.0722096,
-              51.288557
+              -117.0779382,
+              51.2879114
             ],
             [
-              -117.0735224,
-              51.2861432
+              -117.079153,
+              51.2864504
             ],
             [
-              -117.0749543,
-              51.2854583
+              -117.0799204,
+              51.2854845
             ],
             [
-              -117.078114,
-              51.2839472
+              -117.0813827,
+              51.2847315
             ],
             [
-              -117.0914044,
-              51.2775909
+              -117.0835533,
+              51.2849388
             ],
             [
-              -117.0922025,
-              51.2772094
+              -117.0853007,
+              51.2856146
+            ],
+            [
+              -117.087407,
+              51.2865222
+            ],
+            [
+              -117.0926195,
+              51.2853416
+            ],
+            [
+              -117.0934777,
+              51.2842899
+            ],
+            [
+              -117.0971948,
+              51.2836249
+            ],
+            [
+              -117.1006468,
+              51.2839115
             ]
           ]
         ]
@@ -272,12 +316,21 @@
         "osmType": "way",
         "osmId": 476843455,
         "displayName": "Kicking Horse Resort, 1500, Kicking Horse Mountain Resort, Golden, Columbia-Shuswap Regional District, British Columbia, V0A 1H0, Canada",
-        "selectedAt": "2026-02-19T05:48:58.388Z",
-        "score": 90,
+        "selectedAt": "2026-02-23T01:34:30.283Z",
+        "score": 107,
         "source": "search",
-        "areaKm2": 5.195305295288563,
+        "areaKm2": 6.154257770627737,
+        "distanceToSelectionCenterKm": 7.170606733556726,
         "containsSelectionCenter": false,
         "ringClosed": true,
+        "signals": [
+          "has-polygon",
+          "ring-closed",
+          "area-in-range",
+          "name-matches-query",
+          "way-geometry",
+          "close-center"
+        ],
         "issues": [
           "Selection center is outside candidate boundary."
         ]
@@ -4240,179 +4293,6 @@
             "type": "LineString",
             "coordinates": [
               [
-                -117.0779897,
-                51.2753245
-              ],
-              [
-                -117.0773845,
-                51.2757179
-              ],
-              [
-                -117.0772856,
-                51.2757822
-              ],
-              [
-                -117.0765575,
-                51.2764008
-              ],
-              [
-                -117.076009,
-                51.2769331
-              ],
-              [
-                -117.0756151,
-                51.2773552
-              ],
-              [
-                -117.0755435,
-                51.2774319
-              ],
-              [
-                -117.0751387,
-                51.2779693
-              ],
-              [
-                -117.0750211,
-                51.2781254
-              ],
-              [
-                -117.0746506,
-                51.2784056
-              ],
-              [
-                -117.0742346,
-                51.2787876
-              ],
-              [
-                -117.0739342,
-                51.27915
-              ],
-              [
-                -117.0733548,
-                51.279593
-              ],
-              [
-                -117.0730759,
-                51.2798614
-              ],
-              [
-                -117.0730329,
-                51.2800896
-              ],
-              [
-                -117.0727969,
-                51.2802909
-              ],
-              [
-                -117.0727325,
-                51.2805862
-              ],
-              [
-                -117.0726155,
-                51.2810311
-              ],
-              [
-                -117.0720926,
-                51.2812107
-              ],
-              [
-                -117.0724452,
-                51.2815802
-              ],
-              [
-                -117.0727325,
-                51.2819552
-              ],
-              [
-                -117.0731877,
-                51.2822617
-              ],
-              [
-                -117.0741033,
-                51.2816472
-              ],
-              [
-                -117.0748998,
-                51.2809889
-              ],
-              [
-                -117.0759512,
-                51.2800896
-              ],
-              [
-                -117.0767237,
-                51.2797809
-              ],
-              [
-                -117.0774587,
-                51.2795927
-              ],
-              [
-                -117.078333,
-                51.2789621
-              ],
-              [
-                -117.07932,
-                51.2781568
-              ],
-              [
-                -117.0797277,
-                51.2778615
-              ],
-              [
-                -117.0797492,
-                51.2772172
-              ],
-              [
-                -117.0798565,
-                51.2765058
-              ],
-              [
-                -117.0801998,
-                51.2760091
-              ],
-              [
-                -117.0806719,
-                51.2757272
-              ],
-              [
-                -117.0815516,
-                51.2753648
-              ],
-              [
-                -117.0818091,
-                51.2749889
-              ],
-              [
-                -117.0810581,
-                51.2748815
-              ],
-              [
-                -117.0800496,
-                51.2750963
-              ],
-              [
-                -117.07932,
-                51.2750426
-              ],
-              [
-                -117.0779897,
-                51.2753245
-              ]
-            ]
-          },
-          "properties": {
-            "id": "way/870955520",
-            "name": "CPR Ridge",
-            "difficulty": "expert"
-          }
-        },
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "LineString",
-            "coordinates": [
-              [
                 -117.0911218,
                 51.2771366
               ],
@@ -4445,151 +4325,6 @@
           "properties": {
             "id": "way/870955521",
             "name": "My Blue Heaven",
-            "difficulty": "advanced"
-          }
-        },
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "LineString",
-            "coordinates": [
-              [
-                -117.0901052,
-                51.2774576
-              ],
-              [
-                -117.0868418,
-                51.2785305
-              ],
-              [
-                -117.083676,
-                51.2800762
-              ],
-              [
-                -117.0835893,
-                51.2801298
-              ],
-              [
-                -117.0823662,
-                51.2808869
-              ],
-              [
-                -117.0813304,
-                51.2812586
-              ],
-              [
-                -117.0806575,
-                51.2818372
-              ],
-              [
-                -117.0798994,
-                51.2823713
-              ],
-              [
-                -117.0787621,
-                51.2833242
-              ],
-              [
-                -117.0781646,
-                51.2839393
-              ],
-              [
-                -117.0777322,
-                51.2843844
-              ],
-              [
-                -117.0770884,
-                51.2846529
-              ],
-              [
-                -117.0766449,
-                51.2848553
-              ],
-              [
-                -117.0762945,
-                51.2850152
-              ],
-              [
-                -117.0759726,
-                51.2853507
-              ],
-              [
-                -117.0753699,
-                51.2854812
-              ],
-              [
-                -117.0742879,
-                51.2853439
-              ],
-              [
-                -117.0751143,
-                51.2840623
-              ],
-              [
-                -117.0760799,
-                51.2832839
-              ],
-              [
-                -117.0770592,
-                51.282543
-              ],
-              [
-                -117.0774822,
-                51.2817057
-              ],
-              [
-                -117.0780754,
-                51.2811716
-              ],
-              [
-                -117.0784541,
-                51.28024
-              ],
-              [
-                -117.0793415,
-                51.2797675
-              ],
-              [
-                -117.0803286,
-                51.2793514
-              ],
-              [
-                -117.0810323,
-                51.279107
-              ],
-              [
-                -117.0817768,
-                51.2792216
-              ],
-              [
-                -117.0825569,
-                51.2791119
-              ],
-              [
-                -117.0836371,
-                51.2787745
-              ],
-              [
-                -117.084899,
-                51.2781031
-              ],
-              [
-                -117.0860578,
-                51.2781299
-              ],
-              [
-                -117.087963,
-                51.2777504
-              ],
-              [
-                -117.0901052,
-                51.2774576
-              ]
-            ]
-          },
-          "properties": {
-            "id": "way/870955522",
-            "name": "Redemption Ridge",
             "difficulty": "advanced"
           }
         },
