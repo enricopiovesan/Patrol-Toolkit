@@ -1,7 +1,11 @@
 import maplibregl, { type GeoJSONSource } from "maplibre-gl";
 import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { LocationTracker, type GeoPosition } from "../location/location-tracker";
+import {
+  LocationTracker,
+  type GeoPosition,
+  type LocationTrackerErrorKind
+} from "../location/location-tracker";
 import type { ResortPack } from "../resort-pack/types";
 import { buildAreaLayers } from "./area-layers";
 import { buildResortOverlayData } from "./overlays";
@@ -26,6 +30,15 @@ const DEFAULT_CENTER: [number, number] = [7.2, 45.1];
 export type PositionUpdateDetail = {
   coordinates: [number, number];
   accuracy: number;
+};
+
+export type GpsErrorDetail = {
+  kind: LocationTrackerErrorKind;
+  message: string;
+};
+
+export type MapRenderErrorDetail = {
+  message: string;
 };
 
 @customElement("map-view")
@@ -140,6 +153,7 @@ export class MapView extends LitElement {
     this.map.addControl(new maplibregl.NavigationControl(), "bottom-right");
 
     this.map.on("load", () => {
+      this.dispatchMapReady();
       this.initializeLocationLayers();
       this.initializeResortLayers();
       this.syncResortLayers();
@@ -155,6 +169,7 @@ export class MapView extends LitElement {
       }
 
       this.status = "Map rendering error.";
+      this.dispatchMapRenderError({ message });
     });
 
     this.map.on("dragstart", () => {
@@ -176,7 +191,8 @@ export class MapView extends LitElement {
           });
         }
       },
-      onError: (message) => {
+      onError: (message, kind) => {
+        this.dispatchGpsError({ kind, message });
         this.status = message;
       }
     });
@@ -236,6 +252,13 @@ export class MapView extends LitElement {
 
   public recenterToUserPosition(): void {
     this.recenterOnLocation();
+  }
+
+  public restartGpsTracking(): void {
+    this.followGps = true;
+    this.locationTracker?.stop();
+    this.isTracking = false;
+    this.startTracking();
   }
 
   private initializeLocationLayers(): void {
@@ -478,6 +501,30 @@ export class MapView extends LitElement {
           coordinates: [position.longitude, position.latitude],
           accuracy: position.accuracy
         },
+        bubbles: true,
+        composed: true
+      })
+    );
+  }
+
+  private dispatchGpsError(detail: GpsErrorDetail): void {
+    this.dispatchEvent(
+      new CustomEvent<GpsErrorDetail>("gps-error", {
+        detail,
+        bubbles: true,
+        composed: true
+      })
+    );
+  }
+
+  private dispatchMapReady(): void {
+    this.dispatchEvent(new CustomEvent("map-ready", { bubbles: true, composed: true }));
+  }
+
+  private dispatchMapRenderError(detail: MapRenderErrorDetail): void {
+    this.dispatchEvent(
+      new CustomEvent<MapRenderErrorDetail>("map-render-error", {
+        detail,
         bubbles: true,
         composed: true
       })

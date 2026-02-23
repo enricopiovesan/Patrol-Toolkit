@@ -66,6 +66,29 @@ describe("ptk-resort-page", () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler.mock.calls[0]?.[0].detail.tabId).toBe("runs-check");
   });
+
+  it("renders gps guidance modal and emits retry/dismiss events", async () => {
+    const element = createElement();
+    element.gpsDisabled = true;
+    element.gpsStatusText = "Location permission denied.";
+    element.gpsGuidanceModalOpen = true;
+    element.gpsGuidanceBody = "Re-enable location access in browser settings.";
+    const retryHandler = vi.fn();
+    const dismissHandler = vi.fn();
+    element.addEventListener("ptk-resort-gps-retry", retryHandler);
+    element.addEventListener("ptk-resort-gps-guidance-dismiss", dismissHandler);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(readText(element)).toContain("Turn On Location");
+    expect(readText(element)).toContain("Re-enable location access");
+
+    clickButton(element, "Turn On Location");
+    expect(retryHandler).toHaveBeenCalledTimes(1);
+
+    clickButton(element, "Close");
+    expect(dismissHandler).toHaveBeenCalledTimes(1);
+  });
 });
 
 function createElement(): PtkResortPage {
