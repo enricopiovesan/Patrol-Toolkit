@@ -136,7 +136,7 @@
 - PR outcome: `/new` UI styling is design-system driven.
 
 ## Slice 4: Select Resort Page (`/new`) - Full UI Implementation
-- Status: planned
+- Status: completed
 - Goal: implement the new Select Resort page UX across all viewports.
 - Deliverables:
   - search UI per spec
