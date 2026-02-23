@@ -1,0 +1,38 @@
+import { describe, expect, it } from "vitest";
+import { computeViewportMetaContent, syncViewportMeta } from "./viewport-meta";
+
+describe("computeViewportMetaContent", () => {
+  it("uses default viewport meta on legacy route", () => {
+    expect(computeViewportMetaContent("/", "/", 390)).toBe("width=device-width, initial-scale=1.0");
+  });
+
+  it("locks zoom on /new for small and medium", () => {
+    expect(computeViewportMetaContent("/new", "/", 390)).toContain("user-scalable=no");
+    expect(computeViewportMetaContent("/new", "/", 900)).toContain("user-scalable=no");
+  });
+
+  it("does not lock zoom on /new for large", () => {
+    expect(computeViewportMetaContent("/new", "/", 1200)).toBe("width=device-width, initial-scale=1.0");
+  });
+
+  it("supports project pages subpath routing", () => {
+    expect(computeViewportMetaContent("/Patrol-Toolkit/new", "/Patrol-Toolkit/", 500)).toContain(
+      "user-scalable=no"
+    );
+  });
+});
+
+describe("syncViewportMeta", () => {
+  it("updates existing viewport meta element", () => {
+    const doc = document.implementation.createHTMLDocument("test");
+    const meta = doc.createElement("meta");
+    meta.setAttribute("name", "viewport");
+    meta.setAttribute("content", "width=device-width, initial-scale=1.0");
+    doc.head.appendChild(meta);
+
+    const result = syncViewportMeta(doc, "/new", "/", 430);
+    expect(result).toContain("user-scalable=no");
+    expect(meta.getAttribute("content")).toBe(result);
+  });
+});
+
