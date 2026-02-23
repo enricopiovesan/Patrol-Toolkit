@@ -159,7 +159,7 @@
 - PR outcome: Select Resort page is production-ready on `/new`.
 
 ## Slice 5: Resort Page (`/new`) - Skeleton + Core Layout
-- Status: in_progress
+- Status: completed
 - Goal: implement the new Resort Page structure and information hierarchy without changing phrase output model.
 - Deliverables:
   - full Resort Page IA implementation per spec
