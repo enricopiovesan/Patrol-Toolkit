@@ -122,7 +122,7 @@
 - PR outcome: stable v4 UI foundation route exists.
 
 ## Slice 3: Design System Runtime Implementation (Themes + Tokens)
-- Status: planned
+- Status: completed
 - Goal: implement the design system in code so UI components are token-driven.
 - Deliverables:
   - token infrastructure for colors/fonts/spacing/sizing/radius/shadow/motion

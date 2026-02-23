@@ -1,19 +1,23 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { v4DesignTokens } from "./design-tokens";
 import type { ViewportMode } from "./viewport";
 
 @customElement("ptk-tool-panel")
 export class PtkToolPanel extends LitElement {
   static styles = css`
+    ${v4DesignTokens}
+
     :host {
       display: block;
+      font-family: var(--ptk-font-family-base);
     }
 
     .panel {
-      border: 1px solid #d4d6dd;
-      background: #ffffff;
-      color: #1f2024;
-      box-shadow: 0 8px 20px rgba(31, 32, 36, 0.08);
+      border: 1px solid var(--ptk-border-default);
+      background: var(--ptk-surface-card);
+      color: var(--ptk-text-primary);
+      box-shadow: var(--ptk-shadow-md);
     }
 
     .panel.hidden {
@@ -21,45 +25,46 @@ export class PtkToolPanel extends LitElement {
     }
 
     .panel.small {
-      border-radius: 16px 16px 0 0;
+      border-radius: var(--ptk-radius-lg) var(--ptk-radius-lg) 0 0;
       min-height: 220px;
-      padding: 12px;
+      padding: var(--ptk-space-3);
     }
 
     .panel.medium,
     .panel.large {
-      border-radius: 12px;
+      border-radius: var(--ptk-radius-md);
       min-height: 320px;
-      padding: 12px;
+      padding: var(--ptk-space-3);
       height: 100%;
     }
 
     .caption {
-      margin: 0 0 0.5rem;
-      font-size: 0.75rem;
-      color: #71727a;
+      margin: 0 0 var(--ptk-space-2);
+      font-size: var(--ptk-font-body-s-size);
+      color: var(--ptk-text-muted);
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
 
     .title {
       margin: 0;
-      font-size: 1rem;
-      font-weight: 700;
+      font-size: var(--ptk-font-heading-h3-size);
+      font-weight: var(--ptk-font-weight-bold);
+      font-family: var(--ptk-font-family-heading);
     }
 
     .body {
-      margin-top: 0.75rem;
-      font-size: 0.9rem;
-      color: #494a50;
+      margin-top: var(--ptk-space-3);
+      font-size: var(--ptk-font-body-m-size);
+      color: var(--ptk-text-secondary);
     }
 
     .hint {
-      margin-top: 0.75rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid #e8e9f1;
-      font-size: 0.8rem;
-      color: #71727a;
+      margin-top: var(--ptk-space-3);
+      padding-top: var(--ptk-space-3);
+      border-top: 1px solid var(--ptk-border-muted);
+      font-size: var(--ptk-font-body-s-size);
+      color: var(--ptk-text-muted);
     }
   `;
 
