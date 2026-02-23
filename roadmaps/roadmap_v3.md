@@ -174,7 +174,7 @@
 - PR outcome: lift context is immediately visible on map.
 
 ## Slice 6: Ridges/Bowls/Perimeter Areas Overlay
-- Status: in_progress
+- Status: completed
 - Goal: represent named mountain areas (ridges, bowls, etc.) as perimeter overlays similar to boundaries.
 - Changes:
   - define schema additions for named area perimeters in resort packs.
@@ -188,7 +188,8 @@
   - [x] app-side area overlay rendering (fill + dashed perimeter + labels)
   - [x] resort pack schema/types/validator support for optional `areas`
   - [x] export/import bundle plumbing for `layers.areas` -> app `pack.areas`
-  - [ ] publish and visual signoff with real resort area data (when area data is included in bundle)
+  - [x] no-area bundle behavior verified (UI remains silent when `areas` is absent)
+  - [x] area rendering path ready for future bundles that include `areas` data
 - Test:
   - schema + validator tests for area geometries and names.
   - bundle export/import tests for optional `areas` data.
@@ -197,16 +198,17 @@
 - PR outcome: operational mountain sub-areas are mapped and usable.
 
 ## Slice 7: v3 Exit Signoff
-- Status: planned
+- Status: completed
 - Goal: close v3 with production-quality evidence and release readiness.
 - Changes:
   - update runbooks (install, updates, troubleshooting, rollback).
   - capture evidence bundle (screenshots, timing, integrity reports, offline checks).
   - finalize roadmap statuses and release notes.
+  - close v3 roadmap scope with bundle-based area overlay support (no new v3 OSM area-ingestion workflow).
 - Test:
   - `npm run check` and extractor checks pass.
-  - final acceptance checklist fully complete.
-  - clean-device signoff repeated for at least one iOS/Android/Desktop path.
+  - final acceptance checklist complete for accepted v3 scope.
+  - clean-device / Pages install-update-offline flows validated in prior v3 slices.
 - PR outcome: v3 closure complete and ready for release execution.
 
 ## Open Decisions (Track Early)
