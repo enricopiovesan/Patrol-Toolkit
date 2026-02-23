@@ -1,70 +1,125 @@
 import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import "./ptk-tool-panel";
+import { v4DesignTokens } from "./design-tokens";
 import { createInitialToolPanelState } from "./tool-panel-state";
 import { DEFAULT_V4_THEME } from "./theme";
+import { readStoredV4Theme, writeStoredV4Theme } from "./theme-preferences";
 import { classifyViewportWidth, type ViewportMode } from "./viewport";
 
 @customElement("ptk-app-shell")
 export class PtkAppShell extends LitElement {
   static styles = css`
+    ${v4DesignTokens}
+
     :host {
       display: block;
       min-height: 100vh;
-      background: var(--ptk-surface-app, #f8f9fe);
-      color: var(--ptk-text-primary, #1f2024);
+      background: var(--ptk-surface-app);
+      color: var(--ptk-text-primary);
+      font-family: var(--ptk-font-family-base);
     }
 
     .root {
       min-height: 100vh;
       display: grid;
       grid-template-rows: auto 1fr;
-      gap: 12px;
-      padding: 12px;
+      gap: var(--ptk-space-3);
+      padding: var(--ptk-space-3);
+      width: min(100%, var(--ptk-size-shell-max-width));
+      margin: 0 auto;
     }
 
     .header {
-      border: 1px solid #d4d6dd;
-      border-radius: 12px;
-      background: #fff;
-      padding: 12px;
+      border: 1px solid var(--ptk-border-default);
+      border-radius: var(--ptk-radius-md);
+      background: var(--ptk-surface-card);
+      padding: var(--ptk-space-3);
       display: grid;
-      gap: 6px;
+      gap: var(--ptk-space-2);
+      box-shadow: var(--ptk-shadow-sm);
     }
 
     .title {
       margin: 0;
-      font-size: 1.1rem;
-      font-weight: 800;
+      font-size: var(--ptk-font-heading-h3-size);
+      font-weight: var(--ptk-font-weight-extrabold);
+      font-family: var(--ptk-font-family-heading);
     }
 
     .subtitle {
       margin: 0;
-      color: #494a50;
-      font-size: 0.9rem;
+      color: var(--ptk-text-secondary);
+      font-size: var(--ptk-font-body-m-size);
     }
 
     .meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 4px;
-      font-size: 0.78rem;
-      color: #71727a;
+      gap: var(--ptk-space-2);
+      margin-top: var(--ptk-space-1);
+      font-size: var(--ptk-font-body-s-size);
+      color: var(--ptk-text-muted);
     }
 
     .chip {
-      border-radius: 999px;
-      border: 1px solid #d4d6dd;
-      background: #f8f9fe;
-      padding: 2px 8px;
+      border-radius: var(--ptk-radius-pill);
+      border: 1px solid var(--ptk-border-default);
+      background: var(--ptk-surface-subtle);
+      padding: 2px var(--ptk-space-2);
       line-height: 1.3;
+    }
+
+    .theme-row {
+      display: flex;
+      align-items: center;
+      gap: var(--ptk-space-2);
+      flex-wrap: wrap;
+    }
+
+    .theme-label {
+      margin: 0;
+      color: var(--ptk-text-secondary);
+      font-size: var(--ptk-font-body-s-size);
+      font-weight: var(--ptk-font-weight-semibold);
+    }
+
+    .theme-segmented {
+      display: inline-flex;
+      gap: var(--ptk-space-1);
+      padding: var(--ptk-space-1);
+      border-radius: var(--ptk-radius-pill);
+      border: 1px solid var(--ptk-border-default);
+      background: var(--ptk-surface-subtle);
+    }
+
+    .theme-segmented button {
+      min-height: var(--ptk-size-control-sm);
+      border-radius: var(--ptk-radius-pill);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--ptk-control-fg);
+      font: inherit;
+      font-size: var(--ptk-font-action-m-size);
+      font-weight: var(--ptk-font-weight-semibold);
+      padding: 0 10px;
+      cursor: pointer;
+      transition:
+        background-color var(--ptk-motion-duration-fast) var(--ptk-motion-ease-standard),
+        color var(--ptk-motion-duration-fast) var(--ptk-motion-ease-standard),
+        border-color var(--ptk-motion-duration-fast) var(--ptk-motion-ease-standard);
+    }
+
+    .theme-segmented button[selected] {
+      background: var(--ptk-control-selected-bg);
+      color: var(--ptk-control-selected-fg);
+      border-color: var(--ptk-control-selected-border);
     }
 
     .workspace {
       min-height: 0;
       display: grid;
-      gap: 12px;
+      gap: var(--ptk-space-3);
     }
 
     .workspace.small {
@@ -82,45 +137,49 @@ export class PtkAppShell extends LitElement {
     }
 
     .map-frame {
-      border: 1px solid #d4d6dd;
-      border-radius: 12px;
-      background: linear-gradient(180deg, #f8f9fe 0%, #eaf2ff 100%);
+      border: 1px solid var(--ptk-border-default);
+      border-radius: var(--ptk-radius-md);
+      background: var(--ptk-surface-map);
       min-height: 320px;
-      padding: 12px;
+      padding: var(--ptk-space-3);
       display: grid;
       align-content: start;
-      gap: 8px;
+      gap: var(--ptk-space-2);
       position: relative;
+      box-shadow: var(--ptk-shadow-sm);
     }
 
     .map-title {
       margin: 0;
-      font-size: 0.95rem;
-      font-weight: 700;
+      font-size: var(--ptk-font-heading-h4-size);
+      font-weight: var(--ptk-font-weight-bold);
+      font-family: var(--ptk-font-family-heading);
     }
 
     .map-note {
       margin: 0;
-      font-size: 0.85rem;
-      color: #494a50;
+      font-size: var(--ptk-font-body-m-size);
+      color: var(--ptk-text-secondary);
     }
 
     .map-controls {
       position: absolute;
-      top: 12px;
-      right: 12px;
+      top: var(--ptk-space-3);
+      right: var(--ptk-space-3);
       display: grid;
-      gap: 6px;
+      gap: var(--ptk-space-2);
       justify-items: end;
     }
 
     .map-controls button {
-      min-height: 34px;
-      border-radius: 999px;
-      border: 1px solid #d4d6dd;
-      background: #ffffff;
-      color: #1f2024;
+      min-height: var(--ptk-size-control-sm);
+      border-radius: var(--ptk-radius-pill);
+      border: 1px solid var(--ptk-control-border);
+      background: var(--ptk-control-bg);
+      color: var(--ptk-control-fg);
       font: inherit;
+      font-size: var(--ptk-font-action-m-size);
+      font-weight: var(--ptk-font-weight-semibold);
       padding: 0 10px;
       cursor: default;
     }
@@ -137,6 +196,7 @@ export class PtkAppShell extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    this.theme = readStoredV4Theme(safeStorage());
     this.syncViewport();
     window.addEventListener("resize", this.handleWindowResize);
   }
@@ -155,6 +215,13 @@ export class PtkAppShell extends LitElement {
         <header class="header">
           <h1 class="title">Patrol Toolkit /new</h1>
           <p class="subtitle">v4 shell foundation: routing, viewport mapping, and responsive panel primitives.</p>
+          <div class="theme-row">
+            <p class="theme-label">Theme</p>
+            <div class="theme-segmented" role="tablist" aria-label="Theme switcher">
+              ${this.renderThemeButton("default", "Default")}
+              ${this.renderThemeButton("high-contrast", "High contrast")}
+            </div>
+          </div>
           <div class="meta">
             <span class="chip">viewport=${this.viewport}</span>
             <span class="chip">theme=${this.theme}</span>
@@ -189,6 +256,29 @@ export class PtkAppShell extends LitElement {
     this.syncViewport();
   };
 
+  private renderThemeButton(themeId: "default" | "high-contrast", label: string) {
+    const selected = this.theme === themeId;
+    return html`
+      <button
+        type="button"
+        role="tab"
+        aria-selected=${selected ? "true" : "false"}
+        ?selected=${selected}
+        @click=${() => this.setTheme(themeId)}
+      >
+        ${label}
+      </button>
+    `;
+  }
+
+  private setTheme(themeId: "default" | "high-contrast"): void {
+    if (this.theme === themeId) {
+      return;
+    }
+    this.theme = themeId;
+    writeStoredV4Theme(safeStorage(), themeId);
+  }
+
   private syncViewport(): void {
     const nextViewport = classifyViewportWidth(window.innerWidth);
     if (nextViewport !== this.viewport) {
@@ -203,3 +293,10 @@ export class PtkAppShell extends LitElement {
   }
 }
 
+function safeStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
