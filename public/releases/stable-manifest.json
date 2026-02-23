@@ -3,7 +3,7 @@
   "release": {
     "channel": "stable",
     "appVersion": "0.0.1",
-    "createdAt": "2026-02-21T05:06:48.300Z"
+    "createdAt": "2026-02-23T01:36:42.561Z"
   },
   "artifacts": [
     {
@@ -57,23 +57,23 @@
     {
       "kind": "pack",
       "resortId": "CA_Golden_Kicking_Horse",
-      "version": "v1",
+      "version": "v4",
       "url": "/packs/CA_Golden_Kicking_Horse.latest.validated.json",
-      "sha256": "c53b72e49d0aa26b1eb621404f9469bfbfd8bf6c6613e2da8eefe51a8cb4ddef",
-      "bytes": 138069
+      "sha256": "81da98420e54d86613458ca0de8e2fec3b434b17f08498255cbc1cfc502de8d2",
+      "bytes": 132088
     },
     {
       "kind": "pmtiles",
       "resortId": "CA_Golden_Kicking_Horse",
-      "version": "v1",
+      "version": "v4",
       "url": "/packs/CA_Golden_Kicking_Horse/base.pmtiles",
-      "sha256": "2c3ec095bb9d444d6d657ad80f78aee3849bb354566e7724033929cdfe51ad2f",
-      "bytes": 507606
+      "sha256": "4afa4e416a31210256ec443c2e72366227c3be97d139908b1641eb1a0214506b",
+      "bytes": 527238
     },
     {
       "kind": "style",
       "resortId": "CA_Golden_Kicking_Horse",
-      "version": "v1",
+      "version": "v4",
       "url": "/packs/CA_Golden_Kicking_Horse/style.json",
       "sha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527",
       "bytes": 1096
