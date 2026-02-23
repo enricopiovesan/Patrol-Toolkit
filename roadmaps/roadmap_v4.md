@@ -177,7 +177,7 @@
 - PR outcome: Resort Page structure is implemented on `/new`.
 
 ## Slice 6: Resort Page (`/new`) - Settings/Help Panel Redesign
-- Status: planned
+- Status: completed
 - Goal: redesign and implement Settings/Help as a dedicated UX surface.
 - Deliverables:
   - Settings/Help panel UI per spec

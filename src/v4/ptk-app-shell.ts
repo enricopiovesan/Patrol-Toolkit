@@ -2,12 +2,17 @@ import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import "./ptk-select-resort-page";
 import "./ptk-resort-page";
+import "./ptk-settings-help-panel";
 import { v4DesignTokens } from "./design-tokens";
 import { createInitialToolPanelState } from "./tool-panel-state";
 import { DEFAULT_V4_THEME } from "./theme";
 import { readStoredV4Theme, writeStoredV4Theme } from "./theme-preferences";
 import { classifyViewportWidth, type ViewportMode } from "./viewport";
+import { APP_VERSION } from "../app-version";
+import { requestPackAssetPrecache } from "../pwa/precache-pack-assets";
 import {
+  isCatalogVersionCompatible,
+  loadPackFromCatalogEntry,
   loadResortCatalog,
   selectLatestEligibleVersions,
   type SelectableResortPack
@@ -24,6 +29,12 @@ import {
   type ResortPageUiState
 } from "./resort-page-state";
 import type { ResortPack } from "../resort-pack/types";
+import {
+  buildOfflineResortRows,
+  clearPackCandidateSelections,
+  togglePackCandidateSelection,
+  type V4PackUpdateCandidate
+} from "./settings-help-model";
 
 @customElement("ptk-app-shell")
 export class PtkAppShell extends LitElement {
@@ -88,52 +99,6 @@ export class PtkAppShell extends LitElement {
       background: var(--ptk-surface-subtle);
       padding: 2px var(--ptk-space-2);
       line-height: 1.3;
-    }
-
-    .theme-row {
-      display: flex;
-      align-items: center;
-      gap: var(--ptk-space-2);
-      flex-wrap: wrap;
-    }
-
-    .theme-label {
-      margin: 0;
-      color: var(--ptk-text-secondary);
-      font-size: var(--ptk-font-body-s-size);
-      font-weight: var(--ptk-font-weight-semibold);
-    }
-
-    .theme-segmented {
-      display: inline-flex;
-      gap: var(--ptk-space-1);
-      padding: var(--ptk-space-1);
-      border-radius: var(--ptk-radius-pill);
-      border: 1px solid var(--ptk-border-default);
-      background: var(--ptk-surface-subtle);
-    }
-
-    .theme-segmented button {
-      min-height: var(--ptk-size-control-sm);
-      border-radius: var(--ptk-radius-pill);
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--ptk-control-fg);
-      font: inherit;
-      font-size: var(--ptk-font-action-m-size);
-      font-weight: var(--ptk-font-weight-semibold);
-      padding: 0 10px;
-      cursor: pointer;
-      transition:
-        background-color var(--ptk-motion-duration-fast) var(--ptk-motion-ease-standard),
-        color var(--ptk-motion-duration-fast) var(--ptk-motion-ease-standard),
-        border-color var(--ptk-motion-duration-fast) var(--ptk-motion-ease-standard);
-    }
-
-    .theme-segmented button[selected] {
-      background: var(--ptk-control-selected-bg);
-      color: var(--ptk-control-selected-fg);
-      border-color: var(--ptk-control-selected-border);
     }
 
     .meta--tight {
@@ -207,6 +172,9 @@ export class PtkAppShell extends LitElement {
   private accessor resortPageUiState: ResortPageUiState = createInitialResortPageUiState("large");
 
   @state()
+  private accessor settingsPanelOpen = false;
+
+  @state()
   private accessor installBlockingError = "";
 
   @state()
@@ -227,18 +195,56 @@ export class PtkAppShell extends LitElement {
   @state()
   private accessor selectPageMessage = "";
 
+  @state()
+  private accessor installHint = "Install from browser menu (iOS: Share > Add to Home Screen).";
+
+  @state()
+  private accessor appUpdateResult = "";
+
+  @state()
+  private accessor appUpdateTargetVersion: string | null = null;
+
+  @state()
+  private accessor appUpdateSummary = "";
+
+  @state()
+  private accessor packUpdateResult = "";
+
+  @state()
+  private accessor packUpdateCandidates: V4PackUpdateCandidate[] = [];
+
+  @state()
+  private accessor blockedPackUpdates: string[] = [];
+
   private repository: ResortPackRepository | null = null;
+  private deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
+  private readonly onBeforeInstallPrompt = (event: Event) => {
+    if (!isBeforeInstallPromptEvent(event)) {
+      return;
+    }
+    event.preventDefault();
+    this.deferredInstallPrompt = event;
+    this.installHint = "Install available. Tap 'Install App'.";
+  };
+  private readonly onAppInstalled = () => {
+    this.deferredInstallPrompt = null;
+    this.installHint = "App installed. Open from home screen.";
+  };
 
   connectedCallback(): void {
     super.connectedCallback();
     this.theme = readStoredV4Theme(safeStorage());
     this.syncViewport();
     window.addEventListener("resize", this.handleWindowResize);
+    window.addEventListener("beforeinstallprompt", this.onBeforeInstallPrompt);
+    window.addEventListener("appinstalled", this.onAppInstalled);
     void this.initializeData();
   }
 
   disconnectedCallback(): void {
     window.removeEventListener("resize", this.handleWindowResize);
+    window.removeEventListener("beforeinstallprompt", this.onBeforeInstallPrompt);
+    window.removeEventListener("appinstalled", this.onAppInstalled);
     this.repository?.close();
     this.repository = null;
     super.disconnectedCallback();
@@ -253,14 +259,7 @@ export class PtkAppShell extends LitElement {
       <div class="root" data-theme=${this.theme}>
         <header class="header">
           <h1 class="title">Patrol Toolkit /new</h1>
-          <p class="subtitle">v4 shell foundation: routing, viewport mapping, and responsive panel primitives.</p>
-          <div class="theme-row">
-            <p class="theme-label">Theme</p>
-            <div class="theme-segmented" role="tablist" aria-label="Theme switcher">
-              ${this.renderThemeButton("default", "Default")}
-              ${this.renderThemeButton("high-contrast", "High contrast")}
-            </div>
-          </div>
+          <p class="subtitle">v4 UI path in progress. Settings/Help owns theme, install, and update actions.</p>
           <div class="meta">
             <span class="chip">viewport=${this.viewport}</span>
             <span class="chip">theme=${this.theme}</span>
@@ -273,9 +272,10 @@ export class PtkAppShell extends LitElement {
         </header>
         ${this.page === "select-resort"
           ? html`${this.renderSelectResortPage()}`
-          : this.page === "install-blocking"
-            ? html`${this.renderInstallBlockingState()}`
-            : html`${this.renderResortPage(resortPanelOpen, fullscreenSupported)}`}
+            : this.page === "install-blocking"
+              ? html`${this.renderInstallBlockingState()}`
+              : html`${this.renderResortPage(resortPanelOpen, fullscreenSupported)}`}
+        ${this.settingsPanelOpen && this.page === "resort" ? html`${this.renderSettingsHelpPanel()}` : html``}
       </div>
     `;
   }
@@ -283,21 +283,6 @@ export class PtkAppShell extends LitElement {
   private readonly handleWindowResize = (): void => {
     this.syncViewport();
   };
-
-  private renderThemeButton(themeId: "default" | "high-contrast", label: string) {
-    const selected = this.theme === themeId;
-    return html`
-      <button
-        type="button"
-        role="tab"
-        aria-selected=${selected ? "true" : "false"}
-        ?selected=${selected}
-        @click=${() => this.setTheme(themeId)}
-      >
-        ${label}
-      </button>
-    `;
-  }
 
   private setTheme(themeId: "default" | "high-contrast"): void {
     if (this.theme === themeId) {
@@ -362,7 +347,38 @@ export class PtkAppShell extends LitElement {
         @ptk-resort-tab-select=${this.handleResortTabSelect}
         @ptk-resort-toggle-panel=${this.handleResortTogglePanel}
         @ptk-resort-toggle-fullscreen=${this.handleResortToggleFullscreen}
+        @ptk-resort-open-settings=${this.handleOpenSettingsPanel}
       ></ptk-resort-page>
+    `;
+  }
+
+  private renderSettingsHelpPanel() {
+    return html`
+      <ptk-settings-help-panel
+        .viewport=${this.viewport}
+        .appVersion=${APP_VERSION}
+        .theme=${this.theme}
+        .isInstalled=${isStandaloneInstalled()}
+        .installHint=${this.installHint}
+        .appUpdateResult=${this.appUpdateResult}
+        .appUpdateTargetVersion=${this.appUpdateTargetVersion ?? ""}
+        .appUpdateSummary=${this.appUpdateSummary}
+        .packUpdateResult=${this.packUpdateResult}
+        .packUpdateCandidates=${this.packUpdateCandidates}
+        .offlineRows=${buildOfflineResortRows({
+          installedPacks: this.installedPacks,
+          updateCandidates: this.packUpdateCandidates
+        })}
+        .blockedPackUpdates=${this.blockedPackUpdates}
+        @ptk-settings-close=${this.handleCloseSettingsPanel}
+        @ptk-settings-theme-select=${this.handleSettingsThemeSelect}
+        @ptk-settings-install-app=${this.handleInstallAppFromSettings}
+        @ptk-settings-check-app-updates=${this.handleCheckAppUpdatesFromSettings}
+        @ptk-settings-apply-app-update=${this.handleApplyAppUpdateFromSettings}
+        @ptk-settings-check-pack-updates=${this.handleCheckPackUpdatesFromSettings}
+        @ptk-settings-toggle-pack-candidate=${this.handleTogglePackCandidateFromSettings}
+        @ptk-settings-apply-pack-updates=${this.handleApplyPackUpdatesFromSettings}
+      ></ptk-settings-help-panel>
     `;
   }
 
@@ -469,6 +485,7 @@ export class PtkAppShell extends LitElement {
 
   private readonly handleBackToSelect = (): void => {
     this.page = "select-resort";
+    this.settingsPanelOpen = false;
     this.searchQuery = "";
     this.installBlockingError = "";
     this.selectedResortPack = null;
@@ -499,6 +516,48 @@ export class PtkAppShell extends LitElement {
     this.resortPageUiState = toggleResortPageFullscreen(this.resortPageUiState, this.viewport, fullscreenSupported);
   };
 
+  private readonly handleOpenSettingsPanel = (): void => {
+    this.settingsPanelOpen = true;
+  };
+
+  private readonly handleCloseSettingsPanel = (): void => {
+    this.settingsPanelOpen = false;
+  };
+
+  private readonly handleSettingsThemeSelect = (event: CustomEvent<{ theme: "default" | "high-contrast" }>): void => {
+    this.setTheme(event.detail.theme);
+  };
+
+  private readonly handleInstallAppFromSettings = async (): Promise<void> => {
+    await this.installApp();
+  };
+
+  private readonly handleCheckAppUpdatesFromSettings = async (): Promise<void> => {
+    await this.checkForAppUpdates();
+  };
+
+  private readonly handleApplyAppUpdateFromSettings = async (): Promise<void> => {
+    await this.applyAppUpdate();
+  };
+
+  private readonly handleCheckPackUpdatesFromSettings = async (): Promise<void> => {
+    await this.checkPackUpdates();
+  };
+
+  private readonly handleTogglePackCandidateFromSettings = (
+    event: CustomEvent<{ resortId: string; selected: boolean }>
+  ): void => {
+    this.packUpdateCandidates = togglePackCandidateSelection(
+      this.packUpdateCandidates,
+      event.detail.resortId,
+      event.detail.selected
+    );
+  };
+
+  private readonly handleApplyPackUpdatesFromSettings = async (): Promise<void> => {
+    await this.applySelectedPackUpdates();
+  };
+
   private async openInstalledResort(resortId: string, resortName: string): Promise<void> {
     this.selectedResortId = resortId;
     this.selectedResortName = resortName;
@@ -512,6 +571,185 @@ export class PtkAppShell extends LitElement {
     this.selectedResortPack = pack;
     this.page = "resort";
   }
+
+  private async installApp(): Promise<void> {
+    if (!this.deferredInstallPrompt) {
+      if (isStandaloneInstalled()) {
+        this.installHint = "Patrol Toolkit is already installed. Open it from your home screen.";
+        return;
+      }
+      this.installHint =
+        "Install prompt unavailable on this browser. iPhone/iPad: open in Safari, tap Share, then Add to Home Screen. Android/Desktop: browser menu > Install app/Add to Home Screen.";
+      return;
+    }
+
+    await this.deferredInstallPrompt.prompt();
+    const choice = await this.deferredInstallPrompt.userChoice;
+    this.installHint =
+      choice.outcome === "accepted"
+        ? "Install accepted. Open Patrol Toolkit from home screen."
+        : "Install dismissed. You can retry from Settings/Help.";
+    this.deferredInstallPrompt = null;
+  }
+
+  private async checkForAppUpdates(): Promise<void> {
+    try {
+      const catalog = await loadResortCatalog();
+      if (catalog.schemaVersion !== "2.0.0" || !catalog.release) {
+        this.appUpdateResult = "No structured release metadata found.";
+        this.appUpdateTargetVersion = null;
+        this.appUpdateSummary = "";
+        return;
+      }
+
+      const isNewer = compareSemver(catalog.release.appVersion, APP_VERSION) > 0;
+      if (!isNewer) {
+        this.appUpdateResult = `App is up to date (${APP_VERSION}).`;
+        this.appUpdateTargetVersion = null;
+        this.appUpdateSummary = "";
+        return;
+      }
+
+      this.appUpdateTargetVersion = catalog.release.appVersion;
+      this.appUpdateSummary = catalog.release.notesSummary ?? "Release notes summary unavailable.";
+      this.appUpdateResult = `Update available: ${catalog.release.appVersion}`;
+    } catch (error) {
+      this.appUpdateResult = error instanceof Error ? error.message : "Failed to check app updates.";
+      this.appUpdateTargetVersion = null;
+      this.appUpdateSummary = "";
+    }
+  }
+
+  private async applyAppUpdate(): Promise<void> {
+    if (!this.appUpdateTargetVersion) {
+      this.appUpdateResult = "No pending app update to apply.";
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker?.getRegistration?.();
+      await registration?.update();
+      if (registration?.waiting) {
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
+
+      this.appUpdateResult = `Applying update ${this.appUpdateTargetVersion}...`;
+      window.location.reload();
+    } catch {
+      this.appUpdateResult = "Could not trigger update automatically. Close and reopen the app.";
+    }
+  }
+
+  private async checkPackUpdates(): Promise<void> {
+    if (!this.repository) {
+      this.packUpdateResult = "Pack update check unavailable: storage not ready.";
+      return;
+    }
+
+    try {
+      const catalog = await loadResortCatalog();
+      const latestEligible = selectLatestEligibleVersions(catalog);
+      const localPacks = await this.repository.listPacks();
+      const localById = new Map(localPacks.map((item) => [item.id, item]));
+
+      this.packUpdateCandidates = latestEligible
+        .filter((entry) => {
+          const local = localById.get(entry.resortId);
+          if (!local) {
+            return false;
+          }
+          return local.sourceVersion !== entry.version || local.sourceCreatedAt !== entry.createdAt;
+        })
+        .map((entry) => ({
+          resortId: entry.resortId,
+          resortName: entry.resortName,
+          version: entry.version,
+          createdAt: entry.createdAt,
+          selected: false
+        }));
+
+      const blocked: string[] = [];
+      for (const resort of catalog.resorts) {
+        const local = localById.get(resort.resortId);
+        if (!local) {
+          continue;
+        }
+        const latest = [...resort.versions].sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0];
+        if (!latest) {
+          continue;
+        }
+        const compatible = isCatalogVersionCompatible(latest, {
+          appVersion: APP_VERSION,
+          supportedPackSchemaVersion: "1.0.0"
+        });
+        if (!compatible) {
+          const minVersion = latest.compatibility?.minAppVersion ?? "unknown";
+          blocked.push(`${resort.resortName}: blocked by app compatibility (requires >= ${minVersion}).`);
+        }
+      }
+
+      this.blockedPackUpdates = blocked;
+      if (this.packUpdateCandidates.length === 0 && blocked.length === 0) {
+        this.packUpdateResult = "No pack updates available.";
+      } else {
+        this.packUpdateResult = `Pack update check complete: ${this.packUpdateCandidates.length} selectable, ${blocked.length} blocked.`;
+      }
+    } catch (error) {
+      this.packUpdateCandidates = [];
+      this.blockedPackUpdates = [];
+      this.packUpdateResult = error instanceof Error ? error.message : "Failed to check pack updates.";
+    }
+  }
+
+  private async applySelectedPackUpdates(): Promise<void> {
+    if (!this.repository) {
+      this.packUpdateResult = "Pack update apply unavailable: storage not ready.";
+      return;
+    }
+
+    const selectedIds = this.packUpdateCandidates.filter((candidate) => candidate.selected).map((candidate) => candidate.resortId);
+    if (selectedIds.length === 0) {
+      this.packUpdateResult = "Select at least one resort to update.";
+      return;
+    }
+
+    try {
+      const catalog = await loadResortCatalog();
+      const latestEligible = selectLatestEligibleVersions(catalog);
+      const byId = new Map(latestEligible.map((entry) => [entry.resortId, entry]));
+      const successes: string[] = [];
+      const failures: string[] = [];
+
+      for (const resortId of selectedIds) {
+        const entry = byId.get(resortId);
+        if (!entry) {
+          failures.push(`${resortId}: no compatible catalog entry.`);
+          continue;
+        }
+        try {
+          const pack = await loadPackFromCatalogEntry(entry);
+          await this.repository.savePack(pack, {
+            sourceVersion: entry.version,
+            sourceCreatedAt: entry.createdAt
+          });
+          requestPackAssetPrecache(pack);
+          successes.push(entry.resortName);
+        } catch (error) {
+          failures.push(`${entry.resortName}: ${error instanceof Error ? error.message : "update failed"}`);
+        }
+      }
+
+      this.installedPacks = await this.repository.listPacks();
+      this.packUpdateCandidates = clearPackCandidateSelections(this.packUpdateCandidates);
+      this.packUpdateResult = `Pack updates complete: ${successes.length} succeeded, ${failures.length} failed.${failures.length > 0 ? ` ${failures.join(" ")}` : ""}`;
+
+      if (this.selectedResortId && this.installedPacks.some((pack) => pack.id === this.selectedResortId) && this.page === "resort") {
+        await this.openInstalledResort(this.selectedResortId, this.selectedResortName);
+      }
+    } catch (error) {
+      this.packUpdateResult = error instanceof Error ? error.message : "Failed to apply pack updates.";
+    }
+  }
 }
 
 function safeStorage(): Storage | null {
@@ -520,6 +758,55 @@ function safeStorage(): Storage | null {
   } catch {
     return null;
   }
+}
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
+function isBeforeInstallPromptEvent(event: Event): event is BeforeInstallPromptEvent {
+  const candidate = event as Partial<BeforeInstallPromptEvent>;
+  return typeof candidate.prompt === "function" && candidate.userChoice instanceof Promise;
+}
+
+function isStandaloneInstalled(): boolean {
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    try {
+      if (window.matchMedia("(display-mode: standalone)").matches) {
+        return true;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (typeof navigator !== "undefined") {
+    const nav = navigator as Navigator & { standalone?: boolean };
+    if (typeof nav.standalone === "boolean") {
+      return nav.standalone;
+    }
+  }
+
+  return false;
+}
+
+function compareSemver(left: string, right: string): number {
+  const leftMatch = /^(\d+)\.(\d+)\.(\d+)$/u.exec(left.trim());
+  const rightMatch = /^(\d+)\.(\d+)\.(\d+)$/u.exec(right.trim());
+  if (!leftMatch || !rightMatch) {
+    return left.localeCompare(right);
+  }
+
+  for (let index = 1; index <= 3; index += 1) {
+    const leftPart = Number.parseInt(leftMatch[index] ?? "0", 10);
+    const rightPart = Number.parseInt(rightMatch[index] ?? "0", 10);
+    if (leftPart !== rightPart) {
+      return leftPart - rightPart;
+    }
+  }
+
+  return 0;
 }
 
 function toMessage(error: unknown): string {
