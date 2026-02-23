@@ -97,6 +97,12 @@ export class MapView extends LitElement {
   @property({ attribute: false })
   accessor pack: ResortPack | null = null;
 
+  @property({ type: Boolean })
+  accessor showStatusBar = true;
+
+  @property({ type: Boolean })
+  accessor showBuiltInControls = true;
+
   @state()
   private accessor status = "Waiting for GPS lock...";
 
@@ -226,6 +232,10 @@ export class MapView extends LitElement {
       zoom: Math.max(this.map.getZoom(), 15),
       duration: 350
     });
+  }
+
+  public recenterToUserPosition(): void {
+    this.recenterOnLocation();
   }
 
   private initializeLocationLayers(): void {
@@ -490,17 +500,25 @@ export class MapView extends LitElement {
   render() {
     return html`
       <section class="map-shell">
-        <header class="status-bar">
-          <strong>Live position</strong>
-          <span class="status">${this.status}</span>
-        </header>
+        ${this.showStatusBar
+          ? html`
+              <header class="status-bar">
+                <strong>Live position</strong>
+                <span class="status">${this.status}</span>
+              </header>
+            `
+          : null}
         <div id="map" class="map" role="application" aria-label="Patrol map"></div>
-        <div class="controls">
-          <button @click=${this.recenterOnLocation}>Recenter</button>
-          <button class="secondary" @click=${this.toggleTracking}>
-            ${this.isTracking ? "Pause GPS" : "Resume GPS"}
-          </button>
-        </div>
+        ${this.showBuiltInControls
+          ? html`
+              <div class="controls">
+                <button @click=${this.recenterOnLocation}>Recenter</button>
+                <button class="secondary" @click=${this.toggleTracking}>
+                  ${this.isTracking ? "Pause GPS" : "Resume GPS"}
+                </button>
+              </div>
+            `
+          : null}
       </section>
     `;
   }
