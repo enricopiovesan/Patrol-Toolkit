@@ -143,10 +143,10 @@
 - Rollback artifact/path validated before go-live.
 
 ## Slice 4: Run Direction Arrows (Downhill)
-- Status: in_progress
+- Status: completed
 - Goal: add clear downhill direction indicators on runs, inspired by openskimap patterns.
 - Changes:
-  - compute deterministic arrow direction per run segment from geometry/elevation semantics.
+  - compute deterministic run-direction arrow placement from run centerline geometry order (v3 does not use elevation-derived downhill semantics).
   - add map style layers for directional arrow symbols aligned to run lines.
   - use neutral/dark run arrows with light halo (arrows are not difficulty-colored).
   - tune density/zoom thresholds to avoid clutter (`minArrowZoom=13` default).
@@ -159,7 +159,7 @@
 - PR outcome: runs show clear travel direction without clutter.
 
 ## Slice 5: Lift Labels + Tower Number Display
-- Status: in_progress
+- Status: completed
 - Goal: show lift names and tower numbers in a readable, operational way.
 - Changes:
   - render lifts as thicker colored corridors/lines, visually distinct from runs.
@@ -211,6 +211,7 @@
 - PR outcome: v3 closure complete and ready for release execution.
 
 ## Open Decisions (Track Early)
+- None currently blocking v3 execution. New decisions should be added here as they arise.
 
 ## Standard Update/Error Messages (Define in Slice 2)
 - `UPDATE_INCOMPATIBLE_VERSION`: selected update is not compatible with installed app.
