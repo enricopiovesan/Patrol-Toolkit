@@ -62,6 +62,8 @@
   - motion
   - exact viewport breakpoint ranges (`small`, `medium`, `large`)
 - Select Resort page keeps search + card/list interaction model.
+- After a resort has been selected, subsequent app opens default to the last active resort and open the Resort Page.
+- Select Resort becomes the primary entry flow for first use / resort switching, while Resort Page is the de facto main page after setup.
 - Resort Page keeps core navigation model:
   - `My location`
   - `Runs Check`
@@ -139,6 +141,7 @@
 - Deliverables:
   - search UI per spec
   - resort card/list components using global component library
+  - entry/resume UX rules for first use vs returning user (handoff to Resort Page when last active resort exists)
   - card content includes:
     - resort name
     - location
@@ -160,6 +163,7 @@
 - Goal: implement the new Resort Page structure and information hierarchy without changing phrase output model.
 - Deliverables:
   - full Resort Page IA implementation per spec
+  - default landing behavior for returning users with last active resort
   - map-first layout on all viewports
   - shared sheet/sidebar component behavior:
     - `small` bottom sheet

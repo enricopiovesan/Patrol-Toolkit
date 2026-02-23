@@ -41,6 +41,24 @@ It complements personas and roadmap deliverables.
 ### Success Outcome
 - Selected resort becomes active and Resort Page opens with map context.
 
+## UC-02B: Resume Into Last Active Resort On Reopen
+
+### Actor
+- Patroller
+
+### Preconditions
+- User has previously selected a resort
+- Last active resort is still installed/available
+
+### Main Flow
+1. User reopens the app.
+2. App resolves last active resort from local state.
+3. App opens directly to Resort Page for that resort.
+4. User can still switch resorts via Select Resort flow when needed.
+
+### Success Outcome
+- Returning users resume directly into the active resort workflow (Resort Page) without reselecting a resort.
+
 ## UC-03: Generate Radio Phrase From Current Position
 
 ### Actor
