@@ -82,7 +82,7 @@
   - full screen
 
 ## Slice 1: v4 Spec Gate (No UI Code)
-- Status: planned
+- Status: completed
 - Goal: lock the v4 design system and UI specs before implementation starts.
 - Deliverables:
   - create `/spec/XD/design_system_spec_v1.md`
