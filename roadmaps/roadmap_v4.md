@@ -106,7 +106,7 @@
 - PR outcome: v4 implementation can start without design ambiguity.
 
 ## Slice 2: `/new` App Shell + Routing + Responsive Layout Primitives
-- Status: planned
+- Status: completed
 - Goal: establish the parallel UI path and reusable viewport primitives.
 - Deliverables:
   - create `/new` route/path (no runtime feature flag)
