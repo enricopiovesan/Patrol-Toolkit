@@ -1,7 +1,7 @@
 import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import "./ptk-tool-panel";
 import "./ptk-select-resort-page";
+import "./ptk-resort-page";
 import { v4DesignTokens } from "./design-tokens";
 import { createInitialToolPanelState } from "./tool-panel-state";
 import { DEFAULT_V4_THEME } from "./theme";
@@ -14,6 +14,16 @@ import {
 } from "../resort-pack/catalog";
 import { ResortPackRepository, type ResortPackListItem } from "../resort-pack/repository";
 import { buildSelectResortPageViewModel } from "./select-resort-model";
+import { buildResortPageViewModel } from "./resort-page-model";
+import {
+  createInitialResortPageUiState,
+  selectResortPageTab,
+  setResortPagePanelOpen,
+  syncResortPageUiStateForViewport,
+  toggleResortPageFullscreen,
+  type ResortPageUiState
+} from "./resort-page-state";
+import type { ResortPack } from "../resort-pack/types";
 
 @customElement("ptk-app-shell")
 export class PtkAppShell extends LitElement {
@@ -126,75 +136,6 @@ export class PtkAppShell extends LitElement {
       border-color: var(--ptk-control-selected-border);
     }
 
-    .workspace {
-      min-height: 0;
-      display: grid;
-      gap: var(--ptk-space-3);
-    }
-
-    .workspace.small {
-      grid-template-rows: minmax(0, 1fr) auto;
-    }
-
-    .workspace.medium,
-    .workspace.large {
-      grid-template-columns: auto minmax(0, 1fr);
-      align-items: stretch;
-    }
-
-    .workspace.medium ptk-tool-panel[open="false"] {
-      grid-template-columns: 0 minmax(0, 1fr);
-    }
-
-    .map-frame {
-      border: 1px solid var(--ptk-border-default);
-      border-radius: var(--ptk-radius-md);
-      background: var(--ptk-surface-map);
-      min-height: 320px;
-      padding: var(--ptk-space-3);
-      display: grid;
-      align-content: start;
-      gap: var(--ptk-space-2);
-      position: relative;
-      box-shadow: var(--ptk-shadow-sm);
-    }
-
-    .map-title {
-      margin: 0;
-      font-size: var(--ptk-font-heading-h4-size);
-      font-weight: var(--ptk-font-weight-bold);
-      font-family: var(--ptk-font-family-heading);
-      text-transform: capitalize;
-    }
-
-    .map-note {
-      margin: 0;
-      font-size: var(--ptk-font-body-m-size);
-      color: var(--ptk-text-secondary);
-    }
-
-    .map-controls {
-      position: absolute;
-      top: var(--ptk-space-3);
-      right: var(--ptk-space-3);
-      display: grid;
-      gap: var(--ptk-space-2);
-      justify-items: end;
-    }
-
-    .map-controls button {
-      min-height: var(--ptk-size-control-sm);
-      border-radius: var(--ptk-radius-pill);
-      border: 1px solid var(--ptk-control-border);
-      background: var(--ptk-control-bg);
-      color: var(--ptk-control-fg);
-      font: inherit;
-      font-size: var(--ptk-font-action-m-size);
-      font-weight: var(--ptk-font-weight-semibold);
-      padding: 0 10px;
-      cursor: default;
-    }
-
     .meta--tight {
       margin-top: 0;
     }
@@ -248,9 +189,6 @@ export class PtkAppShell extends LitElement {
   private accessor theme = DEFAULT_V4_THEME;
 
   @state()
-  private accessor toolPanelOpen = true;
-
-  @state()
   private accessor page: "select-resort" | "resort" | "install-blocking" = "select-resort";
 
   @state()
@@ -258,6 +196,15 @@ export class PtkAppShell extends LitElement {
 
   @state()
   private accessor selectedResortName = "";
+
+  @state()
+  private accessor selectedResortSourceVersion = "";
+
+  @state()
+  private accessor selectedResortPack: ResortPack | null = null;
+
+  @state()
+  private accessor resortPageUiState: ResortPageUiState = createInitialResortPageUiState("large");
 
   @state()
   private accessor installBlockingError = "";
@@ -299,7 +246,8 @@ export class PtkAppShell extends LitElement {
 
   protected render() {
     const panelState = createInitialToolPanelState(this.viewport);
-    const panelOpen = this.toolPanelOpen && panelState.visibility === "visible";
+    const resortPanelOpen = this.resortPageUiState.panelOpen;
+    const fullscreenSupported = panelState.fullscreenSupported;
 
     return html`
       <div class="root" data-theme=${this.theme}>
@@ -317,7 +265,9 @@ export class PtkAppShell extends LitElement {
             <span class="chip">viewport=${this.viewport}</span>
             <span class="chip">theme=${this.theme}</span>
             <span class="chip">panel=${panelState.presentation}</span>
-            <span class="chip">fullscreen=${panelState.fullscreenSupported ? "yes" : "no"}</span>
+            <span class="chip">panel-open=${this.page === "resort" ? (resortPanelOpen ? "yes" : "no") : "n/a"}</span>
+            <span class="chip">fullscreen-supported=${fullscreenSupported ? "yes" : "no"}</span>
+            <span class="chip">fullscreen-active=${this.page === "resort" ? (this.resortPageUiState.fullscreen ? "yes" : "no") : "n/a"}</span>
             <span class="chip">page=${this.page}</span>
           </div>
         </header>
@@ -325,7 +275,7 @@ export class PtkAppShell extends LitElement {
           ? html`${this.renderSelectResortPage()}`
           : this.page === "install-blocking"
             ? html`${this.renderInstallBlockingState()}`
-            : html`${this.renderResortHandoff(panelOpen, panelState.fullscreenSupported)}`}
+            : html`${this.renderResortPage(resortPanelOpen, fullscreenSupported)}`}
       </div>
     `;
   }
@@ -373,35 +323,46 @@ export class PtkAppShell extends LitElement {
     `;
   }
 
-  private renderResortHandoff(panelOpen: boolean, fullscreenSupported: boolean) {
-    return html`
-      <section class=${`workspace ${this.viewport}`}>
-        <ptk-tool-panel
-          .viewport=${this.viewport}
-          .open=${panelOpen}
-          title=${this.viewport === "small" ? "Bottom Sheet Primitive" : "Sidebar Primitive"}
-        >
-          <div>Slice 5 will replace this panel content with Resort Page tools.</div>
-        </ptk-tool-panel>
-        <div class="map-frame" role="region" aria-label="V4 resort handoff shell">
-          <div class="map-controls">
-            <button type="button">Center to user</button>
-            ${fullscreenSupported ? html`<button type="button">Full screen</button>` : null}
-          </div>
-          <h2 class="map-title">${this.selectedResortName || "Resort Page"}</h2>
-          <p class="map-note">
-            Resort Page handoff state for Slice 4. Full Resort Page UI arrives in Slice 5.
-          </p>
-          <div class="meta meta--tight">
-            <span class="chip">selected=${this.selectedResortId ?? "none"}</span>
-          </div>
-          <div>
+  private renderResortPage(panelOpen: boolean, fullscreenSupported: boolean) {
+    if (!this.selectedResortPack) {
+      return html`
+        <section aria-label="Resort page unavailable" class="header">
+          <h2 class="title">${this.selectedResortName || "Selected resort"}</h2>
+          <p class="subtitle">This resort is selected, but local resort data is not available on this device.</p>
+          <div class="action-row">
             <button class="nav-button" type="button" @click=${this.handleBackToSelect}>
               Back to Select Resort
             </button>
           </div>
-        </div>
-      </section>
+        </section>
+      `;
+    }
+
+    const vm = buildResortPageViewModel({
+      viewport: this.viewport,
+      resortName: this.selectedResortName,
+      sourceVersion: this.selectedResortSourceVersion,
+      pack: this.selectedResortPack,
+      selectedTab: this.resortPageUiState.selectedTab,
+      panelOpen,
+      fullscreenSupported,
+      fullscreenActive: this.resortPageUiState.fullscreen
+    });
+
+    return html`
+      <ptk-resort-page
+        .viewport=${vm.viewport}
+        .header=${vm.header}
+        .selectedTab=${vm.selectedTab}
+        .panelOpen=${vm.panelOpen}
+        .fullscreenSupported=${vm.fullscreenSupported}
+        .fullscreenActive=${vm.fullscreenActive}
+        .shellTheme=${this.theme}
+        @ptk-resort-back=${this.handleBackToSelect}
+        @ptk-resort-tab-select=${this.handleResortTabSelect}
+        @ptk-resort-toggle-panel=${this.handleResortTogglePanel}
+        @ptk-resort-toggle-fullscreen=${this.handleResortToggleFullscreen}
+      ></ptk-resort-page>
     `;
   }
 
@@ -440,12 +401,9 @@ export class PtkAppShell extends LitElement {
     const nextViewport = classifyViewportWidth(window.innerWidth);
     if (nextViewport !== this.viewport) {
       this.viewport = nextViewport;
-      const initialPanel = createInitialToolPanelState(nextViewport);
-      this.toolPanelOpen = initialPanel.visibility === "visible";
-    } else if (this.viewport === "large" || this.viewport === "small") {
-      this.toolPanelOpen = true;
-    } else if (this.viewport === "medium") {
-      this.toolPanelOpen = false;
+      this.resortPageUiState = syncResortPageUiStateForViewport(this.resortPageUiState, nextViewport);
+    } else {
+      this.resortPageUiState = syncResortPageUiStateForViewport(this.resortPageUiState, this.viewport);
     }
   }
 
@@ -467,9 +425,7 @@ export class PtkAppShell extends LitElement {
       if (activePackId) {
         const activeEntry = this.catalogEntries.find((entry) => entry.resortId === activePackId);
         if (activeEntry) {
-          this.selectedResortId = activeEntry.resortId;
-          this.selectedResortName = activeEntry.resortName;
-          this.page = "resort";
+          await this.openInstalledResort(activeEntry.resortId, activeEntry.resortName);
         } else {
           this.page = "select-resort";
           this.selectPageMessage =
@@ -495,6 +451,8 @@ export class PtkAppShell extends LitElement {
     const entry = this.catalogEntries.find((candidate) => candidate.resortId === resortId);
     this.selectedResortId = resortId;
     this.selectedResortName = entry?.resortName ?? resortId;
+    this.selectedResortSourceVersion = entry?.version ?? "";
+    this.selectedResortPack = null;
     this.installBlockingError = "";
     const isInstalled = this.installedPacks.some((pack) => pack.id === resortId);
     this.page = isInstalled ? "resort" : "install-blocking";
@@ -504,12 +462,17 @@ export class PtkAppShell extends LitElement {
         // v4 Slice 4 supports selecting non-installed resorts before install flow integration.
       }
     }
+    if (isInstalled) {
+      await this.openInstalledResort(resortId, this.selectedResortName);
+    }
   };
 
   private readonly handleBackToSelect = (): void => {
     this.page = "select-resort";
     this.searchQuery = "";
     this.installBlockingError = "";
+    this.selectedResortPack = null;
+    this.resortPageUiState = createInitialResortPageUiState(this.viewport);
   };
 
   private readonly handleInstallRetry = (): void => {
@@ -522,6 +485,33 @@ export class PtkAppShell extends LitElement {
     this.searchQuery = "";
     this.installBlockingError = "";
   };
+
+  private readonly handleResortTabSelect = (event: CustomEvent<{ tabId: "my-location" | "runs-check" | "sweeps" }>) => {
+    this.resortPageUiState = selectResortPageTab(this.resortPageUiState, event.detail.tabId);
+  };
+
+  private readonly handleResortTogglePanel = (): void => {
+    this.resortPageUiState = setResortPagePanelOpen(this.resortPageUiState, !this.resortPageUiState.panelOpen);
+  };
+
+  private readonly handleResortToggleFullscreen = (): void => {
+    const fullscreenSupported = createInitialToolPanelState(this.viewport).fullscreenSupported;
+    this.resortPageUiState = toggleResortPageFullscreen(this.resortPageUiState, this.viewport, fullscreenSupported);
+  };
+
+  private async openInstalledResort(resortId: string, resortName: string): Promise<void> {
+    this.selectedResortId = resortId;
+    this.selectedResortName = resortName;
+    this.installBlockingError = "";
+    this.resortPageUiState = createInitialResortPageUiState(this.viewport);
+
+    const installedMeta = this.installedPacks.find((pack) => pack.id === resortId);
+    this.selectedResortSourceVersion = installedMeta?.sourceVersion ?? "";
+
+    const pack = this.repository ? await this.repository.getPack(resortId) : null;
+    this.selectedResortPack = pack;
+    this.page = "resort";
+  }
 }
 
 function safeStorage(): Storage | null {

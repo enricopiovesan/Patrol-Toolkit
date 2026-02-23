@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SelectableResortPack } from "../resort-pack/catalog";
 import type { ResortPackListItem } from "../resort-pack/repository";
+import type { ResortPack } from "../resort-pack/types";
 import { V4_THEME_STORAGE_KEY } from "./theme-preferences";
 
 const catalogEntriesFixture: SelectableResortPack[] = [
@@ -23,9 +24,48 @@ const catalogEntriesFixture: SelectableResortPack[] = [
 const repoState: {
   installedPacks: ResortPackListItem[];
   activePackId: string | null;
+  packsById: Record<string, ResortPack>;
 } = {
   installedPacks: [],
-  activePackId: null
+  activePackId: null,
+  packsById: {}
+};
+
+const packFixture: ResortPack = {
+  schemaVersion: "1.0.0",
+  resort: {
+    id: "CA_Golden_Kicking_Horse",
+    name: "Kicking Horse",
+    timezone: "America/Edmonton"
+  },
+  basemap: {
+    pmtilesPath: "/packs/base.pmtiles",
+    stylePath: "/packs/style.json"
+  },
+  thresholds: {
+    liftProximityMeters: 150
+  },
+  lifts: Array.from({ length: 3 }, (_, index) => ({
+    id: `lift-${index + 1}`,
+    name: `Lift ${index + 1}`,
+    towers: [{ number: 1, coordinates: [-116.9, 51.2] as [number, number] }]
+  })),
+  runs: Array.from({ length: 5 }, (_, index) => ({
+    id: `run-${index + 1}`,
+    name: `Run ${index + 1}`,
+    difficulty: "blue" as const,
+    polygon: {
+      type: "Polygon" as const,
+      coordinates: [[[-116.9, 51.2], [-116.91, 51.21], [-116.92, 51.2], [-116.9, 51.2]]]
+    },
+    centerline: {
+      type: "LineString" as const,
+      coordinates: [
+        [-116.9, 51.2],
+        [-116.91, 51.21]
+      ]
+    }
+  }))
 };
 
 const loadResortCatalogMock = vi.fn(async () => ({ schemaVersion: "2.0.0", resorts: [] }));
@@ -54,6 +94,10 @@ class MockResortPackRepository {
     repoState.activePackId = packId;
     return true;
   }
+
+  async getPack(packId: string): Promise<ResortPack | null> {
+    return repoState.packsById[packId] ?? null;
+  }
 }
 
 vi.mock("../resort-pack/catalog", () => ({
@@ -69,6 +113,16 @@ describe("ptk-app-shell", () => {
   beforeEach(() => {
     repoState.installedPacks = [];
     repoState.activePackId = null;
+    repoState.packsById = {
+      CA_Golden_Kicking_Horse: {
+        ...packFixture,
+        resort: { ...packFixture.resort, id: "CA_Golden_Kicking_Horse", name: "Kicking Horse" }
+      },
+      CA_Fernie_Fernie: {
+        ...packFixture,
+        resort: { ...packFixture.resort, id: "CA_Fernie_Fernie", name: "Fernie" }
+      }
+    };
     loadResortCatalogMock.mockClear();
     selectLatestEligibleVersionsMock.mockClear();
     selectLatestEligibleVersionsMock.mockReturnValue(catalogEntriesFixture);
@@ -111,7 +165,7 @@ describe("ptk-app-shell", () => {
     await waitFor(() => readMeta(element).includes("page=resort"));
 
     expect(readMeta(element)).toContain("panel=bottom-sheet");
-    expect(listButtons(element)).toContain("Full screen");
+    await waitFor(() => listResortPageButtons(element).includes("Full screen"));
   });
 
   it("hides fullscreen control on large viewport", async () => {
@@ -131,8 +185,30 @@ describe("ptk-app-shell", () => {
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
     await waitFor(() => readMeta(element).includes("page=resort"));
 
-    expect(readMeta(element)).toContain("fullscreen=no");
-    expect(listButtons(element)).not.toContain("Full screen");
+    expect(readMeta(element)).toContain("fullscreen-supported=no");
+    expect(listResortPageButtons(element)).not.toContain("Full screen");
+  });
+
+  it("opens hidden medium sidebar when toggled from resort page", async () => {
+    repoState.installedPacks = [
+      {
+        id: "CA_Golden_Kicking_Horse",
+        name: "Kicking Horse",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v4"
+      }
+    ];
+    await import("./ptk-app-shell");
+    setWindowWidth(900);
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+    await waitFor(() => countResortCards(element) === 2);
+    dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
+    await waitFor(() => readMeta(element).includes("page=resort"));
+
+    expect(readMeta(element)).toContain("panel-open=no");
+    clickResortPageButtonByLabel(element, "Show tools");
+    await waitFor(() => readMeta(element).includes("panel-open=yes"));
   });
 
   it("filters resorts using search query", async () => {
@@ -190,7 +266,8 @@ describe("ptk-app-shell", () => {
 
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
     await waitFor(() => readMeta(element).includes("page=resort"));
-    expect(readShellText(element)).toContain("Resort Page handoff state");
+    expect(readResortPageText(element)).toContain("Generate Phrase");
+    expect(readResortPageText(element)).toContain("No phrase generated yet.");
   });
 
   it("returns to select resort and resets search query", async () => {
@@ -226,7 +303,52 @@ describe("ptk-app-shell", () => {
     document.body.appendChild(element);
 
     await waitFor(() => readMeta(element).includes("page=resort"));
-    expect(readShellText(element)).toContain("Fernie");
+    expect(readResortPageHeaderTitle(element)).toBe("Fernie");
+  });
+
+  it("defaults resort page tab to my location and supports tab switching", async () => {
+    repoState.activePackId = "CA_Fernie_Fernie";
+    repoState.installedPacks = [
+      {
+        id: "CA_Fernie_Fernie",
+        name: "Fernie",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v7"
+      }
+    ];
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+
+    await waitFor(() => readMeta(element).includes("page=resort"));
+    expect(readResortPageText(element)).toContain("No phrase generated yet.");
+
+    clickResortPageButtonByLabel(element, "Runs Check");
+    await waitFor(() => readResortPageText(element).includes("Run verification workflows"));
+  });
+
+  it("updates fullscreen-active meta when fullscreen is toggled on small", async () => {
+    repoState.installedPacks = [
+      {
+        id: "CA_Golden_Kicking_Horse",
+        name: "Kicking Horse",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v4"
+      }
+    ];
+    await import("./ptk-app-shell");
+    setWindowWidth(430);
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+    await waitFor(() => countResortCards(element) === 2);
+    dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
+    await waitFor(() => readMeta(element).includes("page=resort"));
+
+    expect(readMeta(element)).toContain("fullscreen-active=no");
+    clickResortPageButtonByLabel(element, "Full screen");
+    await waitFor(() => readMeta(element).includes("fullscreen-active=yes"));
+    clickResortPageButtonByLabel(element, "Exit full screen");
+    await waitFor(() => readMeta(element).includes("fullscreen-active=no"));
   });
 
   it("falls back to select page with message when previous active resort cannot be restored", async () => {
@@ -299,6 +421,17 @@ function readShellText(element: HTMLElement): string {
   return (element.shadowRoot?.textContent ?? "").replace(/\s+/gu, " ").trim();
 }
 
+function readResortPageText(element: HTMLElement): string {
+  const page = element.shadowRoot?.querySelector("ptk-resort-page") as HTMLElement | null;
+  return (page?.shadowRoot?.textContent ?? "").replace(/\s+/gu, " ").trim();
+}
+
+function readResortPageHeaderTitle(element: HTMLElement): string {
+  const page = element.shadowRoot?.querySelector("ptk-resort-page") as HTMLElement | null;
+  const header = page?.shadowRoot?.querySelector("ptk-page-header") as (HTMLElement & { title?: string }) | null;
+  return header?.title ?? "";
+}
+
 function countResortCards(element: HTMLElement): number {
   const page = element.shadowRoot?.querySelector("ptk-select-resort-page") as HTMLElement | null;
   return page?.shadowRoot?.querySelectorAll("ptk-resort-card").length ?? 0;
@@ -351,6 +484,24 @@ function clickButtonByLabel(element: HTMLElement, label: string): void {
   ) as HTMLButtonElement | undefined;
   if (!button) {
     throw new Error(`Button not found: ${label}`);
+  }
+  button.click();
+}
+
+function listResortPageButtons(element: HTMLElement): string[] {
+  const page = element.shadowRoot?.querySelector("ptk-resort-page") as HTMLElement | null;
+  return Array.from(page?.shadowRoot?.querySelectorAll("button") ?? []).map((node) =>
+    ((node as HTMLElement).textContent ?? "").trim()
+  );
+}
+
+function clickResortPageButtonByLabel(element: HTMLElement, label: string): void {
+  const page = element.shadowRoot?.querySelector("ptk-resort-page") as HTMLElement | null;
+  const button = Array.from(page?.shadowRoot?.querySelectorAll("button") ?? []).find((node) =>
+    (node.textContent ?? "").includes(label)
+  ) as HTMLButtonElement | undefined;
+  if (!button) {
+    throw new Error(`Resort page button not found: ${label}`);
   }
   button.click();
 }
