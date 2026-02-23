@@ -59,6 +59,11 @@ It complements personas and roadmap deliverables.
 ### Success Outcome
 - Returning users resume directly into the active resort workflow (Resort Page) without reselecting a resort.
 
+### Fallback Behavior
+- If the last active resort is missing, invalid, or no longer available locally:
+  - app falls back to Select Resort page
+  - app shows a non-blocking message that the previous resort could not be restored
+
 ## UC-03: Generate Radio Phrase From Current Position
 
 ### Actor
@@ -66,14 +71,18 @@ It complements personas and roadmap deliverables.
 
 ### Preconditions
 - Active resort selected
-- Location permission granted
 - Resort pack available locally
 
 ### Main Flow
 1. User opens Resort Page (`My location` tool).
-2. User sees current location on map with terrain context.
-3. User triggers phrase generation.
-4. App returns phrase text for radio use.
+2. App triggers location permission prompt immediately on page load if permission is not already granted.
+3. User sees current location on map with terrain context.
+4. User triggers phrase generation.
+5. App returns phrase text for radio use.
+
+### Alternate / Error Flows
+- If location permission is denied, blocked, or unavailable, app shows explicit guidance for how to re-enable location access so user does not get stuck.
+- User can remain on Resort Page and continue non-location flows when GPS is unavailable.
 
 ### Success Outcome
 - User gets a clear phrase quickly without leaving map context.
