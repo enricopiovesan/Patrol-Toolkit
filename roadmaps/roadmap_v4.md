@@ -209,7 +209,7 @@
 - PR outcome: map controls align with v4 UX direction.
 
 ## Slice 8: `/new` UI Feature Completion + UX Behavior Polish
-- Status: planned
+- Status: completed
 - Goal: complete remaining `/new` page interactions and behavioral polish from `ui_spec_v1.md`.
 - Deliverables:
   - finish component/page behaviors not completed in prior slices

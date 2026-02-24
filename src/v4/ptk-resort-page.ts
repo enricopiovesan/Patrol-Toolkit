@@ -5,6 +5,7 @@ import type { ResortPageHeaderViewModel } from "./resort-page-model";
 import type { ResortPageTabId } from "./resort-page-state";
 import type { ViewportMode } from "./viewport";
 import type { ResortPack } from "../resort-pack/types";
+import type { GpsErrorKind } from "./gps-ui-state";
 import "./ptk-page-header";
 import "./ptk-tool-panel";
 import "../map/map-view";
@@ -167,6 +168,22 @@ export class PtkResortPage extends LitElement {
       line-height: 1.4;
     }
 
+    .gps-disabled-card {
+      border: 1px solid var(--ptk-color-warning-500);
+      border-radius: var(--ptk-radius-md);
+      background: var(--ptk-color-warning-100);
+      padding: var(--ptk-space-3);
+      display: grid;
+      gap: var(--ptk-space-2);
+    }
+
+    .gps-disabled-card p {
+      margin: 0;
+      color: var(--ptk-text-primary);
+      font-size: var(--ptk-font-body-s-size);
+      line-height: 1.4;
+    }
+
     .map-frame {
       border: 1px solid var(--ptk-border-default);
       border-radius: var(--ptk-radius-md);
@@ -243,6 +260,54 @@ export class PtkResortPage extends LitElement {
       display: flex;
       gap: var(--ptk-space-2);
     }
+
+    .modal-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      padding: var(--ptk-space-3);
+    }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgb(31 32 36 / 0.42);
+    }
+
+    .modal {
+      position: relative;
+      width: min(100%, 520px);
+      border-radius: var(--ptk-radius-lg);
+      border: 1px solid var(--ptk-border-default);
+      background: var(--ptk-surface-card);
+      box-shadow: var(--ptk-shadow-md);
+      padding: var(--ptk-space-3);
+      display: grid;
+      gap: var(--ptk-space-2);
+    }
+
+    .modal h3 {
+      margin: 0;
+      font-family: var(--ptk-font-family-heading);
+      font-size: var(--ptk-font-heading-h3-size);
+      font-weight: var(--ptk-font-weight-bold);
+    }
+
+    .modal p {
+      margin: 0;
+      color: var(--ptk-text-secondary);
+      font-size: var(--ptk-font-body-m-size);
+      line-height: 1.45;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--ptk-space-2);
+      margin-top: var(--ptk-space-1);
+    }
   `;
 
   @property({ type: String })
@@ -276,6 +341,36 @@ export class PtkResortPage extends LitElement {
 
   @property({ type: Boolean })
   accessor renderLiveMap = true;
+
+  @property({ type: String })
+  accessor gpsStatusText = "Requesting GPS permission and location…";
+
+  @property({ type: Boolean })
+  accessor gpsDisabled = false;
+
+  @property({ type: Boolean })
+  accessor gpsGuidanceModalOpen = false;
+
+  @property({ type: String })
+  accessor gpsGuidanceTitle = "Turn On Location";
+
+  @property({ type: String })
+  accessor gpsGuidanceBody = "";
+
+  @property({ type: String })
+  accessor phraseOutputText = "No phrase generated yet.";
+
+  @property({ type: String })
+  accessor phraseStatusText = "Waiting for GPS position.";
+
+  @property({ type: Boolean })
+  accessor phraseGenerating = false;
+
+  @property({ type: String })
+  accessor mapState: "loading" | "ready" | "error" = "loading";
+
+  @property({ type: String })
+  accessor mapStateMessage = "Loading map…";
 
   protected render() {
     const workspaceClasses = {
@@ -316,10 +411,21 @@ export class PtkResortPage extends LitElement {
                   `
                 : nothing}
             </div>
+            <p class="panel-note" aria-label="Map state">${this.mapStateMessage}</p>
           </div>
           <div class="map-canvas" aria-label="Resort map canvas">
             ${this.renderLiveMap
-              ? html`<map-view .pack=${this.pack} .showStatusBar=${false} .showBuiltInControls=${false}></map-view>`
+              ? html`
+                  <map-view
+                    .pack=${this.pack}
+                    .showStatusBar=${false}
+                    .showBuiltInControls=${false}
+                    @position-update=${this.handleMapPositionUpdate}
+                    @gps-error=${this.handleMapGpsError}
+                    @map-ready=${this.handleMapReady}
+                    @map-render-error=${this.handleMapRenderError}
+                  ></map-view>
+                `
               : html`<div class="map-test-surface" aria-hidden="true"></div>`}
           </div>
           <div class="back-row">
@@ -329,6 +435,7 @@ export class PtkResortPage extends LitElement {
           </div>
         </section>
       </section>
+      ${this.gpsGuidanceModalOpen ? this.renderGpsGuidanceModal() : nothing}
     `;
   }
 
@@ -383,9 +490,22 @@ export class PtkResortPage extends LitElement {
         return html`
           <section class="panel-card" role="tabpanel" aria-label="My location tools">
             <h4>Generate Phrase</h4>
-            <button class="ghost-button" type="button">Generate Phrase</button>
-            <div class="phrase-output">No phrase generated yet.</div>
-            <p class="panel-note">GPS ready (±150m).</p>
+            <button class="ghost-button" type="button" ?disabled=${this.phraseGenerating} @click=${this.handleGeneratePhrase}>
+              ${this.phraseGenerating ? "Generating..." : "Generate Phrase"}
+            </button>
+            <div class="phrase-output">${this.phraseOutputText}</div>
+            <p class="panel-note">${this.phraseStatusText}</p>
+            <p class="panel-note">${this.gpsStatusText}</p>
+            ${this.gpsDisabled
+              ? html`
+                  <div class="gps-disabled-card" aria-label="GPS disabled state">
+                    <p>Location access is required for live positioning and phrase generation.</p>
+                    <button class="ghost-button" type="button" @click=${this.handleRetryGps}>
+                      Turn On Location
+                    </button>
+                  </div>
+                `
+              : nothing}
           </section>
         `;
       case "runs-check":
@@ -406,6 +526,21 @@ export class PtkResortPage extends LitElement {
           </section>
         `;
     }
+  }
+
+  private renderGpsGuidanceModal() {
+    return html`
+      <div class="modal-layer" aria-label="GPS guidance modal" role="dialog" aria-modal="true">
+        <div class="modal-backdrop" @click=${this.handleDismissGpsGuidance}></div>
+        <section class="modal">
+          <h3>${this.gpsGuidanceTitle}</h3>
+          <p>${this.gpsGuidanceBody}</p>
+          <div class="modal-actions">
+            <button class="ghost-button" type="button" @click=${this.handleDismissGpsGuidance}>Close</button>
+          </div>
+        </section>
+      </div>
+    `;
   }
 
   private dispatchSelectTab(tabId: ResortPageTabId): void {
@@ -430,6 +565,54 @@ export class PtkResortPage extends LitElement {
     const mapView = this.shadowRoot?.querySelector("map-view") as MapView | null;
     mapView?.recenterToUserPosition();
     this.dispatchEvent(new CustomEvent("ptk-resort-center-user", { bubbles: true, composed: true }));
+  };
+
+  private readonly handleRetryGps = (): void => {
+    const mapView = this.shadowRoot?.querySelector("map-view") as MapView | null;
+    mapView?.restartGpsTracking();
+    this.dispatchEvent(new CustomEvent("ptk-resort-gps-retry", { bubbles: true, composed: true }));
+  };
+
+  private readonly handleDismissGpsGuidance = (): void => {
+    this.dispatchEvent(new CustomEvent("ptk-resort-gps-guidance-dismiss", { bubbles: true, composed: true }));
+  };
+
+  private readonly handleMapPositionUpdate = (event: Event): void => {
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-position-update", {
+        detail: (event as CustomEvent).detail,
+        bubbles: true,
+        composed: true
+      })
+    );
+  };
+
+  private readonly handleMapGpsError = (event: Event): void => {
+    this.dispatchEvent(
+      new CustomEvent<{ kind: GpsErrorKind; message: string }>("ptk-resort-gps-error", {
+        detail: (event as CustomEvent).detail,
+        bubbles: true,
+        composed: true
+      })
+    );
+  };
+
+  private readonly handleMapReady = (): void => {
+    this.dispatchEvent(new CustomEvent("ptk-resort-map-ready", { bubbles: true, composed: true }));
+  };
+
+  private readonly handleMapRenderError = (event: Event): void => {
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-map-render-error", {
+        detail: (event as CustomEvent).detail,
+        bubbles: true,
+        composed: true
+      })
+    );
+  };
+
+  private readonly handleGeneratePhrase = (): void => {
+    this.dispatchEvent(new CustomEvent("ptk-resort-generate-phrase", { bubbles: true, composed: true }));
   };
 
   private readonly handleOpenSettings = (): void => {

@@ -4,9 +4,16 @@ export type GeoPosition = {
   accuracy: number;
 };
 
+export type LocationTrackerErrorKind =
+  | "permission-denied"
+  | "position-unavailable"
+  | "timeout"
+  | "unsupported"
+  | "unknown";
+
 export type LocationTrackerCallbacks = {
   onPosition: (position: GeoPosition) => void;
-  onError?: (message: string) => void;
+  onError?: (message: string, kind: LocationTrackerErrorKind) => void;
 };
 
 const TRACKING_OPTIONS: PositionOptions = {
@@ -26,7 +33,7 @@ export class LocationTracker {
 
   start(): boolean {
     if (!("geolocation" in navigator)) {
-      this.callbacks.onError?.("Geolocation unavailable on this device.");
+      this.callbacks.onError?.("Geolocation unavailable on this device.", "unsupported");
       return false;
     }
 
@@ -44,12 +51,13 @@ export class LocationTracker {
           });
         },
         (error) => {
-          this.callbacks.onError?.(mapGeolocationError(error));
+          const mapped = mapGeolocationError(error);
+          this.callbacks.onError?.(mapped.message, mapped.kind);
         },
         TRACKING_OPTIONS
       );
     } catch {
-      this.callbacks.onError?.("Unable to start GPS tracking.");
+      this.callbacks.onError?.("Unable to start GPS tracking.", "unknown");
       this.watchId = null;
       return false;
     }
@@ -71,18 +79,21 @@ export class LocationTracker {
   }
 }
 
-function mapGeolocationError(error: GeolocationPositionError): string {
+function mapGeolocationError(error: GeolocationPositionError): {
+  message: string;
+  kind: LocationTrackerErrorKind;
+} {
   if (error.code === GEOLOCATION_PERMISSION_DENIED) {
-    return "Location permission denied.";
+    return { message: "Location permission denied.", kind: "permission-denied" };
   }
 
   if (error.code === GEOLOCATION_POSITION_UNAVAILABLE) {
-    return "Current location unavailable.";
+    return { message: "Current location unavailable.", kind: "position-unavailable" };
   }
 
   if (error.code === GEOLOCATION_TIMEOUT) {
-    return "Location request timed out.";
+    return { message: "Location request timed out.", kind: "timeout" };
   }
 
-  return "Unable to read device location.";
+  return { message: "Unable to read device location.", kind: "unknown" };
 }

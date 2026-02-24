@@ -7,9 +7,11 @@ import { v4DesignTokens } from "./design-tokens";
 import { createInitialToolPanelState } from "./tool-panel-state";
 import { DEFAULT_V4_THEME } from "./theme";
 import { readStoredV4Theme, writeStoredV4Theme } from "./theme-preferences";
+import { readStoredLastKnownPosition, writeStoredLastKnownPosition } from "./position-cache";
 import { classifyViewportWidth, type ViewportMode } from "./viewport";
 import { APP_VERSION } from "../app-version";
 import { requestPackAssetPrecache } from "../pwa/precache-pack-assets";
+import { composeRadioPhrase } from "../radio/phrase";
 import {
   isCatalogVersionCompatible,
   loadPackFromCatalogEntry,
@@ -29,6 +31,16 @@ import {
   type ResortPageUiState
 } from "./resort-page-state";
 import type { ResortPack } from "../resort-pack/types";
+import type { LngLat } from "../resort-pack/types";
+import {
+  applyGpsError,
+  applyGpsPosition,
+  createInitialGpsUiState,
+  dismissGpsGuidanceModal,
+  requestGpsRetry,
+  type GpsErrorKind,
+  type V4GpsUiState
+} from "./gps-ui-state";
 import {
   buildOfflineResortRows,
   clearPackCandidateSelections,
@@ -216,6 +228,26 @@ export class PtkAppShell extends LitElement {
   @state()
   private accessor blockedPackUpdates: string[] = [];
 
+  @state()
+  private accessor gpsUiState: V4GpsUiState = createInitialGpsUiState();
+
+  @state()
+  private accessor phraseOutputText = "No phrase generated yet.";
+
+  @state()
+  private accessor phraseStatusText = "Waiting for GPS position.";
+
+  @state()
+  private accessor phraseGenerating = false;
+
+  @state()
+  private accessor mapUiState: "loading" | "ready" | "error" = "loading";
+
+  @state()
+  private accessor mapStateMessage = "Loading map…";
+
+  private latestResortPosition: { coordinates: LngLat; accuracy: number } | null = null;
+
   private repository: ResortPackRepository | null = null;
   private deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
   private readonly onBeforeInstallPrompt = (event: Event) => {
@@ -340,6 +372,16 @@ export class PtkAppShell extends LitElement {
         .header=${vm.header}
         .pack=${this.selectedResortPack}
         .renderLiveMap=${shouldRenderLiveMap()}
+        .gpsStatusText=${this.gpsUiState.statusText}
+        .gpsDisabled=${this.gpsUiState.status === "disabled"}
+        .gpsGuidanceModalOpen=${this.gpsUiState.guidanceModalOpen}
+        .gpsGuidanceTitle=${this.gpsUiState.guidanceTitle}
+        .gpsGuidanceBody=${this.gpsUiState.guidanceBody}
+        .phraseOutputText=${this.phraseOutputText}
+        .phraseStatusText=${this.phraseStatusText}
+        .phraseGenerating=${this.phraseGenerating}
+        .mapState=${this.mapUiState}
+        .mapStateMessage=${this.mapStateMessage}
         .selectedTab=${vm.selectedTab}
         .panelOpen=${vm.panelOpen}
         .fullscreenSupported=${vm.fullscreenSupported}
@@ -350,6 +392,13 @@ export class PtkAppShell extends LitElement {
         @ptk-resort-toggle-panel=${this.handleResortTogglePanel}
         @ptk-resort-toggle-fullscreen=${this.handleResortToggleFullscreen}
         @ptk-resort-open-settings=${this.handleOpenSettingsPanel}
+        @ptk-resort-position-update=${this.handleResortPositionUpdate}
+        @ptk-resort-gps-error=${this.handleResortGpsError}
+        @ptk-resort-gps-retry=${this.handleResortGpsRetry}
+        @ptk-resort-gps-guidance-dismiss=${this.handleResortGpsGuidanceDismiss}
+        @ptk-resort-generate-phrase=${this.handleResortGeneratePhrase}
+        @ptk-resort-map-ready=${this.handleResortMapReady}
+        @ptk-resort-map-render-error=${this.handleResortMapRenderError}
       ></ptk-resort-page>
     `;
   }
@@ -492,6 +541,8 @@ export class PtkAppShell extends LitElement {
     this.installBlockingError = "";
     this.selectedResortPack = null;
     this.resortPageUiState = createInitialResortPageUiState(this.viewport);
+    this.gpsUiState = createInitialGpsUiState();
+    this.resetResortPageDerivedState();
   };
 
   private readonly handleInstallRetry = (): void => {
@@ -516,6 +567,84 @@ export class PtkAppShell extends LitElement {
   private readonly handleResortToggleFullscreen = (): void => {
     const fullscreenSupported = createInitialToolPanelState(this.viewport).fullscreenSupported;
     this.resortPageUiState = toggleResortPageFullscreen(this.resortPageUiState, this.viewport, fullscreenSupported);
+  };
+
+  private readonly handleResortPositionUpdate = (event: CustomEvent<{ coordinates: LngLat; accuracy: number }>): void => {
+    this.latestResortPosition = event.detail;
+    writeStoredLastKnownPosition(safeStorage(), event.detail);
+    this.gpsUiState = applyGpsPosition(this.gpsUiState, event.detail.accuracy);
+    if (
+      this.phraseStatusText.startsWith("Waiting for GPS") ||
+      this.phraseStatusText.startsWith("Retrying location") ||
+      this.phraseStatusText.startsWith("Ready to generate phrase (last known")
+    ) {
+      this.phraseStatusText = "Ready to generate phrase.";
+    }
+  };
+
+  private readonly handleResortGpsError = (event: CustomEvent<{ kind: GpsErrorKind; message: string }>): void => {
+    const next = applyGpsError(this.gpsUiState, {
+      kind: event.detail.kind,
+      message: event.detail.message
+    });
+    this.gpsUiState = next;
+    if (this.phraseGenerating) {
+      this.phraseGenerating = false;
+    }
+    this.phraseStatusText = "Location unavailable. Resolve GPS access to generate a phrase.";
+  };
+
+  private readonly handleResortGpsRetry = (): void => {
+    this.gpsUiState = requestGpsRetry(this.gpsUiState);
+    this.phraseStatusText = "Retrying location access…";
+  };
+
+  private readonly handleResortGpsGuidanceDismiss = (): void => {
+    this.gpsUiState = dismissGpsGuidanceModal(this.gpsUiState);
+  };
+
+  private readonly handleResortGeneratePhrase = (): void => {
+    if (!this.selectedResortPack) {
+      this.phraseStatusText = "Resort pack is not loaded.";
+      return;
+    }
+
+    const fallbackPosition = readStoredLastKnownPosition(safeStorage());
+    const position = this.latestResortPosition ??
+      (fallbackPosition
+        ? {
+            coordinates: fallbackPosition.coordinates,
+            accuracy: fallbackPosition.accuracy
+          }
+        : null);
+
+    if (!position) {
+      this.phraseStatusText = "Waiting for GPS position.";
+      return;
+    }
+
+    this.phraseGenerating = true;
+    try {
+      const outcome = composeRadioPhrase(position.coordinates, this.selectedResortPack);
+      this.phraseOutputText = outcome.phrase;
+      this.phraseStatusText = this.latestResortPosition
+        ? "Phrase generated."
+        : "Phrase generated from last known location (offline fallback).";
+    } catch {
+      this.phraseStatusText = "Unable to generate phrase.";
+    } finally {
+      this.phraseGenerating = false;
+    }
+  };
+
+  private readonly handleResortMapReady = (): void => {
+    this.mapUiState = "ready";
+    this.mapStateMessage = "Map ready.";
+  };
+
+  private readonly handleResortMapRenderError = (event: CustomEvent<{ message?: string }>): void => {
+    this.mapUiState = "error";
+    this.mapStateMessage = event.detail?.message?.trim() ? `Map rendering error: ${event.detail.message}` : "Map rendering error.";
   };
 
   private readonly handleOpenSettingsPanel = (): void => {
@@ -565,6 +694,8 @@ export class PtkAppShell extends LitElement {
     this.selectedResortName = resortName;
     this.installBlockingError = "";
     this.resortPageUiState = createInitialResortPageUiState(this.viewport);
+    this.gpsUiState = createInitialGpsUiState();
+    this.resetResortPageDerivedState();
 
     const installedMeta = this.installedPacks.find((pack) => pack.id === resortId);
     this.selectedResortSourceVersion = installedMeta?.sourceVersion ?? "";
@@ -572,6 +703,18 @@ export class PtkAppShell extends LitElement {
     const pack = this.repository ? await this.repository.getPack(resortId) : null;
     this.selectedResortPack = pack;
     this.page = "resort";
+  }
+
+  private resetResortPageDerivedState(): void {
+    this.latestResortPosition = null;
+    this.phraseOutputText = "No phrase generated yet.";
+    const cached = readStoredLastKnownPosition(safeStorage());
+    this.phraseStatusText = cached
+      ? "Ready to generate phrase (last known location until GPS updates)."
+      : "Waiting for GPS position.";
+    this.phraseGenerating = false;
+    this.mapUiState = "loading";
+    this.mapStateMessage = "Loading map…";
   }
 
   private async installApp(): Promise<void> {

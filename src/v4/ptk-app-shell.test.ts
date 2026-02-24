@@ -3,6 +3,7 @@ import type { SelectableResortPack } from "../resort-pack/catalog";
 import type { ResortPackListItem } from "../resort-pack/repository";
 import type { ResortPack } from "../resort-pack/types";
 import { V4_THEME_STORAGE_KEY } from "./theme-preferences";
+import { V4_LAST_POSITION_STORAGE_KEY } from "./position-cache";
 
 const catalogEntriesFixture: SelectableResortPack[] = [
   {
@@ -421,6 +422,65 @@ describe("ptk-app-shell", () => {
     await waitFor(() => Boolean(findSettingsPanel(element)));
     expect(readSettingsPanelText(element)).toContain("Check for updates");
   });
+
+  it("shows gps guidance modal, then non-blocking disabled state, then retry state", async () => {
+    repoState.activePackId = "CA_Fernie_Fernie";
+    repoState.installedPacks = [
+      {
+        id: "CA_Fernie_Fernie",
+        name: "Fernie",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v7"
+      }
+    ];
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+    await waitFor(() => readMeta(element).includes("page=resort"));
+
+    dispatchResortGpsError(element, { kind: "permission-denied", message: "Location permission denied." });
+    await waitFor(() => readResortPageText(element).includes("Turn On Location"));
+    expect(readResortPageText(element)).toContain("Location permission denied.");
+    expect(readResortPageText(element)).toContain("browser settings");
+
+    clickResortPageButtonByLabel(element, "Close");
+    await waitFor(() => !readResortPageText(element).includes("browser settings"));
+    expect(readResortPageText(element)).toContain("Turn On Location");
+
+    clickResortPageButtonByLabel(element, "Turn On Location");
+    await waitFor(() => readResortPageText(element).includes("Retrying location access"));
+  });
+
+  it("generates phrase from cached last known location when fresh gps is unavailable", async () => {
+    repoState.activePackId = "CA_Fernie_Fernie";
+    repoState.installedPacks = [
+      {
+        id: "CA_Fernie_Fernie",
+        name: "Fernie",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v7"
+      }
+    ];
+    window.localStorage.setItem(
+      V4_LAST_POSITION_STORAGE_KEY,
+      JSON.stringify({
+        coordinates: [-116.9, 51.2],
+        accuracy: 18,
+        recordedAtIso: "2026-03-10T10:00:00.000Z"
+      })
+    );
+
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readResortPageText(element).includes("last known location"));
+
+    clickResortPageButtonByLabel(element, "Generate Phrase");
+
+    await waitFor(() => readResortPageText(element).includes("offline fallback"));
+    expect(readResortPageText(element)).not.toContain("No phrase generated yet.");
+  });
 });
 
 function setWindowWidth(width: number): void {
@@ -537,6 +597,20 @@ function clickResortPageButtonByLabel(element: HTMLElement, label: string): void
     throw new Error(`Resort page button not found: ${label}`);
   }
   button.click();
+}
+
+function dispatchResortGpsError(
+  element: HTMLElement,
+  detail: { kind: "permission-denied" | "position-unavailable" | "timeout" | "unsupported" | "unknown"; message: string }
+): void {
+  const page = element.shadowRoot?.querySelector("ptk-resort-page");
+  page?.dispatchEvent(
+    new CustomEvent("ptk-resort-gps-error", {
+      detail,
+      bubbles: true,
+      composed: true
+    })
+  );
 }
 
 function findSettingsPanel(element: HTMLElement): HTMLElement | null {

@@ -72,7 +72,7 @@ describe("LocationTracker", () => {
     });
 
     expect(tracker.start()).toBe(false);
-    expect(onError).toHaveBeenCalledWith("Geolocation unavailable on this device.");
+    expect(onError).toHaveBeenCalledWith("Geolocation unavailable on this device.", "unsupported");
   });
 
   it("does not create duplicate watch subscriptions", () => {
@@ -115,6 +115,6 @@ describe("LocationTracker", () => {
     const tracker = new LocationTracker({ onPosition: vi.fn(), onError });
 
     expect(tracker.start()).toBe(true);
-    expect(onError).toHaveBeenCalledWith("Location permission denied.");
+    expect(onError).toHaveBeenCalledWith("Location permission denied.", "permission-denied");
   });
 });
