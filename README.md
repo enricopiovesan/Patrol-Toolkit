@@ -50,7 +50,7 @@ Use the production app here:
 
 ## Current Product Scope
 
-![Patrol Toolkit v4 mobile resort page](public/assets/patrol-toolkit-current-state-2026-02-23%20at%2010.08.42%E2%80%AFPM.png)
+![Patrol Toolkit v4 mobile resort page](public/assets/patrol-toolkit-v4-current-state-2026-02-23.png)
 
 Current v4 UI supports:
 - `Select Resort` page (search + resort cards)
