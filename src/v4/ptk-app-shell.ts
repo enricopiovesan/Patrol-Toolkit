@@ -7,6 +7,7 @@ import { v4DesignTokens } from "./design-tokens";
 import { createInitialToolPanelState } from "./tool-panel-state";
 import { DEFAULT_V4_THEME } from "./theme";
 import { readStoredV4Theme, writeStoredV4Theme } from "./theme-preferences";
+import { readStoredLastKnownPosition, writeStoredLastKnownPosition } from "./position-cache";
 import { classifyViewportWidth, type ViewportMode } from "./viewport";
 import { APP_VERSION } from "../app-version";
 import { requestPackAssetPrecache } from "../pwa/precache-pack-assets";
@@ -570,8 +571,13 @@ export class PtkAppShell extends LitElement {
 
   private readonly handleResortPositionUpdate = (event: CustomEvent<{ coordinates: LngLat; accuracy: number }>): void => {
     this.latestResortPosition = event.detail;
+    writeStoredLastKnownPosition(safeStorage(), event.detail);
     this.gpsUiState = applyGpsPosition(this.gpsUiState, event.detail.accuracy);
-    if (this.phraseStatusText.startsWith("Waiting for GPS") || this.phraseStatusText.startsWith("Retrying location")) {
+    if (
+      this.phraseStatusText.startsWith("Waiting for GPS") ||
+      this.phraseStatusText.startsWith("Retrying location") ||
+      this.phraseStatusText.startsWith("Ready to generate phrase (last known")
+    ) {
       this.phraseStatusText = "Ready to generate phrase.";
     }
   };
@@ -602,16 +608,28 @@ export class PtkAppShell extends LitElement {
       this.phraseStatusText = "Resort pack is not loaded.";
       return;
     }
-    if (!this.latestResortPosition) {
+
+    const fallbackPosition = readStoredLastKnownPosition(safeStorage());
+    const position = this.latestResortPosition ??
+      (fallbackPosition
+        ? {
+            coordinates: fallbackPosition.coordinates,
+            accuracy: fallbackPosition.accuracy
+          }
+        : null);
+
+    if (!position) {
       this.phraseStatusText = "Waiting for GPS position.";
       return;
     }
 
     this.phraseGenerating = true;
     try {
-      const outcome = composeRadioPhrase(this.latestResortPosition.coordinates, this.selectedResortPack);
+      const outcome = composeRadioPhrase(position.coordinates, this.selectedResortPack);
       this.phraseOutputText = outcome.phrase;
-      this.phraseStatusText = "Phrase generated.";
+      this.phraseStatusText = this.latestResortPosition
+        ? "Phrase generated."
+        : "Phrase generated from last known location (offline fallback).";
     } catch {
       this.phraseStatusText = "Unable to generate phrase.";
     } finally {
@@ -690,7 +708,10 @@ export class PtkAppShell extends LitElement {
   private resetResortPageDerivedState(): void {
     this.latestResortPosition = null;
     this.phraseOutputText = "No phrase generated yet.";
-    this.phraseStatusText = "Waiting for GPS position.";
+    const cached = readStoredLastKnownPosition(safeStorage());
+    this.phraseStatusText = cached
+      ? "Ready to generate phrase (last known location until GPS updates)."
+      : "Waiting for GPS position.";
     this.phraseGenerating = false;
     this.mapUiState = "loading";
     this.mapStateMessage = "Loading map…";
