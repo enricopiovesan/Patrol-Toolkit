@@ -237,7 +237,7 @@
 - PR outcome: `/new` UI is spec-accurate and ready for cutover.
 
 ## Slice 10: Cutover to v4 UI (Keep Old UI Code Present)
-- Status: planned
+- Status: completed
 - Goal: switch app routing/default UX from legacy UI to the `/new` implementation safely.
 - Deliverables:
   - make v4 UI the primary user experience

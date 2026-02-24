@@ -13,7 +13,7 @@ export function resolveUiAppRoute(
 
   const withinBase = normalizedPath.slice(normalizedBase.length);
   const firstSegment = withinBase.split("/")[0]?.trim().toLowerCase() ?? "";
-  return firstSegment === "new" ? "v4" : "legacy";
+  return firstSegment === "legacy" ? "legacy" : "v4";
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -24,4 +24,3 @@ function normalizeBaseUrl(baseUrl: string): string {
 function ensureLeadingSlash(value: string): string {
   return value.startsWith("/") ? value : `/${value}`;
 }
-
