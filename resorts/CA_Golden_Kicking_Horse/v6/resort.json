@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "kicking horse",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "node",
+      "osmId": 7248641928,
+      "displayName": "Kicking Horse, 12th Street South, Golden, Columbia-Shuswap Regional District, British Columbia, V0A 0A0, Canada",
+      "center": [
+        -116.962465,
+        51.2937094
+      ],
+      "selectedAt": "2026-02-19T04:39:22.426Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v2/boundary.geojson",
+      "checksumSha256": "95547065a0cb3a1d2b4358e5dbc1a2d67b73a5b57713ec48ee5b27a08f7807fc",
+      "featureCount": 1,
+      "updatedAt": "2026-02-23T01:34:30.283Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "queryHash": "badf131debbe7ab0ef093a60088ca5a00a17607e2ee4bc3bff0b342485a5f4cd",
+      "updatedAt": "2026-02-24T04:40:57.253Z",
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v6/lifts.geojson",
+      "featureCount": 7,
+      "checksumSha256": "db46537371dcaa4172f9b20398564dccf51fc7eb0a31c3b837ef699038d86931"
+    },
+    "runs": {
+      "status": "complete",
+      "queryHash": "cc4e80b6c2574994e0b0ad09c66e79e82b3eea357d9762a30172080bc09d9228",
+      "updatedAt": "2026-02-24T04:40:51.033Z",
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v5/runs.geojson",
+      "featureCount": 70,
+      "checksumSha256": "f5843d475d2bf442b01781241e0408104d583a9bf45b037901c7a55cbc64322d"
+    }
+  }
+}
