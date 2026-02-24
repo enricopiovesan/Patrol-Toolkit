@@ -37,7 +37,7 @@ All built on portable, structured Resort Packs that separate terrain data from a
 
 ## Current Product State (February 21, 2026)
 
-![Patrol Toolkit current app snapshot](public/assets/patrol-toolkit-current-state-2026-02-21.png)
+![Patrol Toolkit current app snapshot](public/assets/patrol-toolkit-current-state-2026-02-23%20at%2010.08.42%E2%80%AFPM.png)
 
 Patrol Toolkit is now in a multi-resort, offline-ready operational state with deterministic phrase generation and publish integrity controls.
 
