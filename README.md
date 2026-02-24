@@ -50,12 +50,26 @@ Use the production app here:
 
 ## Current Product Scope
 
+![Patrol Toolkit v4 mobile resort page](public/assets/patrol-toolkit-current-state-2026-02-23%20at%2010.08.42%E2%80%AFPM.png)
+
 Current v4 UI supports:
 - `Select Resort` page (search + resort cards)
 - `Resort Page` (map-first layout)
 - offline resort pack install and use
 - phrase generation
 - Settings / Help drawer (theme, app install/update info, offline resorts status)
+
+### Available published resorts
+
+Current stable published resorts in `public/resort-packs/index.json`:
+
+- `CA_Chelsea_Camp_Fortune` (`v4`)
+- `CA_Fernie_Fernie` (`v7`)
+- `CA_Golden_Kicking_Horse` (`v6`)
+- `CA_Kimberley_Kimberley_Resort` (`v5`)
+- `CA_Beaupre_Mont_Sainte_Anne` (`v4`)
+- `CA_Rossland_Red_Mountain_Resort` (`v6`)
+- `CA_Whistler_Whistler_Blackcomb` (`v4`)
 
 ## Roadmap Focus: Runs Check and Sweeps
 
@@ -149,3 +163,13 @@ Patrol Toolkit does not replace:
 - operational judgment
 
 Use it as an assistive tool only.
+
+### Data and accuracy limitations
+
+- Terrain and map data in Patrol Toolkit is derived from OpenStreetMap and related processed map assets.
+- OpenStreetMap data quality varies by resort and by feature.
+- Map geometry, labels, lift/run alignments, and other terrain details may be incomplete or inaccurate.
+- Device GPS accuracy also varies and may degrade due to terrain, weather, device quality, or signal conditions.
+- Phrase generation is deterministic but still under active tuning and validation; it may return inaccurate or suboptimal results in some cases.
+
+Always verify location context using radio communication, patrol knowledge, and on-mountain observation.
