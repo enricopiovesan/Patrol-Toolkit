@@ -76,7 +76,7 @@
 - Aerial-view and contour/elevation work are feasibility/prototype outcomes in v5 (best-effort), not guaranteed shipping features.
 
 ## Slice 1: v5 Spec Update Gate (No UI Code)
-- Status: planned
+- Status: completed
 - Goal: lock v5 UX behavior changes before implementation begins.
 - Deliverables:
   - update `/spec/XD/ui_spec_v1.md` (or create a versioned successor if needed) with v5 behavior deltas
