@@ -71,6 +71,8 @@ const packFixture: ResortPack = {
 
 const loadResortCatalogMock = vi.fn(async () => ({ schemaVersion: "2.0.0", resorts: [] }));
 const selectLatestEligibleVersionsMock = vi.fn(() => catalogEntriesFixture);
+const loadPackFromCatalogEntryMock = vi.fn(async () => packFixture);
+const requestPackAssetPrecacheMock = vi.fn();
 
 class MockResortPackRepository {
   static async open(): Promise<MockResortPackRepository> {
@@ -99,15 +101,44 @@ class MockResortPackRepository {
   async getPack(packId: string): Promise<ResortPack | null> {
     return repoState.packsById[packId] ?? null;
   }
+
+  async savePack(
+    pack: ResortPack,
+    metadata: {
+      sourceVersion: string;
+      sourceCreatedAt?: string;
+    }
+  ): Promise<void> {
+    repoState.packsById[pack.resort.id] = pack;
+    const existingIndex = repoState.installedPacks.findIndex((item) => item.id === pack.resort.id);
+    const record: ResortPackListItem = {
+      id: pack.resort.id,
+      name: pack.resort.name,
+      updatedAt: metadata.sourceCreatedAt ?? new Date().toISOString(),
+      sourceVersion: metadata.sourceVersion,
+      sourceCreatedAt: metadata.sourceCreatedAt
+    };
+    if (existingIndex >= 0) {
+      repoState.installedPacks[existingIndex] = record;
+    } else {
+      repoState.installedPacks.push(record);
+    }
+  }
 }
 
 vi.mock("../resort-pack/catalog", () => ({
   loadResortCatalog: loadResortCatalogMock,
-  selectLatestEligibleVersions: selectLatestEligibleVersionsMock
+  selectLatestEligibleVersions: selectLatestEligibleVersionsMock,
+  loadPackFromCatalogEntry: loadPackFromCatalogEntryMock,
+  isCatalogVersionCompatible: () => true
 }));
 
 vi.mock("../resort-pack/repository", () => ({
   ResortPackRepository: MockResortPackRepository
+}));
+
+vi.mock("../pwa/precache-pack-assets", () => ({
+  requestPackAssetPrecache: requestPackAssetPrecacheMock
 }));
 
 describe("ptk-app-shell", () => {
@@ -127,6 +158,8 @@ describe("ptk-app-shell", () => {
     };
     loadResortCatalogMock.mockClear();
     selectLatestEligibleVersionsMock.mockClear();
+    loadPackFromCatalogEntryMock.mockClear();
+    requestPackAssetPrecacheMock.mockClear();
     selectLatestEligibleVersionsMock.mockReturnValue(catalogEntriesFixture);
   });
 
@@ -142,7 +175,7 @@ describe("ptk-app-shell", () => {
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
 
-    await waitFor(() => readMeta(element).includes("page=select-resort"));
+    await waitFor(() => readShellAttr(element, "page") === "select-resort");
     await waitFor(() => countResortCards(element) === 2);
 
     expect(loadResortCatalogMock).toHaveBeenCalledTimes(1);
@@ -164,9 +197,9 @@ describe("ptk-app-shell", () => {
     document.body.appendChild(element);
     await waitFor(() => countResortCards(element) === 2);
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
-    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readShellAttr(element, "page") === "resort");
 
-    expect(readMeta(element)).toContain("panel=bottom-sheet");
+    expect(readShellAttr(element, "panel-presentation")).toBe("bottom-sheet");
     await waitFor(() => listResortPageButtons(element).includes("Full screen"));
   });
 
@@ -185,9 +218,9 @@ describe("ptk-app-shell", () => {
     document.body.appendChild(element);
     await waitFor(() => countResortCards(element) === 2);
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
-    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readShellAttr(element, "page") === "resort");
 
-    expect(readMeta(element)).toContain("fullscreen-supported=no");
+    expect(readShellAttr(element, "fullscreen-supported")).toBe("no");
     expect(listResortPageButtons(element)).not.toContain("Full screen");
   });
 
@@ -206,11 +239,11 @@ describe("ptk-app-shell", () => {
     document.body.appendChild(element);
     await waitFor(() => countResortCards(element) === 2);
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
-    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readShellAttr(element, "page") === "resort");
 
-    expect(readMeta(element)).toContain("panel-open=no");
-    clickResortPageButtonByLabel(element, "Show tools");
-    await waitFor(() => readMeta(element).includes("panel-open=yes"));
+    expect(readShellAttr(element, "panel-open")).toBe("no");
+    clickResortPageButtonByLabel(element, "Open side menu");
+    await waitFor(() => readShellAttr(element, "panel-open") === "yes");
   });
 
   it("filters resorts using search query", async () => {
@@ -233,23 +266,39 @@ describe("ptk-app-shell", () => {
     await waitFor(() => countResortCards(element) === 2);
 
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
-    await waitFor(() => readMeta(element).includes("page=install-blocking"));
+    await waitFor(() => readShellAttr(element, "page") === "install-blocking");
     expect(readShellText(element)).toContain("Kicking Horse");
     expect(readShellText(element)).toContain("blocking install/download flow");
+    expect(readShellText(element)).toContain("Install resort data");
+    expect(readShellText(element)).not.toContain("selected=CA_Golden_Kicking_Horse");
   });
 
-  it("shows retry then cancel flow in blocking install state", async () => {
+  it("installs resort data from blocking state and enters resort page on retry", async () => {
     await import("./ptk-app-shell");
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
     await waitFor(() => countResortCards(element) === 2);
 
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
-    await waitFor(() => readMeta(element).includes("page=install-blocking"));
-    clickButtonByLabel(element, "Retry");
-    await waitFor(() => readShellText(element).includes("Install/download flow is not wired"));
+    await waitFor(() => readShellAttr(element, "page") === "install-blocking");
+    clickButtonByLabel(element, "Install resort data");
+    await waitFor(() => readShellAttr(element, "page") === "resort");
+    expect(requestPackAssetPrecacheMock).toHaveBeenCalled();
+  });
+
+  it("shows retry then cancel flow in blocking install state when install fails", async () => {
+    loadPackFromCatalogEntryMock.mockRejectedValueOnce(new Error("download failed"));
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+    await waitFor(() => countResortCards(element) === 2);
+
+    dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
+    await waitFor(() => readShellAttr(element, "page") === "install-blocking");
+    clickButtonByLabel(element, "Install resort data");
+    await waitFor(() => readShellText(element).includes("download failed"));
     clickButtonByLabel(element, "Cancel");
-    await waitFor(() => readMeta(element).includes("page=select-resort"));
+    await waitFor(() => readShellAttr(element, "page") === "select-resort");
   });
 
   it("opens resort handoff state when an installed resort is selected", async () => {
@@ -267,7 +316,7 @@ describe("ptk-app-shell", () => {
     await waitFor(() => countResortCards(element) === 2);
 
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
-    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readShellAttr(element, "page") === "resort");
     expect(readResortPageText(element)).toContain("Generate Phrase");
     expect(readResortPageText(element)).toContain("No phrase generated yet.");
   });
@@ -280,12 +329,13 @@ describe("ptk-app-shell", () => {
 
     dispatchSearchChange(element, "fernie");
     await waitFor(() => countResortCards(element) === 1);
+    loadPackFromCatalogEntryMock.mockRejectedValueOnce(new Error("download failed"));
     dispatchResortSelect(element, "CA_Fernie_Fernie");
-    await waitFor(() => readMeta(element).includes("page=install-blocking"));
-    clickButtonByLabel(element, "Retry");
+    await waitFor(() => readShellAttr(element, "page") === "install-blocking");
+    clickButtonByLabel(element, "Install resort data");
     await waitFor(() => readShellText(element).includes("Cancel"));
     clickButtonByLabel(element, "Cancel");
-    await waitFor(() => readMeta(element).includes("page=select-resort"));
+    await waitFor(() => readShellAttr(element, "page") === "select-resort");
     await waitFor(() => countResortCards(element) === 2);
     expect(findSearchInput(element)?.value ?? "").toBe("");
   });
@@ -304,7 +354,7 @@ describe("ptk-app-shell", () => {
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
 
-    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readShellAttr(element, "page") === "resort");
     expect(readResortPageHeaderTitle(element)).toBe("Fernie");
   });
 
@@ -322,7 +372,7 @@ describe("ptk-app-shell", () => {
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
 
-    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readShellAttr(element, "page") === "resort");
     expect(readResortPageText(element)).toContain("No phrase generated yet.");
 
     clickResortPageButtonByLabel(element, "Runs Check");
@@ -344,13 +394,13 @@ describe("ptk-app-shell", () => {
     document.body.appendChild(element);
     await waitFor(() => countResortCards(element) === 2);
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
-    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readShellAttr(element, "page") === "resort");
 
-    expect(readMeta(element)).toContain("fullscreen-active=no");
+    expect(readShellAttr(element, "fullscreen-active")).toBe("no");
     clickResortPageButtonByLabel(element, "Full screen");
-    await waitFor(() => readMeta(element).includes("fullscreen-active=yes"));
+    await waitFor(() => readShellAttr(element, "fullscreen-active") === "yes");
     clickResortPageButtonByLabel(element, "Exit full screen");
-    await waitFor(() => readMeta(element).includes("fullscreen-active=no"));
+    await waitFor(() => readShellAttr(element, "fullscreen-active") === "no");
   });
 
   it("falls back to select page with message when previous active resort cannot be restored", async () => {
@@ -359,7 +409,7 @@ describe("ptk-app-shell", () => {
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
 
-    await waitFor(() => readMeta(element).includes("page=select-resort"));
+    await waitFor(() => readShellAttr(element, "page") === "select-resort");
     expect(readSelectPageText(element)).toContain("Previous resort could not be restored");
   });
 
@@ -377,7 +427,7 @@ describe("ptk-app-shell", () => {
     setWindowWidth(1024);
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
-    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readShellAttr(element, "page") === "resort");
 
     const host = element.shadowRoot?.querySelector(".root");
     expect(host?.getAttribute("data-theme")).toBe("default");
@@ -397,7 +447,7 @@ describe("ptk-app-shell", () => {
     setWindowWidth(1280);
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
-    await waitFor(() => readMeta(element).includes("theme=high-contrast"));
+    await waitFor(() => readShellAttr(element, "theme") === "high-contrast");
 
     const host = element.shadowRoot?.querySelector(".root");
     expect(host?.getAttribute("data-theme")).toBe("high-contrast");
@@ -417,7 +467,7 @@ describe("ptk-app-shell", () => {
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
 
-    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readShellAttr(element, "page") === "resort");
     clickResortPageButtonByLabel(element, "Settings / Help");
     await waitFor(() => Boolean(findSettingsPanel(element)));
     expect(readSettingsPanelText(element)).toContain("Check for updates");
@@ -436,7 +486,7 @@ describe("ptk-app-shell", () => {
     await import("./ptk-app-shell");
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
-    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readShellAttr(element, "page") === "resort");
 
     dispatchResortGpsError(element, { kind: "permission-denied", message: "Location permission denied." });
     await waitFor(() => readResortPageText(element).includes("Turn On Location"));
@@ -473,7 +523,7 @@ describe("ptk-app-shell", () => {
     await import("./ptk-app-shell");
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
-    await waitFor(() => readMeta(element).includes("page=resort"));
+    await waitFor(() => readShellAttr(element, "page") === "resort");
     await waitFor(() => readResortPageText(element).includes("last known location"));
 
     clickResortPageButtonByLabel(element, "Generate Phrase");
@@ -498,10 +548,18 @@ function ensureCreateObjectUrlPolyfill(): void {
   }
 }
 
-function readMeta(element: HTMLElement): string {
-  return Array.from(element.shadowRoot?.querySelectorAll(".chip") ?? [])
-    .map((node) => node.textContent ?? "")
-    .join(" | ");
+function readShellAttr(
+  element: HTMLElement,
+  key:
+    | "page"
+    | "theme"
+    | "panel-open"
+    | "panel-presentation"
+    | "fullscreen-supported"
+    | "fullscreen-active"
+): string {
+  const root = element.shadowRoot?.querySelector(".root");
+  return root?.getAttribute(`data-${key}`) ?? "";
 }
 
 function listButtons(element: HTMLElement): string[] {
@@ -591,7 +649,7 @@ function listResortPageButtons(element: HTMLElement): string[] {
 function clickResortPageButtonByLabel(element: HTMLElement, label: string): void {
   const page = element.shadowRoot?.querySelector("ptk-resort-page") as HTMLElement | null;
   const button = Array.from(page?.shadowRoot?.querySelectorAll("button") ?? []).find((node) =>
-    (node.textContent ?? "").includes(label)
+    (node.textContent ?? "").includes(label) || ((node as HTMLElement).getAttribute("aria-label") ?? "").includes(label)
   ) as HTMLButtonElement | undefined;
   if (!button) {
     throw new Error(`Resort page button not found: ${label}`);

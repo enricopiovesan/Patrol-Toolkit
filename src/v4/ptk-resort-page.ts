@@ -1,5 +1,6 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { state } from "lit/decorators.js";
 import { v4DesignTokens } from "./design-tokens";
 import type { ResortPageHeaderViewModel } from "./resort-page-model";
 import type { ResortPageTabId } from "./resort-page-state";
@@ -13,17 +14,21 @@ import type { MapView } from "../map/map-view";
 
 @customElement("ptk-resort-page")
 export class PtkResortPage extends LitElement {
+  private static readonly SMALL_SHEET_HEIGHT_FALLBACK = 232;
+
   static styles = css`
     ${v4DesignTokens}
 
     :host {
       display: block;
       min-height: 0;
+      height: 100%;
       font-family: var(--ptk-font-family-base);
     }
 
     .workspace {
       min-height: 0;
+      height: 100%;
       display: grid;
       gap: var(--ptk-space-3);
     }
@@ -43,13 +48,25 @@ export class PtkResortPage extends LitElement {
     }
 
     .workspace.small {
-      grid-template-rows: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      position: relative;
+      gap: 0;
+      overflow: hidden;
     }
 
     .workspace.medium,
     .workspace.large {
       grid-template-columns: auto minmax(0, 1fr);
       align-items: stretch;
+    }
+
+    .workspace.medium {
+      position: relative;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      gap: 0;
+      overflow: hidden;
     }
 
     .workspace.large {
@@ -61,13 +78,44 @@ export class PtkResortPage extends LitElement {
     }
 
     .panel-shell.small {
-      align-self: end;
+      position: absolute;
+      inset: auto 0 0 0;
+      z-index: 5;
+      margin: 0;
+      padding: 0;
+      pointer-events: none;
+    }
+
+    .panel-shell.small > ptk-tool-panel {
+      display: block;
+      pointer-events: auto;
+    }
+
+    .panel-shell.medium {
+      position: absolute;
+      inset: 0 auto 0 0;
+      z-index: 5;
+      width: min(360px, calc(100% - (var(--ptk-space-6))));
+      padding: var(--ptk-space-2);
+      pointer-events: none;
+    }
+
+    .panel-shell.medium > ptk-tool-panel {
+      display: block;
+      height: 100%;
+      pointer-events: auto;
     }
 
     .panel-content {
       display: grid;
       gap: var(--ptk-space-3);
       color: var(--ptk-text-primary);
+      min-height: 0;
+    }
+
+    ptk-tool-panel .panel-content,
+    .panel-content {
+      min-height: 0;
     }
 
     .panel-toolbar {
@@ -185,6 +233,7 @@ export class PtkResortPage extends LitElement {
     }
 
     .map-frame {
+      position: relative;
       border: 1px solid var(--ptk-border-default);
       border-radius: var(--ptk-radius-md);
       background: var(--ptk-surface-map);
@@ -194,6 +243,40 @@ export class PtkResortPage extends LitElement {
       grid-template-rows: auto minmax(0, 1fr);
       gap: var(--ptk-space-3);
       box-shadow: var(--ptk-shadow-sm);
+    }
+
+    .workspace.small .map-frame {
+      position: absolute;
+      inset: 0;
+      order: 1;
+      border-radius: 0;
+      height: 100%;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      gap: 0;
+      background: transparent;
+      min-height: 0;
+      display: block;
+      overflow: hidden;
+    }
+
+    .workspace.small .panel-shell {
+      order: 2;
+    }
+
+    .workspace.medium .map-frame {
+      position: absolute;
+      inset: 0;
+      order: 1;
+      min-height: 0;
+      height: 100%;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      display: block;
+      overflow: hidden;
     }
 
     .map-frame.fullscreen {
@@ -211,6 +294,26 @@ export class PtkResortPage extends LitElement {
       gap: var(--ptk-space-2);
     }
 
+    .workspace.small .map-header,
+    .workspace.medium .map-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 4;
+      background: var(--ptk-surface-card);
+      padding: var(--ptk-space-3) var(--ptk-space-3) var(--ptk-space-2);
+      border-bottom: 1px solid var(--ptk-border-muted);
+    }
+
+    .workspace.small .map-header {
+      border-radius: 0;
+    }
+
+    .workspace.medium .map-header {
+      border-radius: 0;
+    }
+
     .map-header-row {
       display: flex;
       align-items: center;
@@ -226,6 +329,122 @@ export class PtkResortPage extends LitElement {
       justify-content: flex-end;
     }
 
+    .topbar {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: var(--ptk-space-2);
+    }
+
+    .icon-button {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid var(--ptk-control-border);
+      background: var(--ptk-control-bg);
+      color: var(--ptk-control-fg);
+      display: grid;
+      place-items: center;
+      font: inherit;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .icon-button.ghost-flat {
+      border: none;
+      background: transparent;
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+    }
+
+    .workspace.small .map-header-row,
+    .workspace.medium .map-header-row {
+      display: none;
+    }
+
+    .workspace.small .map-controls {
+      position: absolute;
+      right: 12px;
+      bottom: calc(var(--ptk-small-sheet-height, 232px) + 20px);
+      z-index: 6;
+      display: grid;
+      justify-items: end;
+      gap: var(--ptk-space-2);
+    }
+
+    .workspace.medium .map-controls {
+      position: absolute;
+      right: var(--ptk-space-3);
+      bottom: var(--ptk-space-6);
+      z-index: 6;
+      display: grid;
+      justify-items: end;
+      gap: var(--ptk-space-2);
+    }
+
+    .workspace.medium .map-controls .ghost-button {
+      width: 42px;
+      height: 42px;
+      min-height: 42px;
+      border-radius: 999px;
+      padding: 0;
+      font-size: 0;
+      background: color-mix(in srgb, var(--ptk-surface-card) 92%, transparent);
+      box-shadow: var(--ptk-shadow-sm);
+      position: relative;
+    }
+
+    .workspace.medium .map-controls .ghost-button::before {
+      font-size: 18px;
+      line-height: 1;
+      color: var(--ptk-control-fg);
+    }
+
+    .workspace.medium .map-controls .ghost-button.center::before {
+      content: "⌖";
+    }
+
+    .workspace.medium .map-controls .ghost-button.fullscreen::before {
+      content: "⛶";
+    }
+
+    .workspace.medium .map-controls .ghost-button.exit-fullscreen::before {
+      content: "⤢";
+    }
+
+    .workspace.small .map-controls .ghost-button {
+      width: 40px;
+      height: 40px;
+      min-height: 40px;
+      border-radius: 999px;
+      padding: 0;
+      font-size: 0;
+      position: relative;
+      background: color-mix(in srgb, var(--ptk-surface-card) 92%, transparent);
+      box-shadow: var(--ptk-shadow-sm);
+    }
+
+    .workspace.small .map-controls .ghost-button::before {
+      font-size: 18px;
+      line-height: 1;
+      color: var(--ptk-control-fg);
+    }
+
+    .workspace.small .map-controls .ghost-button.center::before {
+      content: "⌖";
+    }
+
+    .workspace.small .map-controls .ghost-button.fullscreen::before {
+      content: "⛶";
+    }
+
+    .workspace.small .map-controls .ghost-button.exit-fullscreen::before {
+      content: "⤢";
+    }
+
     .map-canvas {
       border-radius: var(--ptk-radius-md);
       border: 1px solid var(--ptk-border-muted);
@@ -233,6 +452,30 @@ export class PtkResortPage extends LitElement {
       position: relative;
       overflow: hidden;
       background: var(--ptk-surface-map);
+    }
+
+    .map-canvas > map-view {
+      display: block;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .workspace.small .map-canvas {
+      min-height: 0;
+      height: 100%;
+      border: none;
+      border-radius: 0;
+      position: absolute;
+      inset: 0;
+    }
+
+    .workspace.medium .map-canvas {
+      min-height: 0;
+      height: 100%;
+      border: none;
+      border-radius: 0;
+      position: absolute;
+      inset: 0;
     }
 
     .workspace.fullscreen .map-canvas {
@@ -252,6 +495,10 @@ export class PtkResortPage extends LitElement {
       justify-content: flex-start;
     }
 
+    .workspace.small .back-row {
+      display: none;
+    }
+
     .workspace.fullscreen .back-row {
       display: none;
     }
@@ -259,6 +506,88 @@ export class PtkResortPage extends LitElement {
     .hidden-panel-tools {
       display: flex;
       gap: var(--ptk-space-2);
+    }
+
+    .workspace.small .hidden-panel-tools {
+      width: 100%;
+      justify-content: space-between;
+      gap: var(--ptk-space-1);
+    }
+
+    .workspace.medium .hidden-panel-tools {
+      width: 100%;
+      justify-content: space-between;
+      gap: var(--ptk-space-1);
+    }
+
+    .workspace.small .map-header-row {
+      align-items: start;
+    }
+
+    .workspace.small .panel-toolbar {
+      display: none;
+    }
+
+    .workspace.medium .panel-toolbar {
+      display: none;
+    }
+
+    .workspace.small .panel-content,
+    .workspace.medium .panel-content {
+      max-height: 100%;
+      overflow: visible;
+      padding-right: 0;
+    }
+
+    .workspace.small .tabs {
+      padding: 4px;
+      border-radius: 14px;
+      background: #eef0f5;
+      border: 1px solid var(--ptk-border-default);
+    }
+
+    .workspace.small .tabs button {
+      min-height: 36px;
+      font-size: var(--ptk-font-action-m-size);
+      color: var(--ptk-text-secondary);
+      border-radius: 12px;
+    }
+
+    .workspace.small .tabs button[selected] {
+      background: #ffffff;
+      color: var(--ptk-text-primary);
+      border-color: transparent;
+      box-shadow: var(--ptk-shadow-sm);
+    }
+
+    .workspace.small .panel-card {
+      border: none;
+      background: transparent;
+      padding: 0;
+      gap: var(--ptk-space-2);
+      box-shadow: none;
+    }
+
+    .workspace.small .panel-card h4 {
+      display: none;
+    }
+
+    .workspace.small .phrase-output {
+      border: none;
+      background: transparent;
+      min-height: unset;
+      padding: 0;
+      align-items: start;
+      font-size: 18px;
+      line-height: 1.25;
+      font-weight: var(--ptk-font-weight-bold);
+    }
+
+    .workspace.small .panel-card .ghost-button {
+      min-height: 44px;
+      border-color: var(--ptk-control-selected-border);
+      color: var(--ptk-control-selected-bg);
+      background: var(--ptk-surface-card);
     }
 
     .modal-layer {
@@ -372,46 +701,35 @@ export class PtkResortPage extends LitElement {
   @property({ type: String })
   accessor mapStateMessage = "Loading map…";
 
+  @state()
+  private accessor smallSheetHeightPx: number | null = null;
+
   protected render() {
     const workspaceClasses = {
       workspace: true,
       [this.viewport]: true,
       fullscreen: this.fullscreenActive
     };
+    const workspaceStyle =
+      this.viewport === "small"
+        ? `--ptk-small-sheet-height:${this.getSmallSheetHeightForLayout()}px;`
+        : nothing;
     return html`
-      <section class=${classMap(workspaceClasses)} aria-label="Resort Page">
+      <section class=${classMap(workspaceClasses)} style=${workspaceStyle} aria-label="Resort Page">
         <div class=${`panel-shell ${this.viewport}`}>
-          <ptk-tool-panel .viewport=${this.viewport} .open=${this.panelOpen} title="Resort tools">
+          <ptk-tool-panel
+            .viewport=${this.viewport}
+            .open=${this.panelOpen}
+            title="Resort tools"
+            @ptk-tool-panel-height-change=${this.handleToolPanelHeightChange}
+          >
             ${this.renderPanelContent()}
           </ptk-tool-panel>
         </div>
         <section class=${`map-frame ${this.fullscreenActive ? "fullscreen" : ""}`} aria-label="Resort map surface">
           <div class="map-header">
-            <div class="map-header-row">
-              <ptk-page-header
-                .title=${this.header.resortName}
-                .subtitle=${this.header.versionText}
-                .metaLine1=${this.header.runsCountText}
-                .metaLine2=${this.header.liftsCountText}
-              ></ptk-page-header>
-              <div class="hidden-panel-tools">
-                ${this.renderPanelToggleButton()}
-                ${this.renderSettingsButton()}
-              </div>
-            </div>
-            <div class="map-controls">
-              <button class="ghost-button" type="button" @click=${this.handleCenterToUser}>
-                Center to user position
-              </button>
-              ${this.fullscreenSupported
-                ? html`
-                    <button class="ghost-button" type="button" @click=${this.handleToggleFullscreen}>
-                      ${this.fullscreenActive ? "Exit full screen" : "Full screen"}
-                    </button>
-                  `
-                : nothing}
-            </div>
-            <p class="panel-note" aria-label="Map state">${this.mapStateMessage}</p>
+            ${this.viewport === "large" ? this.renderStandardMapHeaderRow() : this.renderCompactTopBar()}
+            ${this.viewport === "large" ? html`<p class="panel-note" aria-label="Map state">${this.mapStateMessage}</p>` : nothing}
           </div>
           <div class="map-canvas" aria-label="Resort map canvas">
             ${this.renderLiveMap
@@ -428,6 +746,23 @@ export class PtkResortPage extends LitElement {
                 `
               : html`<div class="map-test-surface" aria-hidden="true"></div>`}
           </div>
+          <div class="map-controls">
+            <button class="ghost-button center" type="button" aria-label="Center to user position" @click=${this.handleCenterToUser}>
+              Center to user position
+            </button>
+            ${this.fullscreenSupported
+              ? html`
+                  <button
+                    class="ghost-button ${this.fullscreenActive ? "exit-fullscreen" : "fullscreen"}"
+                    type="button"
+                    aria-label=${this.fullscreenActive ? "Exit full screen" : "Full screen"}
+                    @click=${this.handleToggleFullscreen}
+                  >
+                    ${this.fullscreenActive ? "Exit full screen" : "Full screen"}
+                  </button>
+                `
+              : nothing}
+          </div>
           <div class="back-row">
             <button class="ghost-button" type="button" @click=${this.handleBack}>
               Back to Select Resort
@@ -443,6 +778,53 @@ export class PtkResortPage extends LitElement {
     const label = this.panelOpen ? "Hide tools" : "Show tools";
     return html`
       <button class="ghost-button" type="button" @click=${this.handleTogglePanel}>${label}</button>
+    `;
+  }
+
+  private renderStandardMapHeaderRow() {
+    return html`
+      <div class="map-header-row">
+        <ptk-page-header
+          .title=${this.header.resortName}
+          .subtitle=${this.header.versionText}
+          .metaLine1=${this.header.runsCountText}
+          .metaLine2=${this.header.liftsCountText}
+        ></ptk-page-header>
+        <div class="hidden-panel-tools">
+          ${this.renderPanelToggleButton()}
+          ${this.renderSettingsButton()}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderCompactTopBar() {
+    return html`
+      <div class="topbar" aria-label="Resort top bar">
+        <button class="icon-button ghost-flat" type="button" aria-label="Back to select resort" @click=${this.handleBack}>‹</button>
+        <ptk-page-header
+          .title=${this.header.resortName}
+          .subtitle=${this.header.versionText}
+          .metaLine1=${this.header.runsCountText}
+          .metaLine2=${this.header.liftsCountText}
+        ></ptk-page-header>
+        ${this.viewport === "small"
+          ? html`
+              <button class="icon-button ghost-flat" type="button" aria-label="Open settings" @click=${this.handleOpenSettings}>
+                ☰
+              </button>
+            `
+          : html`
+              <button
+                class="icon-button ghost-flat"
+                type="button"
+                aria-label=${this.panelOpen ? "Hide tools" : "Open side menu"}
+                @click=${this.handleTogglePanel}
+              >
+                ☰
+              </button>
+            `}
+      </div>
     `;
   }
 
@@ -490,12 +872,12 @@ export class PtkResortPage extends LitElement {
         return html`
           <section class="panel-card" role="tabpanel" aria-label="My location tools">
             <h4>Generate Phrase</h4>
+            <p class="panel-note">${this.gpsStatusText}</p>
+            <div class="phrase-output">${this.phraseOutputText}</div>
+            <p class="panel-note">${this.phraseStatusText}</p>
             <button class="ghost-button" type="button" ?disabled=${this.phraseGenerating} @click=${this.handleGeneratePhrase}>
               ${this.phraseGenerating ? "Generating..." : "Generate Phrase"}
             </button>
-            <div class="phrase-output">${this.phraseOutputText}</div>
-            <p class="panel-note">${this.phraseStatusText}</p>
-            <p class="panel-note">${this.gpsStatusText}</p>
             ${this.gpsDisabled
               ? html`
                   <div class="gps-disabled-card" aria-label="GPS disabled state">
@@ -622,6 +1004,22 @@ export class PtkResortPage extends LitElement {
   private readonly handleBack = (): void => {
     this.dispatchEvent(new CustomEvent("ptk-resort-back", { bubbles: true, composed: true }));
   };
+
+  private readonly handleToolPanelHeightChange = (event: Event): void => {
+    if (this.viewport !== "small") {
+      return;
+    }
+    const detail = (event as CustomEvent<{ height?: number }>).detail;
+    const height = typeof detail?.height === "number" ? Math.round(detail.height) : null;
+    this.smallSheetHeightPx = height;
+  };
+
+  private getSmallSheetHeightForLayout(): number {
+    if (!this.panelOpen) {
+      return 0;
+    }
+    return this.smallSheetHeightPx ?? PtkResortPage.SMALL_SHEET_HEIGHT_FALLBACK;
+  }
 }
 
 function classMap(classes: Record<string, boolean>): string {

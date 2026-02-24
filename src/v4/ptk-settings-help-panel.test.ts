@@ -38,6 +38,15 @@ describe("ptk-settings-help-panel", () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler.mock.calls[0]?.[0].detail.theme).toBe("high-contrast");
   });
+
+  it("does not render pack update action buttons in simplified offline resorts menu", async () => {
+    const element = createElement();
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(buttonLabels(element)).not.toContain("Check pack updates");
+    expect(buttonLabels(element)).not.toContain("Update all selected resorts data");
+  });
 });
 
 function createElement(): PtkSettingsHelpPanel {
@@ -58,13 +67,18 @@ function buttonLabels(element: PtkSettingsHelpPanel): string[] {
 }
 
 function clickButton(element: PtkSettingsHelpPanel, label: string): void {
+  const button = findButton(element, label);
+  button.click();
+}
+
+function findButton(element: PtkSettingsHelpPanel, label: string): HTMLButtonElement {
   const button = Array.from(element.shadowRoot?.querySelectorAll("button") ?? []).find((node) =>
     (node.textContent ?? "").includes(label)
   ) as HTMLButtonElement | undefined;
   if (!button) {
     throw new Error(`Button not found: ${label}`);
   }
-  button.click();
+  return button;
 }
 
 function readText(element: PtkSettingsHelpPanel): string {
