@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import validPack from "../resort-pack/fixtures/valid-pack.json";
 
 vi.mock("../map/map-view", () => ({}));
+vi.mock("../pwa/precache-pack-assets", () => ({
+  requestPackAssetPrecache: () => {}
+}));
 
 describe("v0.0.1 acceptance", () => {
   afterEach(async () => {
@@ -57,7 +60,8 @@ describe("v0.0.1 acceptance", () => {
     const shell = await createReadyShell();
 
     const startedAt = performance.now();
-    await (shell as unknown as { generatePhrase: () => Promise<void> }).generatePhrase();
+    dispatchResortPageGeneratePhrase(shell);
+    await waitForCondition(() => !readPhrase(shell).includes("No phrase generated yet"));
     const elapsedMs = performance.now() - startedAt;
 
     const phrase = readPhrase(shell);
@@ -70,7 +74,8 @@ describe("v0.0.1 acceptance", () => {
     const shell = await createReadyShell();
     await setActivePackThreshold(shell, 10);
 
-    await (shell as unknown as { generatePhrase: () => Promise<void> }).generatePhrase();
+    dispatchResortPageGeneratePhrase(shell);
+    await waitForCondition(() => !readPhrase(shell).includes("No phrase generated yet"));
     const phrase = readPhrase(shell);
 
     expect(phrase).toContain("Easy Street");
@@ -80,32 +85,31 @@ describe("v0.0.1 acceptance", () => {
 
 async function createReadyShell(): Promise<HTMLElement> {
   mockCatalogFetch();
-  const { AppShell } = await import("../app-shell");
-  const shell = new AppShell();
+  const { PtkAppShell } = await import("../v4/ptk-app-shell");
+  setWindowWidth(390);
+  const shell = new PtkAppShell();
   document.body.appendChild(shell);
 
   await waitForCondition(
     () => (shell as unknown as { repository: unknown | null }).repository !== null
   );
 
-  await waitForCondition(() => hasResortOptions(shell));
-  const select = shell.shadowRoot?.querySelector("select");
-  if (!select) {
-    throw new Error("Resort select not found.");
-  }
-  select.value = "demo-resort";
-  select.dispatchEvent(new Event("change"));
+  await waitForCondition(() => hasV4ResortCards(shell));
+  dispatchV4ResortSelect(shell, "demo-resort");
+  await waitForCondition(() => readShellPage(shell) === "install-blocking");
+  clickShellButton(shell, "Install resort data");
+  await waitForCondition(() => readShellPage(shell) === "resort");
 
-  await waitForCondition(() => /Active pack: Demo Resort/iu.test(readStatusText(shell)));
-
-  (shell as unknown as {
-    handlePositionUpdate: (event: CustomEvent<{ coordinates: [number, number]; accuracy: number }>) => void;
-  }).handlePositionUpdate(
+  dispatchResortPageEvent(
+    shell,
+    "ptk-resort-position-update",
     new CustomEvent("position-update", {
       detail: {
         coordinates: [-106.9502, 39.1928],
         accuracy: 8
-      }
+      },
+      bubbles: true,
+      composed: true
     })
   );
 
@@ -131,22 +135,27 @@ async function setActivePackThreshold(shell: HTMLElement, thresholdMeters: numbe
   updatedPack.thresholds.liftProximityMeters = thresholdMeters;
   await repository.savePack(updatedPack);
 
-  (shell as unknown as { activePack: unknown }).activePack = updatedPack;
+  (shell as unknown as { selectedResortPack: unknown }).selectedResortPack = updatedPack;
+  (shell as unknown as { requestUpdate: () => void }).requestUpdate();
+  await waitForTick();
 }
 
 function readPhrase(shell: HTMLElement): string {
-  const phrase = shell.shadowRoot?.querySelector(".phrase-card")?.textContent;
+  const page = shell.shadowRoot?.querySelector("ptk-resort-page") as HTMLElement | null;
+  const phrase = page?.shadowRoot?.querySelector(".phrase-output")?.textContent;
   return (phrase ?? "").replace(/\s+/gu, " ").trim();
 }
 
 function readStatusText(shell: HTMLElement): string {
-  const status = shell.shadowRoot?.querySelector(".status-line")?.textContent;
+  const page = shell.shadowRoot?.querySelector("ptk-resort-page") as HTMLElement | null;
+  const status = page?.shadowRoot?.querySelector(".panel-note")?.textContent;
   return (status ?? "").replace(/\s+/gu, " ").trim();
 }
 
-function hasResortOptions(shell: HTMLElement): boolean {
-  const options = shell.shadowRoot?.querySelectorAll("select option");
-  return (options?.length ?? 0) > 0;
+function hasV4ResortCards(shell: HTMLElement): boolean {
+  const page = shell.shadowRoot?.querySelector("ptk-select-resort-page") as HTMLElement | null;
+  const cards = page?.shadowRoot?.querySelectorAll("ptk-resort-card");
+  return (cards?.length ?? 0) > 0;
 }
 
 async function waitForCondition(assertion: () => boolean): Promise<void> {
@@ -165,6 +174,67 @@ function waitForTick(): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, 5);
   });
+}
+
+function setWindowWidth(width: number): void {
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    writable: true,
+    value: width
+  });
+}
+
+function readShellPage(shell: HTMLElement): string {
+  const root = shell.shadowRoot?.querySelector(".root");
+  return root?.getAttribute("data-page") ?? "";
+}
+
+function dispatchV4ResortSelect(shell: HTMLElement, resortId: string): void {
+  const page = shell.shadowRoot?.querySelector("ptk-select-resort-page");
+  page?.dispatchEvent(
+    new CustomEvent("ptk-resort-select", {
+      detail: { resortId },
+      bubbles: true,
+      composed: true
+    })
+  );
+}
+
+function clickShellButton(shell: HTMLElement, label: string): void {
+  const button = Array.from(shell.shadowRoot?.querySelectorAll("button") ?? []).find((node) =>
+    (node.textContent ?? "").includes(label)
+  ) as HTMLButtonElement | undefined;
+  if (!button) {
+    throw new Error(`Button not found: ${label}`);
+  }
+  button.click();
+}
+
+function dispatchResortPageEvent(shell: HTMLElement, eventName: string, event: CustomEvent): void {
+  const page = shell.shadowRoot?.querySelector("ptk-resort-page");
+  if (!page) {
+    throw new Error("Resort page not found.");
+  }
+  page.dispatchEvent(
+    new CustomEvent(eventName, {
+      detail: event.detail,
+      bubbles: true,
+      composed: true
+    })
+  );
+}
+
+function dispatchResortPageGeneratePhrase(shell: HTMLElement): void {
+  const page = shell.shadowRoot?.querySelector("ptk-resort-page");
+  if (!page) {
+    throw new Error("Resort page not found.");
+  }
+  page.dispatchEvent(
+    new CustomEvent("ptk-resort-generate-phrase", {
+      bubbles: true,
+      composed: true
+    })
+  );
 }
 
 function deleteDatabase(name: string): Promise<void> {

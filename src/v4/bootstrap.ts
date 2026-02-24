@@ -1,9 +1,9 @@
-import { resolveUiAppRoute } from "./route";
-
-export type RootShellTag = "app-shell" | "ptk-app-shell";
+export type RootShellTag = "ptk-app-shell";
 
 export function selectRootShellTag(pathname: string, baseUrl: string): RootShellTag {
-  return resolveUiAppRoute(pathname, baseUrl) === "v4" ? "ptk-app-shell" : "app-shell";
+  void pathname;
+  void baseUrl;
+  return "ptk-app-shell";
 }
 
 export function mountRootShell(
@@ -12,9 +12,8 @@ export function mountRootShell(
   baseUrl: string
 ): RootShellTag {
   const tag = selectRootShellTag(pathname, baseUrl);
-  const existingLegacy = doc.querySelector("app-shell");
   const existingV4 = doc.querySelector("ptk-app-shell");
-  const current = existingV4 ?? existingLegacy;
+  const current = existingV4 ?? doc.body.firstElementChild;
 
   if (current && current.tagName.toLowerCase() === tag) {
     return tag;
@@ -29,4 +28,3 @@ export function mountRootShell(
   doc.body.appendChild(next);
   return tag;
 }
-

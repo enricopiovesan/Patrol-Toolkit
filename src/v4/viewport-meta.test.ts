@@ -26,8 +26,8 @@ describe("computeViewportMetaContent", () => {
     );
   });
 
-  it("uses default viewport meta on rollback /legacy route", () => {
-    expect(computeViewportMetaContent("/legacy", "/", 390)).toBe("width=device-width, initial-scale=1.0");
+  it("locks zoom on /legacy too after legacy UI removal", () => {
+    expect(computeViewportMetaContent("/legacy", "/", 390)).toContain("user-scalable=no");
   });
 });
 

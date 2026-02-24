@@ -250,7 +250,7 @@
 - PR outcome: v4 UI is live as primary UI.
 
 ## Slice 11: Old UI Deletion + Business Logic Cleanup (Final v4 Cleanup)
-- Status: planned
+- Status: completed
 - Goal: remove obsolete UI and enforce final UI/business-logic separation.
 - Deliverables:
   - delete legacy UI routes/components/pages no longer used

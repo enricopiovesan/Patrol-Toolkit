@@ -1,4 +1,4 @@
-export type UiAppRoute = "legacy" | "v4";
+export type UiAppRoute = "v4";
 
 export function resolveUiAppRoute(
   pathname: string,
@@ -8,12 +8,9 @@ export function resolveUiAppRoute(
   const normalizedPath = ensureLeadingSlash(pathname);
 
   if (!normalizedPath.startsWith(normalizedBase)) {
-    return "legacy";
+    return "v4";
   }
-
-  const withinBase = normalizedPath.slice(normalizedBase.length);
-  const firstSegment = withinBase.split("/")[0]?.trim().toLowerCase() ?? "";
-  return firstSegment === "legacy" ? "legacy" : "v4";
+  return "v4";
 }
 
 function normalizeBaseUrl(baseUrl: string): string {

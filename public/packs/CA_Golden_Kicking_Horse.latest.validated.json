@@ -2,14 +2,14 @@
   "schemaVersion": "1.0.0",
   "export": {
     "resortKey": "CA_Golden_Kicking_Horse",
-    "version": "v4",
-    "exportedAt": "2026-02-23T01:36:42.561Z"
+    "version": "v6",
+    "exportedAt": "2026-02-24T04:42:53.763Z"
   },
   "status": {
     "schemaVersion": "1.0.0",
     "resortKey": "CA_golden_kicking_horse",
-    "version": "v4",
-    "createdAt": "2026-02-23T01:34:43.439Z",
+    "version": "v6",
+    "createdAt": "2026-02-24T04:40:57.252Z",
     "query": {
       "name": "kicking horse",
       "countryCode": "CA",
@@ -35,16 +35,16 @@
       "runs": {
         "status": "complete",
         "featureCount": 70,
-        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v3/runs.geojson",
+        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v5/runs.geojson",
         "checksumSha256": "f5843d475d2bf442b01781241e0408104d583a9bf45b037901c7a55cbc64322d",
-        "updatedAt": "2026-02-23T01:34:35.496Z"
+        "updatedAt": "2026-02-24T04:40:51.033Z"
       },
       "lifts": {
         "status": "complete",
         "featureCount": 7,
-        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v4/lifts.geojson",
+        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v6/lifts.geojson",
         "checksumSha256": "db46537371dcaa4172f9b20398564dccf51fc7eb0a31c3b837ef699038d86931",
-        "updatedAt": "2026-02-23T01:34:43.440Z"
+        "updatedAt": "2026-02-24T04:40:57.253Z"
       }
     },
     "readiness": {
@@ -53,25 +53,25 @@
     },
     "manualValidation": {
       "validated": true,
-      "validatedAt": "2026-02-23T01:35:07.052Z",
+      "validatedAt": "2026-02-24T04:41:27.211Z",
       "validatedBy": null,
       "notes": null,
       "layers": {
         "boundary": {
           "validated": true,
-          "validatedAt": "2026-02-23T01:34:55.940Z",
+          "validatedAt": "2026-02-24T04:41:12.469Z",
           "validatedBy": null,
           "notes": null
         },
         "runs": {
           "validated": true,
-          "validatedAt": "2026-02-23T01:35:00.308Z",
+          "validatedAt": "2026-02-24T04:41:16.322Z",
           "validatedBy": null,
           "notes": null
         },
         "lifts": {
           "validated": true,
-          "validatedAt": "2026-02-23T01:35:07.052Z",
+          "validatedAt": "2026-02-24T04:41:27.211Z",
           "validatedBy": null,
           "notes": null
         }
@@ -107,16 +107,16 @@
       "lifts": {
         "status": "complete",
         "queryHash": "badf131debbe7ab0ef093a60088ca5a00a17607e2ee4bc3bff0b342485a5f4cd",
-        "updatedAt": "2026-02-23T01:34:43.440Z",
-        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v4/lifts.geojson",
+        "updatedAt": "2026-02-24T04:40:57.253Z",
+        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v6/lifts.geojson",
         "featureCount": 7,
         "checksumSha256": "db46537371dcaa4172f9b20398564dccf51fc7eb0a31c3b837ef699038d86931"
       },
       "runs": {
         "status": "complete",
         "queryHash": "cc4e80b6c2574994e0b0ad09c66e79e82b3eea357d9762a30172080bc09d9228",
-        "updatedAt": "2026-02-23T01:34:35.496Z",
-        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v3/runs.geojson",
+        "updatedAt": "2026-02-24T04:40:51.033Z",
+        "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v5/runs.geojson",
         "featureCount": 70,
         "checksumSha256": "f5843d475d2bf442b01781241e0408104d583a9bf45b037901c7a55cbc64322d"
       }

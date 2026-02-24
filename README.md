@@ -1,184 +1,105 @@
 # Patrol Toolkit
 
-**Patrol Toolkit** is an offline-first, data-driven web platform designed to support mountain patrol operations in complex alpine environments.
+Patrol Toolkit is an offline-first web app for mountain patrol operations.
 
-It enhances clarity, reduces cognitive load, and accelerates terrain awareness without replacing radio or existing patrol workflows.
+It helps patrol teams:
+- understand where they are on-mountain
+- generate consistent radio-friendly location phrases
+- use resort terrain data offline after install
 
-Radio remains the primary communication channel.  
-Patrol Toolkit supports it.
+Radio remains the primary communication channel. Patrol Toolkit is an assistive tool.
 
----
+## What This Is
+
+Patrol Toolkit is a map-first operational app built around portable **Resort Packs**.
+
+Each resort pack contains the terrain and basemap data the app needs to work offline on a device. The app and the resort data are separated so the same app can support multiple resorts.
+
+Core characteristics:
+- offline-first after install and pack download
+- deterministic phrase generation (geometry-based)
+- no backend required for normal use
+- one active resort context at a time (reduces ambiguity)
 
 ## Why This Exists
 
-Mountain terrain is complex. Patrol callouts must be precise and concise. Connectivity is unreliable. Terrain knowledge takes years to internalize.
+Mountain patrol communication requires clarity under pressure.
 
-Under pressure during an accident response, sweep, or low-visibility condition, hesitation and ambiguity on the radio increase cognitive load and slow coordination.
+Terrain is complex, connectivity is unreliable, and local knowledge takes time to build. Patrol Toolkit exists to reduce ambiguity during radio communication by making location context easier to access and describe.
 
-Patrol Toolkit exists to provide reliable, offline spatial intelligence that improves clarity and confidence in patrol communication.
+## Download and Install the App (Users)
 
----
+Use the production app here:
 
-## Vision
+- [Patrol Toolkit (GitHub Pages)](https://enricopiovesan.github.io/Patrol-Toolkit/)
 
-Patrol Toolkit is designed as a modular operational platform for mountain patrol teams.
+### First-time setup
 
-Long term, it aims to support:
+1. Open the app link while online.
+2. Install the PWA from the app (`Settings / Help`) or your browser install flow.
+3. Select a resort.
+4. If the resort is not on the device yet, install/download the resort data when prompted.
+5. Wait for the resort pack to finish installing.
+6. Reopen the app and confirm the resort page loads.
 
-- GPS-to-radio location translation  
-- Sweep route assistance  
-- Terrain knowledge indexing  
-- Operational overlays and context  
-- Shared situational awareness  
+### Offline use
 
-All built on portable, structured Resort Packs that separate terrain data from application logic.
+1. Open the app once while online (to cache the app shell and assets).
+2. Open your resort and allow the data to load.
+3. After that, the app can operate offline for cached app + installed resort packs.
 
----
+## Current Product Scope
 
-## Current Product State (February 21, 2026)
+Current v4 UI supports:
+- `Select Resort` page (search + resort cards)
+- `Resort Page` (map-first layout)
+- offline resort pack install and use
+- phrase generation
+- Settings / Help drawer (theme, app install/update info, offline resorts status)
 
-![Patrol Toolkit current app snapshot](public/assets/patrol-toolkit-current-state-2026-02-21.png)
+## Roadmap Focus: Runs Check and Sweeps
 
-Patrol Toolkit is now in a multi-resort, offline-ready operational state with deterministic phrase generation and publish integrity controls.
+Patrol Toolkit is moving toward deeper operational workflows beyond phrase generation.
 
-### Current Capabilities
+### Runs Check (next capability track)
 
-- One active resort context in app (switchable from locally published packs).
-- Offline app shell + offline basemap + offline overlays (boundary/runs/lifts).
-- Runs rendered as line geometry with difficulty-based coloring.
-- Run labels with zoom/readability tuning.
-- Deterministic phrase generation with objective distance-based anchors.
-- CLI basemap controls: generate/publish, dry-run preview, force rebuild.
-- Publish safety gate: requires manual validation **and** readiness `ready`.
-- CLI rollback control: `Unpublish resort` removes published app artifacts without deleting resort source data.
+Goal:
+- support structured run-status workflows (inspection/check context on terrain)
 
-### Available Published Resorts
+Expected direction:
+- map-first workflow integrated into the Resort Page
+- run-focused UI states and task-oriented interactions
+- deterministic, data-driven behavior (same operational constraints as phrase generation)
 
-As of `2026-02-21`, `public/resort-packs/index.json` includes:
+### Sweeps (future capability track)
 
-- `CA_Beaupre_Mont_Sainte_Anne` (`v4`)
-- `CA_Chelsea_Camp_Fortune` (`v4`)
-- `CA_Fernie_Fernie` (`v7`)
-- `CA_Golden_Kicking_Horse` (`v1`)
-- `CA_Kimberley_Kimberley_Resort` (`v5`)
-- `CA_Rossland_Red_Mountain_Resort` (`v6`)
-- `CA_Whistler_Whistler_Blackcomb` (`v4`)
+Goal:
+- support patrol sweep workflows after more field feedback and data improvements
 
-### Roadmap v2 Progress
+Current state:
+- `Sweeps` exists in the UI as an intentional placeholder state
+- final workflow is not defined yet
 
-| Slice | Status | Summary |
-|---|---|---|
-| Slice 1 | Completed | Phrase v2 spec finalized |
-| Slice 2 | Completed | Phrase v2 engine shipped |
-| Slice 3 | Completed | Run line rendering + difficulty colors |
-| Slice 4 | Completed | Run labels + readability tuning |
-| Slice 5 | Completed | Basemap regenerate controls |
-| Slice 6 | Completed | Offline diagnostics + SW hardening |
-| Slice 7 | Completed | Multi-resort integrity + publish hardening |
-| Slice 8 | In progress | Docs/runbook/signoff evidence |
+The Sweeps capability will be shaped by:
+- real patrol feedback
+- data quality improvements
+- validated operational use cases
 
----
+## Usage Terms (Free, Non-Commercial)
 
-## Core Principles
+This project is free to use for personal, educational, and non-commercial operational evaluation.
 
-Patrol Toolkit is built under strict operational constraints.
+Not allowed without explicit permission:
+- commercial use
+- resale
+- redistribution of the app or resort packs
+- repackaging this project as a hosted or distributed commercial offering
 
-### Offline First
-All core functionality must work without network connectivity after initial install and pack download.
+If you want to use Patrol Toolkit in a commercial context or redistribute it, contact the project maintainer first.
 
-### Deterministic Logic
-All operational phrasing is geometry-based and reproducible.  
-No AI-generated text is used for location output.
+## For Developers
 
-### Data Driven
-Resort-specific behavior is defined via structured Resort Packs.  
-The application contains no hard-coded resort logic.
-
-### One Resort Context
-The app operates against one active resort at a time to reduce ambiguity during radio operations.
-
-### Assistive Only
-Patrol Toolkit supports decision-making.  
-It never replaces radio, protocol, or operational judgment.
-
----
-
-## Architecture
-
-- TypeScript
-- Lit Web Components
-- MapLibre GL JS
-- PMTiles for offline basemaps
-- IndexedDB for local data storage
-- Progressive Web App with Service Worker
-- Pluggable GeoEngine interface, WebAssembly optional in future
-
-All terrain intelligence is computed locally on device.
-
-No backend is required for the MVP.
-
----
-
-## Resort Packs
-
-Each resort is defined through a portable data pack containing:
-
-- Boundary
-- Runs
-- Lifts
-- Lift towers
-- Threshold rules
-- Basemap tiles
-
-This architecture allows Patrol Toolkit to scale across multiple resorts without modifying core application logic.
-
----
-
-## Roadmap Overview
-
-### v0.0.1 (Released)
-- Offline app shell
-- Resort pack import/select/active persistence
-- Deterministic phrase baseline
-
-### v2 Program (Current)
-- Slices 1-7 complete
-- Slice 8 docs/signoff in progress
-- Focus: operational closure and auditable handoff artifacts
-
-### Next Program Focus
-- Handling strategy for resorts without reliable boundary data
-- Expanded operational overlays (sweep/terrain context)
-- Continued multi-resort validation at scale
-
-Roadmap evolves based on real field feedback from patrol use.
-
----
-
-## Safety Notice
-
-Patrol Toolkit is an assistive tool.
-
-It does not replace:
-
-- Radio communication
-- Established patrol protocols
-- Operational training
-- Situational judgment
-
-Radio remains the authoritative communication channel at all times.
-
----
-
-## Status
-
-Active MVP refocus on map-first offline capabilities for radio clarity.
-
----
-
-## Local Development
-
-Run locally:
+### Local development
 
 ```bash
 npm install
@@ -191,36 +112,40 @@ Quality gate:
 npm run check
 ```
 
-Offline verification:
+### Project areas
 
-1. Build and preview with `npm run build && npm run preview`.
-2. Open the app once online to allow service worker install and asset caching.
-3. Disable network in browser devtools and reload.
-4. Confirm the app shell still loads.
-5. Confirm active resort geometry (boundary/runs/lifts) renders with no network access.
+- App source: `/Users/piovese/Documents/Patrol Toolkit/src`
+- Roadmaps: `/Users/piovese/Documents/Patrol Toolkit/roadmaps`
+- UX/UI specs: `/Users/piovese/Documents/Patrol Toolkit/spec/XD`
+- Tools workspace: `/Users/piovese/Documents/Patrol Toolkit/tools`
 
-Field validation and release resources:
+### Tools (data + resort pack workflows)
 
-- [v0.0.1 field trial runbook](docs/field-trial/v0.0.1-runbook.md)
-- [v0.0.1 patrol feedback template](docs/field-trial/v0.0.1-feedback-template.md)
-- [v0.0.1 release notes and tagging procedure](docs/releases/v0.0.1.md)
-- [v2 operations runbook](docs/runbooks/v2-operations-runbook.md)
-- [v2 troubleshooting matrix](docs/runbooks/v2-troubleshooting-matrix.md)
-- [v2 upgrade notes](docs/releases/v2-upgrade-notes.md)
-- [v3 release runbook (GitHub-only)](docs/releases/v3-release-runbook.md)
-- [v2 acceptance checklist](docs/checklists/v2-exit-acceptance-checklist.md)
-- [v2 evidence bundle template](docs/evidence/v2-exit-evidence-template.md)
-- [v2 acceptance checklist (2026-02-21)](docs/checklists/v2-exit-acceptance-2026-02-21.md)
-- [v2 evidence bundle (2026-02-21)](docs/evidence/v2-exit-evidence-2026-02-21.md)
-- [tools workspace docs](tools/README.md)
-- [OSM extractor get started](tools/osm-extractor/GET_STARTED.md)
-- [OSM extractor CLI docs](tools/osm-extractor/README.md)
-- [OSM extractor troubleshooting](tools/osm-extractor/docs/troubleshooting.md)
-- [OSM extraction playbook](tools/osm-extractor/docs/data-extraction-playbook.md)
-- [Resort handoff checklist](tools/osm-extractor/docs/checklists/resort-handoff.md)
+Start here:
+- [`tools/README.md`](tools/README.md)
 
----
+OSM extractor CLI:
+- [`tools/osm-extractor/GET_STARTED.md`](tools/osm-extractor/GET_STARTED.md)
+- [`tools/osm-extractor/README.md`](tools/osm-extractor/README.md)
+- [`tools/osm-extractor/docs/menu-user-guide.md`](tools/osm-extractor/docs/menu-user-guide.md)
+- [`tools/osm-extractor/docs/data-extraction-playbook.md`](tools/osm-extractor/docs/data-extraction-playbook.md)
+- [`tools/osm-extractor/docs/troubleshooting.md`](tools/osm-extractor/docs/troubleshooting.md)
+- [`tools/osm-extractor/docs/checklists/resort-handoff.md`](tools/osm-extractor/docs/checklists/resort-handoff.md)
 
-## License
+## Roadmaps and Specs
 
-MIT.
+- v4 roadmap (completed UI/UX program): [`roadmaps/roadmap_v4.md`](roadmaps/roadmap_v4.md)
+- UI design system spec v1: [`spec/XD/design_system_spec_v1.md`](spec/XD/design_system_spec_v1.md)
+- UI app spec v1: [`spec/XD/ui_spec_v1.md`](spec/XD/ui_spec_v1.md)
+- Personas: [`spec/personas.md`](spec/personas.md)
+- Use cases: [`spec/use-cases.md`](spec/use-cases.md)
+
+## Safety Notice
+
+Patrol Toolkit does not replace:
+- radio communication
+- patrol protocols
+- training
+- operational judgment
+
+Use it as an assistive tool only.

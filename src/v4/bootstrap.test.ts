@@ -12,9 +12,9 @@ describe("selectRootShellTag", () => {
     expect(selectRootShellTag("/Patrol-Toolkit/new", "/Patrol-Toolkit/")).toBe("ptk-app-shell");
   });
 
-  it("selects legacy shell for /legacy routes", () => {
-    expect(selectRootShellTag("/legacy", "/")).toBe("app-shell");
-    expect(selectRootShellTag("/Patrol-Toolkit/legacy", "/Patrol-Toolkit/")).toBe("app-shell");
+  it("keeps v4 shell for /legacy after legacy UI removal", () => {
+    expect(selectRootShellTag("/legacy", "/")).toBe("ptk-app-shell");
+    expect(selectRootShellTag("/Patrol-Toolkit/legacy", "/Patrol-Toolkit/")).toBe("ptk-app-shell");
   });
 });
 
@@ -41,14 +41,14 @@ describe("mountRootShell", () => {
     expect(doc.querySelector("ptk-app-shell")).toBe(existing);
   });
 
-  it("replaces v4 shell with legacy shell on rollback route", () => {
+  it("replaces any existing root element with v4 shell", () => {
     const doc = document.implementation.createHTMLDocument("test");
-    doc.body.innerHTML = "<ptk-app-shell></ptk-app-shell>";
+    doc.body.innerHTML = "<div id='legacy-root'></div>";
 
     const tag = mountRootShell(doc, "/legacy", "/");
 
-    expect(tag).toBe("app-shell");
-    expect(doc.querySelector("app-shell")).not.toBeNull();
-    expect(doc.querySelector("ptk-app-shell")).toBeNull();
+    expect(tag).toBe("ptk-app-shell");
+    expect(doc.querySelector("ptk-app-shell")).not.toBeNull();
+    expect(doc.querySelector("#legacy-root")).toBeNull();
   });
 });

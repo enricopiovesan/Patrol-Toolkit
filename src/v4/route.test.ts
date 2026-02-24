@@ -20,16 +20,16 @@ describe("resolveUiAppRoute", () => {
     expect(resolveUiAppRoute("/Patrol-Toolkit/new/resort", "/Patrol-Toolkit/")).toBe("v4");
   });
 
-  it("keeps paths outside BASE_URL on legacy UI", () => {
-    expect(resolveUiAppRoute("/other/new", "/Patrol-Toolkit/")).toBe("legacy");
+  it("returns v4 even for paths outside BASE_URL (single-UI app cleanup)", () => {
+    expect(resolveUiAppRoute("/other/new", "/Patrol-Toolkit/")).toBe("v4");
   });
 
   it("normalizes missing leading/trailing slashes", () => {
     expect(resolveUiAppRoute("Patrol-Toolkit/new", "Patrol-Toolkit")).toBe("v4");
   });
 
-  it("routes /legacy to legacy UI for rollback", () => {
-    expect(resolveUiAppRoute("/legacy", "/")).toBe("legacy");
-    expect(resolveUiAppRoute("/Patrol-Toolkit/legacy", "/Patrol-Toolkit/")).toBe("legacy");
+  it("treats /legacy as v4 after legacy UI removal", () => {
+    expect(resolveUiAppRoute("/legacy", "/")).toBe("v4");
+    expect(resolveUiAppRoute("/Patrol-Toolkit/legacy", "/Patrol-Toolkit/")).toBe("v4");
   });
 });

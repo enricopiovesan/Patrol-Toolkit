@@ -1,5 +1,4 @@
 import "./styles.css";
-import "./app-shell";
 import "./v4/ptk-app-shell";
 import { registerServiceWorker } from "./pwa/register-service-worker";
 import { ensurePmtilesProtocolRegistered } from "./map/pmtiles-protocol";
