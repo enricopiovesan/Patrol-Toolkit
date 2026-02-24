@@ -20,37 +20,42 @@ export class PtkSettingsHelpPanel extends LitElement {
     .backdrop {
       position: absolute;
       inset: 0;
-      background: rgb(31 32 36 / 0.35);
+      background: rgb(31 32 36 / 0.22);
     }
 
     .surface {
       position: absolute;
       display: grid;
       gap: var(--ptk-space-3);
-      border: 1px solid var(--ptk-border-default);
+      align-content: start;
+      grid-auto-rows: max-content;
       background: var(--ptk-surface-card);
       box-shadow: var(--ptk-shadow-md);
       color: var(--ptk-text-primary);
       overflow: auto;
+      border: none;
     }
 
     .surface.small {
-      left: var(--ptk-space-3);
-      right: var(--ptk-space-3);
-      bottom: var(--ptk-space-3);
-      top: auto;
-      max-height: min(78vh, 640px);
-      border-radius: var(--ptk-radius-lg);
-      padding: var(--ptk-space-3);
+      top: 0;
+      bottom: 0;
+      right: 0;
+      left: auto;
+      width: min(88vw, 380px);
+      border-radius: 0;
+      padding: 18px;
+      box-shadow: -10px 0 26px rgb(15 23 42 / 0.14);
     }
 
     .surface.medium {
-      top: var(--ptk-space-3);
-      bottom: var(--ptk-space-3);
-      left: var(--ptk-space-3);
-      width: min(420px, calc(100vw - (var(--ptk-space-3) * 2)));
-      border-radius: var(--ptk-radius-md);
-      padding: var(--ptk-space-3);
+      top: 0;
+      bottom: 0;
+      right: 0;
+      left: auto;
+      width: min(420px, 54vw);
+      border-radius: 0;
+      padding: 18px;
+      box-shadow: -8px 0 24px rgb(15 23 42 / 0.14);
     }
 
     .surface.large {
@@ -69,6 +74,12 @@ export class PtkSettingsHelpPanel extends LitElement {
       align-items: start;
     }
 
+    .surface.small .header,
+    .surface.medium .header {
+      padding-right: 2px;
+      gap: 8px;
+    }
+
     .title {
       margin: 0;
       font-family: var(--ptk-font-family-heading);
@@ -80,6 +91,25 @@ export class PtkSettingsHelpPanel extends LitElement {
       margin: 2px 0 0;
       color: var(--ptk-text-secondary);
       font-size: var(--ptk-font-body-s-size);
+    }
+
+    .version-line {
+      margin: 2px 0 0;
+      color: var(--ptk-text-secondary);
+      font-size: var(--ptk-font-body-s-size);
+      line-height: 1.3;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: baseline;
+    }
+
+    .version-line .ok {
+      color: var(--ptk-text-secondary);
+    }
+
+    .version-line .update {
+      color: var(--ptk-color-success-900);
     }
 
     .close {
@@ -96,13 +126,38 @@ export class PtkSettingsHelpPanel extends LitElement {
       padding: 0 10px;
     }
 
+    .close.icon {
+      min-width: 34px;
+      min-height: 34px;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      padding: 0;
+      font-size: 22px;
+      line-height: 1;
+      border: none;
+      background: transparent;
+    }
+
     .section {
-      border: 1px solid var(--ptk-border-default);
-      border-radius: var(--ptk-radius-md);
-      background: var(--ptk-surface-card);
-      padding: var(--ptk-space-3);
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      padding: 0;
       display: grid;
       gap: var(--ptk-space-2);
+    }
+
+    .surface.small .section {
+      border-radius: 0;
+      padding: 0;
+      gap: 10px;
+    }
+
+    .surface.medium .section {
+      border-radius: 0;
+      padding: 0;
+      gap: 10px;
     }
 
     .section-title {
@@ -137,6 +192,17 @@ export class PtkSettingsHelpPanel extends LitElement {
       align-items: center;
     }
 
+    .stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--ptk-border-default);
+      margin: 2px 0;
+    }
+
     .segmented {
       display: inline-grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -145,6 +211,64 @@ export class PtkSettingsHelpPanel extends LitElement {
       border-radius: var(--ptk-radius-pill);
       border: 1px solid var(--ptk-border-default);
       background: var(--ptk-surface-subtle);
+    }
+
+    .surface.small .segmented {
+      width: 100%;
+      display: grid;
+    }
+
+    .surface.small .segmented button {
+      min-height: 44px;
+      font-size: 14px;
+    }
+
+    .theme-section {
+      gap: 4px;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+    }
+
+    .theme-section .section-title {
+      font-size: 12px;
+      font-weight: var(--ptk-font-weight-bold);
+      color: var(--ptk-text-secondary);
+      margin-right: 6px;
+    }
+
+    .theme-section .segmented {
+      width: auto;
+      max-width: none;
+      justify-self: end;
+      padding: 2px;
+      gap: 2px;
+      border-radius: 9px;
+    }
+
+    .theme-section .segmented button {
+      min-height: 24px;
+      font-size: 10px;
+      border-radius: 7px;
+      font-weight: var(--ptk-font-weight-semibold);
+      padding: 0 7px;
+      white-space: nowrap;
+    }
+
+    .surface.small .theme-section .segmented,
+    .surface.medium .theme-section .segmented {
+      max-width: none;
+    }
+
+    .surface.small .theme-section .segmented button,
+    .surface.medium .theme-section .segmented button {
+      min-width: 84px;
+    }
+
+    .surface.small .theme-section,
+    .surface.medium .theme-section {
+      grid-template-columns: auto auto;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .segmented button,
@@ -183,34 +307,65 @@ export class PtkSettingsHelpPanel extends LitElement {
       cursor: not-allowed;
     }
 
+    .button.full {
+      width: 100%;
+      justify-content: center;
+    }
+
     .offline-list {
       display: grid;
       gap: var(--ptk-space-2);
     }
 
+    .surface.small .offline-list {
+      gap: 10px;
+    }
+
     .offline-item {
       border: 1px solid var(--ptk-border-default);
       border-radius: var(--ptk-radius-sm);
-      background: var(--ptk-surface-card);
-      padding: var(--ptk-space-2);
+      background: #ffffff;
+      padding: 12px 14px;
       display: grid;
-      gap: 4px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
     }
 
-    .offline-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: var(--ptk-space-2);
+    .surface.small .offline-item {
+      border-radius: 14px;
+      padding: 12px 14px;
     }
 
     .offline-label {
       margin: 0;
-      font-size: var(--ptk-font-body-s-size);
+      font-size: var(--ptk-font-body-m-size);
       color: var(--ptk-text-primary);
     }
 
-    .badge {
+    .offline-item.selected {
+      background: var(--ptk-color-success-100);
+      border-color: color-mix(in srgb, var(--ptk-color-success-500) 35%, white);
+    }
+
+    .offline-item.update-available {
+      background: #e9eefb;
+      border-color: #d8e2fb;
+    }
+
+    .offline-item.status-ready {
+      background: #ffffff;
+    }
+
+    .offline-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+
+    .status-chip {
       border-radius: var(--ptk-radius-pill);
       border: 1px solid var(--ptk-border-default);
       padding: 2px 8px;
@@ -218,46 +373,29 @@ export class PtkSettingsHelpPanel extends LitElement {
       font-weight: var(--ptk-font-weight-semibold);
       line-height: 1.2;
       white-space: nowrap;
+      color: var(--ptk-text-secondary);
+      background: #ffffff;
     }
 
-    .badge.success {
-      background: var(--ptk-color-success-100);
+    .status-chip.success {
       color: var(--ptk-color-success-900);
       border-color: color-mix(in srgb, var(--ptk-color-success-500) 55%, white);
+      background: var(--ptk-color-success-100);
     }
 
-    .badge.warning {
-      background: var(--ptk-color-warning-100);
-      color: var(--ptk-color-warning-900);
-      border-color: color-mix(in srgb, var(--ptk-color-warning-500) 55%, white);
+    .status-chip.warning {
+      color: #bf5b17;
+      border-color: #f8c8a7;
+      background: #fff3ea;
     }
 
-    .checklist {
-      display: grid;
-      gap: var(--ptk-space-1);
+    .checkmark {
+      color: var(--ptk-control-selected-bg);
+      font-weight: var(--ptk-font-weight-bold);
+      font-size: 16px;
+      line-height: 1;
     }
 
-    .check-item {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      gap: var(--ptk-space-2);
-      align-items: center;
-      font-size: var(--ptk-font-body-s-size);
-      color: var(--ptk-text-primary);
-    }
-
-    .check-item input {
-      margin: 0;
-    }
-
-    .blocked {
-      margin: 0;
-      padding-left: 18px;
-      display: grid;
-      gap: 4px;
-      color: var(--ptk-text-secondary);
-      font-size: var(--ptk-font-body-s-size);
-    }
   `;
 
   @property({ type: String })
@@ -303,95 +441,81 @@ export class PtkSettingsHelpPanel extends LitElement {
         <header class="header">
           <div>
             <h2 class="title">Patrol Toolkit</h2>
-            <p class="subtitle">v ${this.appVersion}</p>
+            <p class="version-line">
+              <span class="ok">v ${this.appVersion}</span>
+              ${this.appUpdateTargetVersion || this.appUpdateSummary
+                ? html`<span>·</span><span class="update">${this.appUpdateSummary || "new version available"}</span>`
+                : nothing}
+            </p>
           </div>
-          <button class="close" type="button" @click=${this.handleClose} aria-label="Close settings">
-            Close
-          </button>
+          ${this.viewport === "small"
+            ? html`
+                <button class="close icon" type="button" @click=${this.handleClose} aria-label="Close settings">
+                  ×
+                </button>
+              `
+            : html`
+                <button class="close" type="button" @click=${this.handleClose} aria-label="Close settings">
+                  Close
+                </button>
+              `}
         </header>
 
-        <section class="section" aria-label="Theme settings">
-          <h3 class="section-title">Theme</h3>
-          <div class="segmented" role="tablist" aria-label="Theme switcher">
-            ${this.renderThemeButton("default", "Default")}
-            ${this.renderThemeButton("high-contrast", "High contrast")}
-          </div>
-        </section>
-
         <section class="section" aria-label="App updates and installation">
-          <h3 class="section-title">App</h3>
-          <div class="row">
+          <div class="stack">
+            ${this.appUpdateTargetVersion
+              ? html`<button class="button full" type="button" @click=${this.handleApplyAppUpdate}>Update the App</button>`
+              : nothing}
             ${this.isInstalled
               ? nothing
-              : html`<button class="button primary" type="button" @click=${this.handleInstallApp}>Install App</button>`}
-            <button class="button" type="button" @click=${this.handleCheckAppUpdates}>Check for updates</button>
-            ${this.appUpdateTargetVersion
-              ? html`<button class="button primary" type="button" @click=${this.handleApplyAppUpdate}>Update the App</button>`
-              : nothing}
+              : html`<button class="button primary full" type="button" @click=${this.handleInstallApp}>Install App</button>`}
+            <button class="button full" type="button" @click=${this.handleCheckAppUpdates}>Check for updates</button>
           </div>
           ${this.installHint ? html`<p class="muted">${this.installHint}</p>` : nothing}
-          ${this.appUpdateResult
-            ? html`
-                <div class="result">
-                  ${this.appUpdateResult}
-                  ${this.appUpdateTargetVersion
-                    ? html`
-                        <div><strong>Target:</strong> ${this.appUpdateTargetVersion}</div>
-                        ${this.appUpdateSummary
-                          ? html`<div><strong>Summary:</strong> ${this.appUpdateSummary}</div>`
-                          : nothing}
-                      `
-                    : nothing}
-                </div>
-              `
-            : nothing}
+          ${this.appUpdateResult ? html`<div class="result">${this.appUpdateResult}</div>` : nothing}
         </section>
+
+        <div class="divider" aria-hidden="true"></div>
 
         <section class="section" aria-label="Offline resorts">
           <h3 class="section-title">Offline resorts</h3>
           <div class="offline-list">
             ${this.offlineRows.length > 0
               ? this.offlineRows.map(
-                  (row) => html`
-                    <div class="offline-item" aria-label=${`Offline resort ${row.label}`}>
-                      <div class="offline-top">
+                  (row) => {
+                    const candidate = this.packUpdateCandidates.find((item) => item.resortId === row.resortId);
+                    const selected = Boolean(candidate?.selected);
+                    const isUpdate = row.badgeTone === "warning";
+                    const itemClass = classMap({
+                      "offline-item": true,
+                      selected,
+                      "update-available": !selected && isUpdate,
+                      "status-ready": !selected && !isUpdate
+                    });
+                    return html`
+                      <div class=${itemClass} aria-label=${`Offline resort ${row.label}`}>
                         <p class="offline-label">${row.label}</p>
-                        <span class=${`badge ${row.badgeTone}`}>${row.badge}</span>
+                        <div class="offline-meta">
+                          ${selected
+                            ? html`<span class="checkmark" aria-hidden="true">✓</span>`
+                            : html`<span class=${`status-chip ${row.badgeTone}`}>${row.badge}</span>`}
+                        </div>
                       </div>
-                    </div>
-                  `
+                    `;
+                  }
                 )
               : html`<p class="muted">No offline resorts on this device.</p>`}
           </div>
-          <div class="row">
-            <button class="button" type="button" @click=${this.handleCheckPackUpdates}>Check pack updates</button>
-            <button class="button primary" type="button" @click=${this.handleApplySelectedPackUpdates}>
-              Update all selected resorts data
-            </button>
+        </section>
+
+        <div class="divider" aria-hidden="true"></div>
+
+        <section class="section theme-section" aria-label="Theme settings">
+          <h3 class="section-title">Theme</h3>
+          <div class="segmented" role="tablist" aria-label="Theme switcher">
+            ${this.renderThemeButton("default", "Default")}
+            ${this.renderThemeButton("high-contrast", "High contrast")}
           </div>
-          ${this.packUpdateCandidates.length > 0
-            ? html`
-                <div class="checklist" aria-label="Selectable pack updates">
-                  ${this.packUpdateCandidates.map(
-                    (candidate) => html`
-                      <label class="check-item">
-                        <input
-                          type="checkbox"
-                          data-resort-id=${candidate.resortId}
-                          .checked=${candidate.selected}
-                          @change=${this.handleCandidateToggle}
-                        />
-                        <span>${candidate.resortName} · ${candidate.version}</span>
-                      </label>
-                    `
-                  )}
-                </div>
-              `
-            : nothing}
-          ${this.blockedPackUpdates.length > 0
-            ? html`<ul class="blocked">${this.blockedPackUpdates.map((item) => html`<li>${item}</li>`)}</ul>`
-            : nothing}
-          ${this.packUpdateResult ? html`<div class="result">${this.packUpdateResult}</div>` : nothing}
         </section>
       </section>
     `;
@@ -432,26 +556,11 @@ export class PtkSettingsHelpPanel extends LitElement {
     this.dispatchEvent(new CustomEvent("ptk-settings-apply-app-update", { bubbles: true, composed: true }));
   };
 
-  private readonly handleCheckPackUpdates = (): void => {
-    this.dispatchEvent(new CustomEvent("ptk-settings-check-pack-updates", { bubbles: true, composed: true }));
-  };
+}
 
-  private readonly handleApplySelectedPackUpdates = (): void => {
-    this.dispatchEvent(new CustomEvent("ptk-settings-apply-pack-updates", { bubbles: true, composed: true }));
-  };
-
-  private readonly handleCandidateToggle = (event: Event): void => {
-    const input = event.currentTarget as HTMLInputElement;
-    const resortId = input.dataset["resortId"];
-    if (!resortId) {
-      return;
-    }
-    this.dispatchEvent(
-      new CustomEvent("ptk-settings-toggle-pack-candidate", {
-        detail: { resortId, selected: input.checked },
-        bubbles: true,
-        composed: true
-      })
-    );
-  };
+function classMap(classes: Record<string, boolean>): string {
+  return Object.entries(classes)
+    .filter(([, enabled]) => enabled)
+    .map(([name]) => name)
+    .join(" ");
 }

@@ -47,6 +47,7 @@ export class MapView extends LitElement {
     :host {
       display: block;
       min-height: 0;
+      height: 100%;
     }
 
     .map-shell {
@@ -54,6 +55,12 @@ export class MapView extends LitElement {
       display: grid;
       grid-template-rows: auto 1fr auto;
       gap: 0.75rem;
+    }
+
+    .map-shell.compact {
+      grid-template-rows: minmax(0, 1fr);
+      gap: 0;
+      min-height: 0;
     }
 
     .status-bar {
@@ -74,6 +81,13 @@ export class MapView extends LitElement {
       border-radius: 12px;
       border: 1px solid #cbd5e1;
       overflow: hidden;
+    }
+
+    .map-shell.compact .map {
+      height: 100%;
+      min-height: 0;
+      border: none;
+      border-radius: 0;
     }
 
     .controls {
@@ -545,8 +559,9 @@ export class MapView extends LitElement {
   }
 
   render() {
+    const compact = !this.showStatusBar && !this.showBuiltInControls;
     return html`
-      <section class="map-shell">
+      <section class=${compact ? "map-shell compact" : "map-shell"}>
         ${this.showStatusBar
           ? html`
               <header class="status-bar">

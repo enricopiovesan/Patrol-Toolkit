@@ -223,7 +223,7 @@
 - PR outcome: `/new` UI is feature-complete against v1 specs.
 
 ## Slice 9: Spec-to-Code Audit (`/new` vs v1 Specs)
-- Status: planned
+- Status: completed
 - Goal: verify `/new` implementation matches approved specs before cutover.
 - Deliverables:
   - audit `/new` against `design_system_spec_v1.md`

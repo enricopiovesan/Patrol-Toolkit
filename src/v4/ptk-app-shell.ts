@@ -56,6 +56,7 @@ export class PtkAppShell extends LitElement {
     :host {
       display: block;
       min-height: 100vh;
+      min-height: 100dvh;
       background: var(--ptk-surface-app);
       color: var(--ptk-text-primary);
       font-family: var(--ptk-font-family-base);
@@ -65,52 +66,27 @@ export class PtkAppShell extends LitElement {
     .root {
       box-sizing: border-box;
       min-height: 100vh;
-      display: grid;
-      grid-template-rows: auto 1fr;
-      gap: var(--ptk-space-3);
+      min-height: 100dvh;
+      display: block;
       padding: var(--ptk-space-3);
       width: min(100%, var(--ptk-size-shell-max-width));
       margin: 0 auto;
     }
 
-    .header {
-      border: 1px solid var(--ptk-border-default);
-      border-radius: var(--ptk-radius-md);
-      background: var(--ptk-surface-card);
-      padding: var(--ptk-space-3);
-      display: grid;
-      gap: var(--ptk-space-2);
-      box-shadow: var(--ptk-shadow-sm);
+    .root[data-page="resort"][data-viewport="small"],
+    .root[data-page="resort"][data-viewport="medium"] {
+      height: 100dvh;
+      min-height: 100dvh;
+      overflow: hidden;
+      padding: 0;
+      width: 100%;
+      max-width: none;
     }
 
-    .title {
-      margin: 0;
-      font-size: var(--ptk-font-heading-h3-size);
-      font-weight: var(--ptk-font-weight-extrabold);
-      font-family: var(--ptk-font-family-heading);
-    }
-
-    .subtitle {
-      margin: 0;
-      color: var(--ptk-text-secondary);
-      font-size: var(--ptk-font-body-m-size);
-    }
-
-    .meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--ptk-space-2);
-      margin-top: var(--ptk-space-1);
-      font-size: var(--ptk-font-body-s-size);
-      color: var(--ptk-text-muted);
-    }
-
-    .chip {
-      border-radius: var(--ptk-radius-pill);
-      border: 1px solid var(--ptk-border-default);
-      background: var(--ptk-surface-subtle);
-      padding: 2px var(--ptk-space-2);
-      line-height: 1.3;
+    .root[data-page="resort"] > ptk-resort-page {
+      display: block;
+      height: 100%;
+      min-height: 0;
     }
 
     .meta--tight {
@@ -188,6 +164,12 @@ export class PtkAppShell extends LitElement {
 
   @state()
   private accessor installBlockingError = "";
+
+  @state()
+  private accessor installBlockingBusy = false;
+
+  @state()
+  private accessor installBlockingAttempted = false;
 
   @state()
   private accessor searchQuery = "";
@@ -288,20 +270,16 @@ export class PtkAppShell extends LitElement {
     const fullscreenSupported = panelState.fullscreenSupported;
 
     return html`
-      <div class="root" data-theme=${this.theme}>
-        <header class="header">
-          <h1 class="title">Patrol Toolkit /new</h1>
-          <p class="subtitle">v4 UI path in progress. Settings/Help owns theme, install, and update actions.</p>
-          <div class="meta">
-            <span class="chip">viewport=${this.viewport}</span>
-            <span class="chip">theme=${this.theme}</span>
-            <span class="chip">panel=${panelState.presentation}</span>
-            <span class="chip">panel-open=${this.page === "resort" ? (resortPanelOpen ? "yes" : "no") : "n/a"}</span>
-            <span class="chip">fullscreen-supported=${fullscreenSupported ? "yes" : "no"}</span>
-            <span class="chip">fullscreen-active=${this.page === "resort" ? (this.resortPageUiState.fullscreen ? "yes" : "no") : "n/a"}</span>
-            <span class="chip">page=${this.page}</span>
-          </div>
-        </header>
+      <div
+        class="root"
+        data-theme=${this.theme}
+        data-viewport=${this.viewport}
+        data-panel-presentation=${panelState.presentation}
+        data-panel-open=${this.page === "resort" ? (resortPanelOpen ? "yes" : "no") : "n/a"}
+        data-fullscreen-supported=${fullscreenSupported ? "yes" : "no"}
+        data-fullscreen-active=${this.page === "resort" ? (this.resortPageUiState.fullscreen ? "yes" : "no") : "n/a"}
+        data-page=${this.page}
+      >
         ${this.page === "select-resort"
           ? html`${this.renderSelectResortPage()}`
             : this.page === "install-blocking"
@@ -426,9 +404,6 @@ export class PtkAppShell extends LitElement {
         @ptk-settings-install-app=${this.handleInstallAppFromSettings}
         @ptk-settings-check-app-updates=${this.handleCheckAppUpdatesFromSettings}
         @ptk-settings-apply-app-update=${this.handleApplyAppUpdateFromSettings}
-        @ptk-settings-check-pack-updates=${this.handleCheckPackUpdatesFromSettings}
-        @ptk-settings-toggle-pack-candidate=${this.handleTogglePackCandidateFromSettings}
-        @ptk-settings-apply-pack-updates=${this.handleApplyPackUpdatesFromSettings}
       ></ptk-settings-help-panel>
     `;
   }
@@ -441,20 +416,25 @@ export class PtkAppShell extends LitElement {
           This resort pack is not offline-ready on this device. A blocking install/download flow is required before
           opening the Resort Page.
         </p>
-        <div class="meta meta--tight">
-          <span class="chip">selected=${this.selectedResortId ?? "none"}</span>
-          <span class="chip">state=install-blocking</span>
-        </div>
         ${this.installBlockingError
           ? html`<div class="message-card message-card--error">${this.installBlockingError}</div>`
           : html``}
         <div class="action-row">
-          <button class="nav-button nav-button--primary" type="button" @click=${this.handleInstallRetry}>
-            Retry
+          <button
+            class="nav-button nav-button--primary"
+            type="button"
+            ?disabled=${this.installBlockingBusy}
+            @click=${this.handleInstallRetry}
+          >
+            ${this.installBlockingBusy
+              ? "Installing..."
+              : this.installBlockingAttempted || Boolean(this.installBlockingError)
+                ? "Retry"
+                : "Install resort data"}
           </button>
           ${this.installBlockingError
             ? html`
-                <button class="nav-button" type="button" @click=${this.handleInstallCancel}>
+                <button class="nav-button" type="button" ?disabled=${this.installBlockingBusy} @click=${this.handleInstallCancel}>
                   Cancel
                 </button>
               `
@@ -521,6 +501,8 @@ export class PtkAppShell extends LitElement {
     this.selectedResortSourceVersion = entry?.version ?? "";
     this.selectedResortPack = null;
     this.installBlockingError = "";
+    this.installBlockingBusy = false;
+    this.installBlockingAttempted = false;
     const isInstalled = this.installedPacks.some((pack) => pack.id === resortId);
     this.page = isInstalled ? "resort" : "install-blocking";
     if (this.repository) {
@@ -539,6 +521,8 @@ export class PtkAppShell extends LitElement {
     this.settingsPanelOpen = false;
     this.searchQuery = "";
     this.installBlockingError = "";
+    this.installBlockingBusy = false;
+    this.installBlockingAttempted = false;
     this.selectedResortPack = null;
     this.resortPageUiState = createInitialResortPageUiState(this.viewport);
     this.gpsUiState = createInitialGpsUiState();
@@ -546,14 +530,15 @@ export class PtkAppShell extends LitElement {
   };
 
   private readonly handleInstallRetry = (): void => {
-    this.installBlockingError =
-      "Install/download flow is not wired in /new yet. This will be implemented after Select Resort UI completion.";
+    void this.installSelectedResort();
   };
 
   private readonly handleInstallCancel = (): void => {
     this.page = "select-resort";
     this.searchQuery = "";
     this.installBlockingError = "";
+    this.installBlockingBusy = false;
+    this.installBlockingAttempted = false;
   };
 
   private readonly handleResortTabSelect = (event: CustomEvent<{ tabId: "my-location" | "runs-check" | "sweeps" }>) => {
@@ -693,6 +678,8 @@ export class PtkAppShell extends LitElement {
     this.selectedResortId = resortId;
     this.selectedResortName = resortName;
     this.installBlockingError = "";
+    this.installBlockingBusy = false;
+    this.installBlockingAttempted = false;
     this.resortPageUiState = createInitialResortPageUiState(this.viewport);
     this.gpsUiState = createInitialGpsUiState();
     this.resetResortPageDerivedState();
@@ -715,6 +702,37 @@ export class PtkAppShell extends LitElement {
     this.phraseGenerating = false;
     this.mapUiState = "loading";
     this.mapStateMessage = "Loading map…";
+  }
+
+  private async installSelectedResort(): Promise<void> {
+    if (!this.repository || !this.selectedResortId) {
+      this.installBlockingError = "Install unavailable: local storage is not ready.";
+      return;
+    }
+    const entry = this.catalogEntries.find((candidate) => candidate.resortId === this.selectedResortId);
+    if (!entry) {
+      this.installBlockingError = "Selected resort is unavailable in the current catalog.";
+      return;
+    }
+
+    this.installBlockingBusy = true;
+    this.installBlockingAttempted = true;
+    this.installBlockingError = "";
+    try {
+      const pack = await loadPackFromCatalogEntry(entry);
+      await this.repository.savePack(pack, {
+        sourceVersion: entry.version,
+        sourceCreatedAt: entry.createdAt
+      });
+      requestPackAssetPrecache(pack);
+      this.installedPacks = await this.repository.listPacks();
+      await this.repository.setActivePackId(entry.resortId);
+      await this.openInstalledResort(entry.resortId, entry.resortName);
+    } catch (error) {
+      this.installBlockingError = error instanceof Error ? error.message : "Unable to install resort data.";
+    } finally {
+      this.installBlockingBusy = false;
+    }
   }
 
   private async installApp(): Promise<void> {

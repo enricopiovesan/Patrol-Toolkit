@@ -12,8 +12,14 @@
 
 ## Source References
 - `/Users/piovese/Documents/Patrol Toolkit/spec/UX/UIs v1.png`
+- `/Users/piovese/Documents/Patrol Toolkit/spec/UX/UI components/` (generic pixel-perfect component visual specs library)
 - `/Users/piovese/Documents/Patrol Toolkit/spec/XD/design_system_spec_v1.md`
 - `/Users/piovese/Documents/Patrol Toolkit/roadmaps/roadmap_v4.md`
+
+## Additional Visual Reference Library (v1)
+- Generic pixel-perfect UI component visual specs are stored in:
+  - `/Users/piovese/Documents/Patrol Toolkit/spec/UX/UI components/`
+- Use this folder as the component-level visual reference source when implementing or auditing `/new` UI components (buttons, tabs, cards, overlays, nav bars, dialogs, etc.), together with page-level visuals in `UIs v1.png`.
 
 ## Routing / Entry Behavior (Locked)
 - `/new` is the v4 parallel UI path during implementation.

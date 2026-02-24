@@ -31,6 +31,9 @@ export class PtkPageHeader extends LitElement {
       font-weight: var(--ptk-font-weight-extrabold);
       font-family: var(--ptk-font-family-heading);
       color: var(--ptk-text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .subtitle {
@@ -80,4 +83,3 @@ export class PtkPageHeader extends LitElement {
     `;
   }
 }
-
