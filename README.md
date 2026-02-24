@@ -50,6 +50,69 @@ Use the production app here:
 
 ## Current Product Scope
 
+![Patrol Toolkit v4 mobile resort page](public/assets/patrol-toolkit-v4-current-state-2026-02-23.png)
+
+Current v4 UI supports:
+- `Select Resort` page (search + resort cards)
+- `Resort Page` (map-first layout)
+- offline resort pack install and use
+- phrase generation
+- Settings / Help drawer (theme, app install/update info, offline resorts status)
+
+### Available published resorts
+
+Current stable published resorts in `public/resort-packs/index.json`:
+
+- `CA_Chelsea_Camp_Fortune` (`v4`)
+- `CA_Fernie_Fernie` (`v7`)
+- `CA_Golden_Kicking_Horse` (`v6`)
+- `CA_Kimberley_Kimberley_Resort` (`v5`)
+- `CA_Beaupre_Mont_Sainte_Anne` (`v4`)
+- `CA_Rossland_Red_Mountain_Resort` (`v6`)
+- `CA_Whistler_Whistler_Blackcomb` (`v4`)
+
+## Roadmap Focus: Runs Check and Sweeps
+
+Patrol Toolkit is moving toward deeper operational workflows beyond phrase generation.
+
+### Runs Check (next capability track)
+
+Goal:
+- support structured run-status workflows (inspection/check context on terrain)
+
+Expected direction:
+- map-first workflow integrated into the Resort Page
+- run-focused UI states and task-oriented interactions
+- deterministic, data-driven behavior (same operational constraints as phrase generation)
+
+### Sweeps (future capability track)
+
+Goal:
+- support patrol sweep workflows after more field feedback and data improvements
+
+Current state:
+- `Sweeps` exists in the UI as an intentional placeholder state
+- final workflow is not defined yet
+
+The Sweeps capability will be shaped by:
+- real patrol feedback
+- data quality improvements
+- validated operational use cases
+
+## Usage Terms (Free, Non-Commercial)
+
+This project is free to use for personal, educational, and non-commercial operational evaluation.
+
+Not allowed without explicit permission:
+- commercial use
+- resale
+- redistribution of the app or resort packs
+- repackaging this project as a hosted or distributed commercial offering
+
+If you want to use Patrol Toolkit in a commercial context or redistribute it, contact the project maintainer first.
+
+## For Developers
+
 Current v4 UI supports:
 - `Select Resort` page (search + resort cards)
 - `Resort Page` (map-first layout)
@@ -149,3 +212,12 @@ Patrol Toolkit does not replace:
 - operational judgment
 
 Use it as an assistive tool only.
+### Data and accuracy limitations
+
+- Terrain and map data in Patrol Toolkit is derived from OpenStreetMap and related processed map assets.
+- OpenStreetMap data quality varies by resort and by feature.
+- Map geometry, labels, lift/run alignments, and other terrain details may be incomplete or inaccurate.
+- Device GPS accuracy also varies and may degrade due to terrain, weather, device quality, or signal conditions.
+- Phrase generation is deterministic but still under active tuning and validation; it may return inaccurate or suboptimal results in some cases.
+
+Always verify location context using radio communication, patrol knowledge, and on-mountain observation.
