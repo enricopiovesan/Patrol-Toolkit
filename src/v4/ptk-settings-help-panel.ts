@@ -43,7 +43,7 @@ export class PtkSettingsHelpPanel extends LitElement {
       left: auto;
       width: min(88vw, 380px);
       border-radius: 0;
-      padding: 18px;
+      padding: 16px 16px 18px;
       box-shadow: -10px 0 26px rgb(15 23 42 / 0.14);
     }
 
@@ -76,8 +76,8 @@ export class PtkSettingsHelpPanel extends LitElement {
 
     .surface.small .header,
     .surface.medium .header {
-      padding-right: 2px;
-      gap: 8px;
+      padding-right: 0;
+      gap: 6px;
     }
 
     .title {
@@ -151,7 +151,7 @@ export class PtkSettingsHelpPanel extends LitElement {
     .surface.small .section {
       border-radius: 0;
       padding: 0;
-      gap: 10px;
+      gap: 8px;
     }
 
     .surface.medium .section {
@@ -318,7 +318,7 @@ export class PtkSettingsHelpPanel extends LitElement {
     }
 
     .surface.small .offline-list {
-      gap: 10px;
+      gap: 8px;
     }
 
     .offline-item {
@@ -334,7 +334,17 @@ export class PtkSettingsHelpPanel extends LitElement {
 
     .surface.small .offline-item {
       border-radius: 14px;
-      padding: 12px 14px;
+      padding: 10px 12px;
+    }
+
+    .surface.small .title {
+      font-size: 18px;
+      line-height: 1.15;
+    }
+
+    .surface.small .version-line {
+      margin-top: 1px;
+      font-size: 12px;
     }
 
     .offline-label {

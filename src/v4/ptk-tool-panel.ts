@@ -7,7 +7,7 @@ import type { ViewportMode } from "./viewport";
 export class PtkToolPanel extends LitElement {
   private static readonly SMALL_SHEET_MIN_HEIGHT = 56;
   private static readonly SMALL_SHEET_DEFAULT_HEIGHT = 248;
-  private static readonly SMALL_SHEET_MAX_HEIGHT_FALLBACK = 520;
+  private static readonly SMALL_SHEET_MAX_HEIGHT_FALLBACK = 620;
 
   static styles = css`
     ${v4DesignTokens}
@@ -46,7 +46,7 @@ export class PtkToolPanel extends LitElement {
     }
 
     .small-scroll {
-      padding: 0 var(--ptk-space-3) var(--ptk-space-3);
+      padding: 0 var(--ptk-space-3) calc(var(--ptk-space-3) + 30px + env(safe-area-inset-bottom, 0px));
       overflow: auto;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
@@ -151,15 +151,22 @@ export class PtkToolPanel extends LitElement {
                 >
                   <div class="handle"></div>
                 </button>
-                <slot name="fixed"></slot>
+                <slot name="fixed" @slotchange=${this.handleSmallSlotChange}></slot>
               </div>
               <div class="small-scroll">
-                <slot></slot>
+                <slot @slotchange=${this.handleSmallSlotChange}></slot>
               </div>
             `
           : html`<div class="panel-content-scroll"><slot></slot></div>`}
       </section>
     `;
+  }
+
+  public refitToContent(): void {
+    if (this.viewport !== "small" || !this.open) {
+      return;
+    }
+    this.updateComplete.then(() => this.fitSmallSheetToContent());
   }
 
   private ensureSmallSheetHeight(): void {
@@ -178,7 +185,7 @@ export class PtkToolPanel extends LitElement {
     }
     return Math.max(
       PtkToolPanel.SMALL_SHEET_MIN_HEIGHT,
-      Math.min(Math.round(window.innerHeight * 0.48), 360)
+      Math.min(Math.round(window.innerHeight * 0.72), 620)
     );
   }
 
@@ -242,11 +249,13 @@ export class PtkToolPanel extends LitElement {
       return;
     }
     this.ensureSmallSheetHeight();
-    const max = this.computeSmallSheetMaxHeight();
     const current = this.smallSheetHeightPx ?? PtkToolPanel.SMALL_SHEET_DEFAULT_HEIGHT;
     const collapsed = PtkToolPanel.SMALL_SHEET_MIN_HEIGHT;
-    const expanded = clamp(PtkToolPanel.SMALL_SHEET_DEFAULT_HEIGHT + 16, collapsed, max);
-    this.smallSheetHeightPx = current > (collapsed + expanded) / 2 ? collapsed : expanded;
+    if (current > collapsed + 16) {
+      this.smallSheetHeightPx = collapsed;
+    } else {
+      this.updateComplete.then(() => this.fitSmallSheetToContent());
+    }
     event.preventDefault();
   };
 
@@ -259,6 +268,13 @@ export class PtkToolPanel extends LitElement {
       })
     );
   }
+
+  private readonly handleSmallSlotChange = (): void => {
+    if (this.viewport !== "small" || !this.open) {
+      return;
+    }
+    this.updateComplete.then(() => this.fitSmallSheetToContent());
+  };
 
   private fitSmallSheetToContent(): void {
     if (this.viewport !== "small" || !this.open) {

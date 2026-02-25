@@ -7,7 +7,7 @@ const ACTIVE_CACHES = new Set([SHELL_CACHE, STATIC_CACHE, TILE_CACHE]);
 const LEGACY_CACHE_NAMES = new Set([
   "patrol-shell",
   "patrol-static",
-  "patrol-tiles"
+  "patrol-tiles",
 ]);
 
 const APP_BASE_PATH = (() => {
@@ -18,7 +18,9 @@ const APP_BASE_PATH = (() => {
 
 function withAppBase(path) {
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  return APP_BASE_PATH.length > 0 ? `${APP_BASE_PATH}${normalized}` : normalized;
+  return APP_BASE_PATH.length > 0
+    ? `${APP_BASE_PATH}${normalized}`
+    : normalized;
 }
 
 const APP_SHELL_URLS = [
@@ -26,9 +28,9 @@ const APP_SHELL_URLS = [
   withAppBase("/index.html"),
   withAppBase("/offline.html"),
   withAppBase("/manifest.webmanifest"),
-  withAppBase("/icons/icon.svg"),
-  withAppBase("/icons/icon-maskable.svg"),
-  withAppBase("/resort-packs/index.json")
+  withAppBase("/icons/icon.png"),
+  withAppBase("/icons/icon-512x512.png"),
+  withAppBase("/resort-packs/index.json"),
 ];
 
 const TILE_HOSTS = new Set(["tile.openstreetmap.org"]);
@@ -39,7 +41,7 @@ self.addEventListener("install", (event) => {
       const cache = await caches.open(SHELL_CACHE);
       await cache.addAll(APP_SHELL_URLS);
       await self.skipWaiting();
-    })()
+    })(),
   );
 });
 
@@ -54,13 +56,15 @@ self.addEventListener("activate", (event) => {
               return true;
             }
 
-            return name.startsWith(`${CACHE_PREFIX}-`) && !ACTIVE_CACHES.has(name);
+            return (
+              name.startsWith(`${CACHE_PREFIX}-`) && !ACTIVE_CACHES.has(name)
+            );
           })
-          .map((name) => caches.delete(name))
+          .map((name) => caches.delete(name)),
       );
 
       await self.clients.claim();
-    })()
+    })(),
   );
 });
 
@@ -129,7 +133,7 @@ async function handleNavigationRequest(request) {
 
     return new Response("Offline mode unavailable.", {
       status: 503,
-      headers: { "Content-Type": "text/plain; charset=utf-8" }
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   }
 }
@@ -143,7 +147,10 @@ async function handleSameOriginStaticRequest(request) {
 
   if (rangeHeader) {
     if (cachedResponse && cachedResponse.status === 200) {
-      const partial = await buildPartialResponseFromFull(cachedResponse, rangeHeader);
+      const partial = await buildPartialResponseFromFull(
+        cachedResponse,
+        rangeHeader,
+      );
       if (partial) {
         return partial;
       }
@@ -159,7 +166,10 @@ async function handleSameOriginStaticRequest(request) {
       // Do not return a full-file cached body for range requests.
       // Returning 200 to a byte-range client can break PMTiles reads.
       if (cachedResponse && cachedResponse.status === 200) {
-        const partial = await buildPartialResponseFromFull(cachedResponse, rangeHeader);
+        const partial = await buildPartialResponseFromFull(
+          cachedResponse,
+          rangeHeader,
+        );
         if (partial) {
           return partial;
         }
@@ -167,7 +177,7 @@ async function handleSameOriginStaticRequest(request) {
 
       return new Response("Asset unavailable offline.", {
         status: 504,
-        headers: { "Content-Type": "text/plain; charset=utf-8" }
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
       });
     }
   }
@@ -195,7 +205,7 @@ async function handleSameOriginStaticRequest(request) {
 
   return new Response("Asset unavailable offline.", {
     status: 504,
-    headers: { "Content-Type": "text/plain; charset=utf-8" }
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
 }
 
@@ -255,14 +265,16 @@ async function buildPartialResponseFromFull(fullResponse, rangeHeader) {
       status: 416,
       headers: {
         "Content-Range": `bytes */${total}`,
-        "Accept-Ranges": "bytes"
-      }
+        "Accept-Ranges": "bytes",
+      },
     });
   }
 
   const hasEnd = Boolean(match[2] && match[2].length > 0);
   const requestedEnd = hasEnd ? Number.parseInt(match[2], 10) : total - 1;
-  const end = Number.isFinite(requestedEnd) ? Math.min(requestedEnd, total - 1) : total - 1;
+  const end = Number.isFinite(requestedEnd)
+    ? Math.min(requestedEnd, total - 1)
+    : total - 1;
   if (end < start) {
     return null;
   }
@@ -276,7 +288,7 @@ async function buildPartialResponseFromFull(fullResponse, rangeHeader) {
   return new Response(chunk, {
     status: 206,
     statusText: "Partial Content",
-    headers
+    headers,
   });
 }
 
@@ -298,7 +310,7 @@ async function handleTileRequest(request) {
   } catch {
     return new Response("Tile unavailable offline.", {
       status: 504,
-      headers: { "Content-Type": "text/plain; charset=utf-8" }
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   }
 }

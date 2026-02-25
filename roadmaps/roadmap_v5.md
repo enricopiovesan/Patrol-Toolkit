@@ -173,7 +173,7 @@
 - PR outcome: Select Resort page is more useful in real-world field context.
 
 ## Slice 7: Small Viewport Menu Button + Drawer Polish
-- Status: planned
+- Status: completed
 - Goal: improve Settings/Help entry usability on small screens.
 - Deliverables:
   - increase small viewport menu icon size
