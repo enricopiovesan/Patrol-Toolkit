@@ -1504,6 +1504,15 @@ async function runKnownResortMenu(args: {
         console.log("Cannot sync peaks yet. Boundary is not ready. Run 'Fetch/update boundary' first.");
         continue;
       }
+      const peaksBufferInput = (
+        await args.rl.question("Peaks buffer meters (default 5000): ")
+      ).trim();
+      const peaksBufferMeters =
+        peaksBufferInput.length === 0 ? 5000 : Number.parseInt(peaksBufferInput, 10);
+      if (!Number.isFinite(peaksBufferMeters) || peaksBufferMeters < 0) {
+        console.log("Invalid buffer. Enter a non-negative integer number of meters.");
+        continue;
+      }
       let cloned: ClonedResortVersion | null = null;
       try {
         cloned = await createNextVersionClone({
@@ -1514,7 +1523,7 @@ async function runKnownResortMenu(args: {
         });
         const result = await syncResortPeaks({
           workspacePath: cloned.workspacePath,
-          bufferMeters: 500
+          bufferMeters: peaksBufferMeters
         });
         await syncStatusFileFromWorkspace({
           workspacePath: cloned.workspacePath,
@@ -1523,7 +1532,9 @@ async function runKnownResortMenu(args: {
         workspacePath = cloned.workspacePath;
         statusPath = cloned.statusPath;
         console.log(`Created version ${cloned.version} for peaks update.`);
-        console.log(`Peaks updated: count=${result.peakCount} checksum=${result.checksumSha256}`);
+        console.log(
+          `Peaks updated: count=${result.peakCount} buffer=${peaksBufferMeters}m checksum=${result.checksumSha256}`
+        );
       } catch (error: unknown) {
         if (cloned) {
           await rm(cloned.versionPath, { recursive: true, force: true });
