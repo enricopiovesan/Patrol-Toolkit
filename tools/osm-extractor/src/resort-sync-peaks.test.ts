@@ -41,6 +41,7 @@ describe('resort-sync-peaks', () => {
     const query = buildPeaksOverpassQuery({ minLon: -117.1, minLat: 51.2, maxLon: -117.0, maxLat: 51.3, timeoutSeconds: 30 });
     expect(query).toContain('node["natural"="peak"]');
     expect(query).toContain('[timeout:30]');
+    expect(query).toContain('out body;');
   });
 
   it('fetches peaks and updates workspace + output geojson', async () => {
