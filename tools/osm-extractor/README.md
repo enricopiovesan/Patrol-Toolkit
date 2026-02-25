@@ -480,6 +480,77 @@ JSON success fields:
 
 Use the step-by-step workflow above for this flow. The command reference here documents all supported commands and flags.
 
+### Peaks and Contours (Other Things)
+
+The interactive menu now includes:
+
+- `Fetch/update other things`
+  - `Peaks`
+  - `Contours`
+
+`Peaks` sync is OSM/Overpass-based (`natural=peak`), and `Contours` sync is DEM-backed (OpenTopography + local `gdal_contour`).
+
+#### Automated Contours (DEM -> Vector -> Pack)
+
+Contour generation is **fully automated day-to-day** in the CLI, but requires one-time local setup:
+
+Prerequisites:
+
+1. OpenTopography API key (free key) exported as:
+   - `PTK_OPENTOPO_API_KEY`
+2. GDAL installed locally with `gdal_contour` available on PATH
+   - macOS (Homebrew): `brew install gdal`
+
+Optional contour env vars:
+
+- `PTK_CONTOUR_DEM_PROVIDER` (default `opentopography`)
+- `PTK_OPENTOPO_DATASET` (default `COP30`)
+- `PTK_OPENTOPO_GLOBALDEM_URL` (advanced override)
+- `PTK_GDAL_CONTOUR_BIN` (default `gdal_contour`)
+- `PTK_CONTOUR_USER_AGENT` (advanced override)
+
+Interactive menu flow:
+
+1. Open resort menu
+2. Ensure boundary is complete
+3. `14. Fetch/update other things`
+4. `2. Contours`
+5. Provide:
+   - contour buffer meters (default `2000`)
+   - contour interval meters (default `20`)
+
+The CLI will:
+
+- clone the next immutable resort version
+- download DEM for the buffered resort boundary bbox
+- run `gdal_contour`
+- import/normalize contours
+- update status and metrics
+
+Command mode (scriptable):
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-sync-contours \
+  --workspace ./resorts/CA_Golden_Kicking_Horse/vX/resort.json \
+  --buffer-meters 2000 \
+  --interval-meters 20
+```
+
+JSON mode:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-sync-contours \
+  --workspace ./resorts/CA_Golden_Kicking_Horse/vX/resort.json \
+  --buffer-meters 2000 \
+  --interval-meters 20 \
+  --json
+```
+
+Notes:
+
+- Generated contours are bundled vector data (`ResortPack.contours`) and render offline after publish.
+- No runtime contour API configuration is required in the app.
+
 ### resort-export-latest
 
 Export the latest manually validated immutable version for one resort as a single JSON bundle.

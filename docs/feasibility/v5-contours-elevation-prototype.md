@@ -1,9 +1,9 @@
-# v5 Slice 13: Contours / Elevation Prototype Implementation Outcome (Vector Foundation + CLI Management)
+# v5 Slice 13-14: Contours / Elevation Prototype Implementation Outcome (Vector Foundation + CLI Automation)
 
 ## Outcome
 
 - **Prototype direction implemented:** vector contour rendering foundation (same architecture direction as runs/lifts overlays).
-- **CLI management path implemented:** contour import command + peaks sync command for resort workspace/publish flow.
+- **CLI management path implemented:** contour import command + DEM-backed contour sync command + peaks sync command for resort workspace/publish flow.
 - **Default shipping behavior:** unchanged; no contours are shown unless contour data exists in the resort pack.
 - **Peak support:** optional peak points can now be managed/published/rendered as part of the same pack path.
 - **Elevation labels/data UI:** not implemented beyond optional contour line label text support (`elevationMeters`) in the layer style.
@@ -60,18 +60,30 @@ Two CLI commands now support the vector contour/peak data workflow:
    - writes `peaks.geojson`
    - updates `workspace.layers.peaks`
 
+3. `resort-sync-contours`
+   - downloads DEM for a buffered resort boundary bbox (OpenTopography in v5 path)
+   - runs local `gdal_contour` to generate contour GeoJSON
+   - imports/normalizes contours into `workspace.layers.contours`
+
+Interactive menu path (v5):
+
+- `Fetch/update other things`
+  - `Peaks`
+  - `Contours`
+
 Both layers are included in:
 
 - `resort-export-latest`
 - `resort-publish-latest`
 - app export-bundle conversion (`layers.contours`, `layers.peaks`)
 
-## What is not implemented in v5 Slice 13
+## What is not implemented in v5 (after Slice 14)
 
-- No contour generation pipeline from DEM/elevation rasters yet (CLI/data build)
-- No contour data in current published resort packs by default (unless manually imported)
+- No contour generation path without local setup (`PTK_OPENTOPO_API_KEY` + `gdal_contour`)
+- No contour data in current published resort packs by default (until user runs contour sync/import and publishes)
 - No elevation labels/readout UX beyond line label support
-- No automated offline contour generation workflow (source side)
+- No packaged DEM source management/caching strategy beyond per-run download
+- No “one-click no-key” contour source (provider key required in v5 automation path)
 
 ## Why this is still useful
 
@@ -83,17 +95,14 @@ This foundation proves the app can render contours the same way it renders resor
 
 It removes the need for a raster contour overlay path for the contour prototype direction.
 
-## Next step (post Slice 13)
+## How to use the v5 contour path
 
-To make contours visible for a resort, implement the generation/bundling path:
-
-1. Select contour/elevation source and validate licensing/redistribution.
-2. Generate contour vector lines for the resort boundary area (DEM-based pipeline).
-3. Import/publish contours via `resort-import-contours` (or future generator command).
-4. Optionally sync peaks via `resort-sync-peaks`.
-5. Validate readability/performance and bundle size impact.
+1. Set OpenTopography API key (`PTK_OPENTOPO_API_KEY`).
+2. Install GDAL and ensure `gdal_contour` is available.
+3. Run contour sync from CLI (`resort-sync-contours`) or menu (`Fetch/update other things -> Contours`).
+4. Publish latest version and verify contours in the app.
 
 ## Shipping recommendation (v5)
 
-- Keep this as a **vector rendering + CLI management foundation** in v5.
-- Do not claim complete contour coverage until DEM-based generation + source path is implemented and validated.
+- Keep this as a **vector rendering + CLI automation prototype** in v5.
+- Do not claim complete contour coverage/quality until contour generation defaults (interval/simplification/filtering) are tuned and validated across more resorts.
