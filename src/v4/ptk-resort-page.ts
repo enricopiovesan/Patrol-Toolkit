@@ -2,10 +2,14 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { state } from "lit/decorators.js";
 import { v4DesignTokens } from "./design-tokens";
+import { resolveAppUrl } from "../runtime/base-url";
 import type { ResortPageHeaderViewModel } from "./resort-page-model";
 import type { ResortPageTabId } from "./resort-page-state";
 import type { ViewportMode } from "./viewport";
-import { resolveResortPanelLayoutMode, type ResortPanelLayoutMode } from "./resort-layout-mode";
+import {
+  resolveResortPanelLayoutMode,
+  type ResortPanelLayoutMode,
+} from "./resort-layout-mode";
 import type { ResortPack } from "../resort-pack/types";
 import type { GpsErrorKind } from "./gps-ui-state";
 import "./ptk-page-header";
@@ -223,6 +227,7 @@ export class PtkResortPage extends LitElement {
       color: var(--ptk-text-primary);
       min-height: 56px;
       display: grid;
+      padding: 20px 0p;
       align-items: center;
       font-size: var(--ptk-font-body-l-size);
       font-weight: var(--ptk-font-weight-semibold);
@@ -239,6 +244,18 @@ export class PtkResortPage extends LitElement {
       color: var(--ptk-text-secondary);
       font-size: var(--ptk-font-body-m-size);
       line-height: 1.4;
+    }
+
+    .tab-illustration {
+      display: block;
+      width: 100%;
+      max-width: 420px;
+      height: auto;
+      margin-top: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--ptk-border-default);
+      background: var(--ptk-surface-subtle);
+      object-fit: contain;
     }
 
     .gps-disabled-card {
@@ -415,6 +432,15 @@ export class PtkResortPage extends LitElement {
       color: var(--ptk-text-primary);
       font-size: 24px;
       font-weight: var(--ptk-font-weight-semibold);
+    }
+
+    .workspace.small .icon-button.ghost-flat.menu {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+      border-radius: 12px;
+      font-size: 28px;
     }
 
     .workspace.small .map-header-row,
@@ -836,7 +862,7 @@ export class PtkResortPage extends LitElement {
     resortName: "Resort",
     versionText: "v?",
     runsCountText: "0 runs",
-    liftsCountText: "0 lifts"
+    liftsCountText: "0 lifts",
   };
 
   @property({ type: String })
@@ -927,14 +953,17 @@ export class PtkResortPage extends LitElement {
       workspace: true,
       [effectiveViewportClass]: true,
       "medium-sheet": this.viewport === "medium" && usesSheetLayout,
-      fullscreen: this.fullscreenActive
+      fullscreen: this.fullscreenActive,
     };
-    const workspaceStyle =
-      usesSheetLayout
-        ? `--ptk-small-sheet-height:${this.getSmallSheetHeightForLayout()}px;`
-        : nothing;
+    const workspaceStyle = usesSheetLayout
+      ? `--ptk-small-sheet-height:${this.getSmallSheetHeightForLayout()}px;`
+      : nothing;
     return html`
-      <section class=${classMap(workspaceClasses)} style=${workspaceStyle} aria-label="Resort Page">
+      <section
+        class=${classMap(workspaceClasses)}
+        style=${workspaceStyle}
+        aria-label="Resort Page"
+      >
         <div class=${`panel-shell ${effectiveViewportClass}`}>
           <ptk-tool-panel
             .viewport=${usesSheetLayout ? "small" : this.viewport}
@@ -944,7 +973,12 @@ export class PtkResortPage extends LitElement {
           >
             ${usesSheetLayout
               ? html`
-                  <div slot="fixed" class="tabs" role="tablist" aria-label="Resort tools navigation">
+                  <div
+                    slot="fixed"
+                    class="tabs"
+                    role="tablist"
+                    aria-label="Resort tools navigation"
+                  >
                     ${this.renderTabButton("my-location", "My location")}
                     ${this.renderTabButton("runs-check", "Runs Check")}
                     ${this.renderTabButton("sweeps", "Sweeps")}
@@ -954,10 +988,17 @@ export class PtkResortPage extends LitElement {
             ${this.renderPanelContent()}
           </ptk-tool-panel>
         </div>
-        <section class=${`map-frame ${this.fullscreenActive ? "fullscreen" : ""}`} aria-label="Resort map surface">
+        <section
+          class=${`map-frame ${this.fullscreenActive ? "fullscreen" : ""}`}
+          aria-label="Resort map surface"
+        >
           <div class="map-header">
             ${this.renderCompactTopBar()}
-            ${this.viewport === "large" ? html`<p class="panel-note" aria-label="Map state">${this.mapStateMessage}</p>` : nothing}
+            ${this.viewport === "large"
+              ? html`<p class="panel-note" aria-label="Map state">
+                  ${this.mapStateMessage}
+                </p>`
+              : nothing}
           </div>
           <div class="map-canvas" aria-label="Resort map canvas">
             ${this.renderLiveMap
@@ -975,27 +1016,47 @@ export class PtkResortPage extends LitElement {
               : html`<div class="map-test-surface" aria-hidden="true"></div>`}
           </div>
           <div class="map-controls">
-            <button class="ghost-button center" type="button" aria-label="Center to user position" @click=${this.handleCenterToUser}>
+            <button
+              class="ghost-button center"
+              type="button"
+              aria-label="Center to user position"
+              @click=${this.handleCenterToUser}
+            >
               Center to user position
             </button>
             ${this.fullscreenSupported
               ? html`
                   <button
-                    class="ghost-button ${this.fullscreenActive ? "exit-fullscreen" : "fullscreen"}"
+                    class="ghost-button ${this.fullscreenActive
+                      ? "exit-fullscreen"
+                      : "fullscreen"}"
                     type="button"
-                    aria-label=${this.fullscreenActive ? "Exit full screen" : "Full screen"}
+                    aria-label=${this.fullscreenActive
+                      ? "Exit full screen"
+                      : "Full screen"}
                     @click=${this.handleToggleFullscreen}
                   >
-                    ${this.fullscreenActive ? "Exit full screen" : "Full screen"}
+                    ${this.fullscreenActive
+                      ? "Exit full screen"
+                      : "Full screen"}
                   </button>
                 `
               : nothing}
           </div>
           ${usesSheetLayout && this.gpsStatusText
-            ? html`<div class="gps-overlay-status" aria-label="GPS status overlay">${this.gpsStatusText}</div>`
+            ? html`<div
+                class="gps-overlay-status"
+                aria-label="GPS status overlay"
+              >
+                ${this.gpsStatusText}
+              </div>`
             : nothing}
           <div class="back-row">
-            <button class="ghost-button" type="button" @click=${this.handleBack}>
+            <button
+              class="ghost-button"
+              type="button"
+              @click=${this.handleBack}
+            >
               Back to Select Resort
             </button>
           </div>
@@ -1008,7 +1069,13 @@ export class PtkResortPage extends LitElement {
   private renderPanelToggleButton() {
     const label = this.panelOpen ? "Hide tools" : "Show tools";
     return html`
-      <button class="ghost-button" type="button" @click=${this.handleTogglePanel}>${label}</button>
+      <button
+        class="ghost-button"
+        type="button"
+        @click=${this.handleTogglePanel}
+      >
+        ${label}
+      </button>
     `;
   }
 
@@ -1022,8 +1089,7 @@ export class PtkResortPage extends LitElement {
           .metaLine2=${this.header.liftsCountText}
         ></ptk-page-header>
         <div class="hidden-panel-tools">
-          ${this.renderPanelToggleButton()}
-          ${this.renderSettingsButton()}
+          ${this.renderPanelToggleButton()} ${this.renderSettingsButton()}
         </div>
       </div>
     `;
@@ -1032,7 +1098,14 @@ export class PtkResortPage extends LitElement {
   private renderCompactTopBar() {
     return html`
       <div class="topbar" aria-label="Resort top bar">
-        <button class="icon-button ghost-flat back" type="button" aria-label="Back to select resort" @click=${this.handleBack}>‹</button>
+        <button
+          class="icon-button ghost-flat back"
+          type="button"
+          aria-label="Back to select resort"
+          @click=${this.handleBack}
+        >
+          ‹
+        </button>
         <ptk-page-header
           .compact=${true}
           .title=${this.header.resortName}
@@ -1040,7 +1113,12 @@ export class PtkResortPage extends LitElement {
           .metaLine1=${this.header.runsCountText}
           .metaLine2=${this.header.liftsCountText}
         ></ptk-page-header>
-        <button class="icon-button ghost-flat menu" type="button" aria-label="Open settings" @click=${this.handleOpenSettings}>
+        <button
+          class="icon-button ghost-flat menu"
+          type="button"
+          aria-label="Open settings"
+          @click=${this.handleOpenSettings}
+        >
           ☰
         </button>
       </div>
@@ -1049,7 +1127,13 @@ export class PtkResortPage extends LitElement {
 
   private renderSettingsButton() {
     return html`
-      <button class="ghost-button" type="button" @click=${this.handleOpenSettings}>Settings / Help</button>
+      <button
+        class="ghost-button"
+        type="button"
+        @click=${this.handleOpenSettings}
+      >
+        Settings / Help
+      </button>
     `;
   }
 
@@ -1062,7 +1146,11 @@ export class PtkResortPage extends LitElement {
         </div>
         ${this.panelLayoutMode === "sidebar"
           ? html`
-              <div class="tabs" role="tablist" aria-label="Resort tools navigation">
+              <div
+                class="tabs"
+                role="tablist"
+                aria-label="Resort tools navigation"
+              >
                 ${this.renderTabButton("my-location", "My location")}
                 ${this.renderTabButton("runs-check", "Runs Check")}
                 ${this.renderTabButton("sweeps", "Sweeps")}
@@ -1090,15 +1178,25 @@ export class PtkResortPage extends LitElement {
   }
 
   private renderActiveTabPanel() {
-    const showPhraseStatusLine = this.phraseStatusText.trim() !== "" && this.phraseStatusText !== "Phrase generated.";
+    const showPhraseStatusLine =
+      this.phraseStatusText.trim() !== "" &&
+      this.phraseStatusText !== "Phrase generated.";
     switch (this.selectedTab) {
       case "my-location":
         return html`
-          <section class="panel-card" role="tabpanel" aria-label="My location tools">
+          <section
+            class="panel-card"
+            role="tabpanel"
+            aria-label="My location tools"
+          >
             <h4>Re generate</h4>
-            ${this.panelLayoutMode === "sheet" ? nothing : html`<p class="panel-note">${this.gpsStatusText}</p>`}
+            ${this.panelLayoutMode === "sheet"
+              ? nothing
+              : html`<p class="panel-note">${this.gpsStatusText}</p>`}
             <div class="phrase-output">${this.phraseOutputText}</div>
-            ${showPhraseStatusLine ? html`<p class="panel-note">${this.phraseStatusText}</p>` : nothing}
+            ${showPhraseStatusLine
+              ? html`<p class="panel-note">${this.phraseStatusText}</p>`
+              : nothing}
             ${this.showPhraseRegenerateButton
               ? html`
                   <button
@@ -1107,15 +1205,27 @@ export class PtkResortPage extends LitElement {
                     ?disabled=${this.phraseGenerating}
                     @click=${this.handleGeneratePhrase}
                   >
-                    ${this.phraseGenerating ? "Re generating..." : "Re generate"}
+                    ${this.phraseGenerating
+                      ? "Re generating..."
+                      : "Re generate"}
                   </button>
                 `
               : nothing}
             ${this.gpsDisabled
               ? html`
-                  <div class="gps-disabled-card" aria-label="GPS disabled state">
-                    <p>Location access is required for live positioning and phrase generation.</p>
-                    <button class="ghost-button" type="button" @click=${this.handleRetryGps}>
+                  <div
+                    class="gps-disabled-card"
+                    aria-label="GPS disabled state"
+                  >
+                    <p>
+                      Location access is required for live positioning and
+                      phrase generation.
+                    </p>
+                    <button
+                      class="ghost-button"
+                      type="button"
+                      @click=${this.handleRetryGps}
+                    >
                       Turn On Location
                     </button>
                   </div>
@@ -1125,12 +1235,21 @@ export class PtkResortPage extends LitElement {
         `;
       case "runs-check":
         return html`
-          <section class="panel-card" role="tabpanel" aria-label="Runs Check tools">
+          <section
+            class="panel-card"
+            role="tabpanel"
+            aria-label="Runs Check tools"
+          >
             <h4>Runs Check</h4>
             <p class="sweeps-note">
-              Not defined yet. This area is part of the roadmap and will be developed after feedback and data
-              improvements.
+              Not defined yet. This area is part of the roadmap and will be
+              developed after feedback and data improvements.
             </p>
+            <img
+              class="tab-illustration"
+              src=${resolveAppUrl("/assets/runs_check.png")}
+              alt="Runs Check capability illustration"
+            />
           </section>
         `;
       case "sweeps":
@@ -1138,9 +1257,14 @@ export class PtkResortPage extends LitElement {
           <section class="panel-card" role="tabpanel" aria-label="Sweeps tools">
             <h4>Sweeps</h4>
             <p class="sweeps-note">
-              Not defined yet. This area is part of the roadmap and will be developed after feedback and data
-              improvements.
+              Not defined yet. This area is part of the roadmap and will be
+              developed after feedback and data improvements.
             </p>
+            <img
+              class="tab-illustration"
+              src=${resolveAppUrl("/assets/sweeps.png")}
+              alt="Sweeps capability illustration"
+            />
           </section>
         `;
     }
@@ -1148,13 +1272,27 @@ export class PtkResortPage extends LitElement {
 
   private renderGpsGuidanceModal() {
     return html`
-      <div class="modal-layer" aria-label="GPS guidance modal" role="dialog" aria-modal="true">
-        <div class="modal-backdrop" @click=${this.handleDismissGpsGuidance}></div>
+      <div
+        class="modal-layer"
+        aria-label="GPS guidance modal"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div
+          class="modal-backdrop"
+          @click=${this.handleDismissGpsGuidance}
+        ></div>
         <section class="modal">
           <h3>${this.gpsGuidanceTitle}</h3>
           <p>${this.gpsGuidanceBody}</p>
           <div class="modal-actions">
-            <button class="ghost-button" type="button" @click=${this.handleDismissGpsGuidance}>Close</button>
+            <button
+              class="ghost-button"
+              type="button"
+              @click=${this.handleDismissGpsGuidance}
+            >
+              Close
+            </button>
           </div>
         </section>
       </div>
@@ -1166,33 +1304,62 @@ export class PtkResortPage extends LitElement {
       new CustomEvent("ptk-resort-tab-select", {
         detail: { tabId },
         bubbles: true,
-        composed: true
-      })
+        composed: true,
+      }),
     );
   }
 
   private readonly handleTogglePanel = (): void => {
-    this.dispatchEvent(new CustomEvent("ptk-resort-toggle-panel", { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-toggle-panel", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
   };
 
   private readonly handleToggleFullscreen = (): void => {
-    this.dispatchEvent(new CustomEvent("ptk-resort-toggle-fullscreen", { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-toggle-fullscreen", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
   };
 
   private readonly handleCenterToUser = (): void => {
-    const mapView = this.shadowRoot?.querySelector("map-view") as MapView | null;
+    const mapView = this.shadowRoot?.querySelector(
+      "map-view",
+    ) as MapView | null;
     mapView?.recenterToUserPosition();
-    this.dispatchEvent(new CustomEvent("ptk-resort-center-user", { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-center-user", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
   };
 
   private readonly handleRetryGps = (): void => {
-    const mapView = this.shadowRoot?.querySelector("map-view") as MapView | null;
+    const mapView = this.shadowRoot?.querySelector(
+      "map-view",
+    ) as MapView | null;
     mapView?.restartGpsTracking();
-    this.dispatchEvent(new CustomEvent("ptk-resort-gps-retry", { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-gps-retry", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
   };
 
   private readonly handleDismissGpsGuidance = (): void => {
-    this.dispatchEvent(new CustomEvent("ptk-resort-gps-guidance-dismiss", { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-gps-guidance-dismiss", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
   };
 
   private readonly handleMapPositionUpdate = (event: Event): void => {
@@ -1200,23 +1367,31 @@ export class PtkResortPage extends LitElement {
       new CustomEvent("ptk-resort-position-update", {
         detail: (event as CustomEvent).detail,
         bubbles: true,
-        composed: true
-      })
+        composed: true,
+      }),
     );
   };
 
   private readonly handleMapGpsError = (event: Event): void => {
     this.dispatchEvent(
-      new CustomEvent<{ kind: GpsErrorKind; message: string }>("ptk-resort-gps-error", {
-        detail: (event as CustomEvent).detail,
-        bubbles: true,
-        composed: true
-      })
+      new CustomEvent<{ kind: GpsErrorKind; message: string }>(
+        "ptk-resort-gps-error",
+        {
+          detail: (event as CustomEvent).detail,
+          bubbles: true,
+          composed: true,
+        },
+      ),
     );
   };
 
   private readonly handleMapReady = (): void => {
-    this.dispatchEvent(new CustomEvent("ptk-resort-map-ready", { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-map-ready", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
   };
 
   private readonly handleMapRenderError = (event: Event): void => {
@@ -1224,21 +1399,33 @@ export class PtkResortPage extends LitElement {
       new CustomEvent("ptk-resort-map-render-error", {
         detail: (event as CustomEvent).detail,
         bubbles: true,
-        composed: true
-      })
+        composed: true,
+      }),
     );
   };
 
   private readonly handleGeneratePhrase = (): void => {
-    this.dispatchEvent(new CustomEvent("ptk-resort-generate-phrase", { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-generate-phrase", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
   };
 
   private readonly handleOpenSettings = (): void => {
-    this.dispatchEvent(new CustomEvent("ptk-resort-open-settings", { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-open-settings", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
   };
 
   private readonly handleBack = (): void => {
-    this.dispatchEvent(new CustomEvent("ptk-resort-back", { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-back", { bubbles: true, composed: true }),
+    );
   };
 
   private readonly handleToolPanelHeightChange = (event: Event): void => {
@@ -1246,7 +1433,8 @@ export class PtkResortPage extends LitElement {
       return;
     }
     const detail = (event as CustomEvent<{ height?: number }>).detail;
-    const height = typeof detail?.height === "number" ? Math.round(detail.height) : null;
+    const height =
+      typeof detail?.height === "number" ? Math.round(detail.height) : null;
     this.smallSheetHeightPx = height;
   };
 
@@ -1267,7 +1455,7 @@ export class PtkResortPage extends LitElement {
     this.panelLayoutMode = resolveResortPanelLayoutMode({
       viewport: this.viewport,
       widthPx,
-      heightPx
+      heightPx,
     });
   }
 }
