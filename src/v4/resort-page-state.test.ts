@@ -15,7 +15,7 @@ describe("resort-page-state", () => {
       fullscreen: false
     });
     expect(createInitialResortPageUiState("medium")).toMatchObject({
-      panelOpen: false,
+      panelOpen: true,
       fullscreen: false
     });
     expect(createInitialResortPageUiState("large")).toMatchObject({
@@ -44,18 +44,25 @@ describe("resort-page-state", () => {
     expect(exited.panelOpen).toBe(true);
   });
 
-  it("restores hidden panel on medium after fullscreen exit", () => {
+  it("restores visible panel on medium after fullscreen exit", () => {
     const initial = createInitialResortPageUiState("medium");
-    expect(initial.panelOpen).toBe(false);
+    expect(initial.panelOpen).toBe(true);
     const entered = toggleResortPageFullscreen(initial, "medium", true);
     const exited = toggleResortPageFullscreen(entered, "medium", true);
-    expect(exited.panelOpen).toBe(false);
+    expect(exited.panelOpen).toBe(true);
   });
 
-  it("does not enable fullscreen on large or unsupported viewports", () => {
+  it("does not enable fullscreen when unsupported", () => {
     const initial = createInitialResortPageUiState("large");
     expect(toggleResortPageFullscreen(initial, "large", false)).toBe(initial);
-    expect(toggleResortPageFullscreen(initial, "large", true)).toBe(initial);
+  });
+
+  it("enables fullscreen on large when supported", () => {
+    const initial = createInitialResortPageUiState("large");
+    const next = toggleResortPageFullscreen(initial, "large", true);
+    expect(next.fullscreen).toBe(true);
+    expect(next.panelOpen).toBe(false);
+    expect(next.panelOpenBeforeFullscreen).toBe(true);
   });
 
   it("tracks panel visibility changes outside fullscreen", () => {

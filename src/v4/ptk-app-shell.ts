@@ -74,7 +74,8 @@ export class PtkAppShell extends LitElement {
     }
 
     .root[data-page="resort"][data-viewport="small"],
-    .root[data-page="resort"][data-viewport="medium"] {
+    .root[data-page="resort"][data-viewport="medium"],
+    .root[data-page="resort"][data-viewport="large"] {
       height: 100dvh;
       min-height: 100dvh;
       overflow: hidden;
