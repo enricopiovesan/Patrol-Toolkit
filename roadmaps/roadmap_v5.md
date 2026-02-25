@@ -187,7 +187,7 @@
 - PR outcome: Settings/Help access is more reliable on small screens.
 
 ## Slice 8: Runs Check Temporary-State UX Alignment
-- Status: planned
+- Status: completed
 - Goal: align Runs Check temporary-state UX with Sweeps temporary-state UX.
 - Deliverables:
   - Runs Check tab shows same temporary-state structure as Sweeps
