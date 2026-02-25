@@ -471,8 +471,7 @@ export class PtkSettingsHelpPanel extends LitElement {
               : html`<button class="button primary full" type="button" @click=${this.handleInstallApp}>Install App</button>`}
             <button class="button full" type="button" @click=${this.handleCheckAppUpdates}>Check for updates</button>
           </div>
-          ${this.installHint ? html`<p class="muted">${this.installHint}</p>` : nothing}
-          ${this.appUpdateResult ? html`<div class="result">${this.appUpdateResult}</div>` : nothing}
+          <p class="muted">Install from browser menu (iOS: Share &gt; Add to Home Screen).</p>
         </section>
 
         <div class="divider" aria-hidden="true"></div>

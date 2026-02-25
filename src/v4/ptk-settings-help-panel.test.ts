@@ -19,12 +19,12 @@ describe("ptk-settings-help-panel", () => {
   it("shows inline update action when target version exists", async () => {
     const element = createElement();
     element.appUpdateTargetVersion = "1.2.4";
-    element.appUpdateResult = "Update available: 1.2.4";
+    element.appUpdateSummary = "new version available";
     document.body.appendChild(element);
     await element.updateComplete;
 
     expect(buttonLabels(element)).toContain("Update the App");
-    expect(readText(element)).toContain("Update available: 1.2.4");
+    expect(readText(element)).toContain("new version available");
   });
 
   it("emits theme selection event", async () => {
