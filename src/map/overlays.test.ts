@@ -24,11 +24,34 @@ describe("buildResortOverlayData", () => {
         }
       }
     ];
+    pack.contours = [
+      {
+        id: "contour-1",
+        elevationMeters: 2300,
+        line: {
+          type: "LineString",
+          coordinates: [
+            [-106.951, 39.193],
+            [-106.95, 39.1925]
+          ]
+        }
+      }
+    ];
+    pack.peaks = [
+      {
+        id: "peak-1",
+        name: "Terminator Peak",
+        coordinates: [-106.9502, 39.1931],
+        elevationMeters: 3480
+      }
+    ];
     const overlays = buildResortOverlayData(pack);
 
     expect(overlays.boundary.features).toHaveLength(0);
     expect(overlays.areas.features).toHaveLength(1);
     expect(overlays.areas.features[0]?.properties?.kind).toBe("ridge");
+    expect(overlays.contours.features).toHaveLength(1);
+    expect(overlays.peaks.features).toHaveLength(1);
     expect(overlays.runs.features).toHaveLength(pack.runs.length);
     expect(overlays.runs.features[0]?.geometry.type).toBe("LineString");
     expect(overlays.runs.features[0]?.properties?.difficulty).toBe(pack.runs[0]?.difficulty);
@@ -59,6 +82,8 @@ describe("buildResortOverlayData", () => {
     const overlays = buildResortOverlayData(null);
     expect(overlays.boundary.features).toHaveLength(0);
     expect(overlays.areas.features).toHaveLength(0);
+    expect(overlays.contours.features).toHaveLength(0);
+    expect(overlays.peaks.features).toHaveLength(0);
     expect(overlays.runs.features).toHaveLength(0);
     expect(overlays.lifts.features).toHaveLength(0);
     expect(overlays.liftTowers.features).toHaveLength(0);

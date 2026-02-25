@@ -40,6 +40,7 @@ function validateSemanticRules(pack: ResortPack): ResortPackValidationIssue[] {
   const errors: ResortPackValidationIssue[] = [];
   const areaIds = new Set<string>();
   const contourIds = new Set<string>();
+  const peakIds = new Set<string>();
   const runIds = new Set<string>();
   const liftIds = new Set<string>();
 
@@ -128,6 +129,24 @@ function validateSemanticRules(pack: ResortPack): ResortPackValidationIssue[] {
         path: `${contourPath}/line/coordinates`,
         message: "Contour line has duplicate consecutive points."
       });
+    }
+  }
+
+  for (let index = 0; index < (pack.peaks ?? []).length; index += 1) {
+    const peak = pack.peaks?.[index];
+    if (!peak) {
+      continue;
+    }
+    const peakPath = `#/peaks/${index}`;
+
+    if (peakIds.has(peak.id)) {
+      errors.push({
+        code: "duplicate_id",
+        path: `${peakPath}/id`,
+        message: `Duplicate peak id '${peak.id}'.`
+      });
+    } else {
+      peakIds.add(peak.id);
     }
   }
 

@@ -11,6 +11,7 @@ import { buildAreaLayers } from "./area-layers";
 import { buildContourLayers } from "./contour-layers";
 import { buildResortOverlayData } from "./overlays";
 import { buildLiftLayers } from "./lift-layers";
+import { buildPeakLayers } from "./peak-layers";
 import { ensurePackPmtilesArchiveLoaded, ensurePmtilesProtocolRegistered } from "./pmtiles-protocol";
 import { buildRunLayers } from "./run-layers";
 import { OFFLINE_FALLBACK_STYLE, resolveStyleForPack } from "./style-loader";
@@ -22,6 +23,7 @@ const LOCATION_DOT_LAYER = "current-location-dot";
 const RESORT_BOUNDARY_SOURCE_ID = "resort-boundary";
 const RESORT_AREAS_SOURCE_ID = "resort-areas";
 const RESORT_CONTOURS_SOURCE_ID = "resort-contours";
+const RESORT_PEAKS_SOURCE_ID = "resort-peaks";
 const RESORT_RUNS_SOURCE_ID = "resort-runs";
 const RESORT_LIFTS_SOURCE_ID = "resort-lifts";
 const RESORT_LIFT_TOWERS_SOURCE_ID = "resort-lift-towers";
@@ -348,6 +350,7 @@ export class MapView extends LitElement {
     this.map.addSource(RESORT_BOUNDARY_SOURCE_ID, { type: "geojson", data: empty.boundary });
     this.map.addSource(RESORT_AREAS_SOURCE_ID, { type: "geojson", data: empty.areas });
     this.map.addSource(RESORT_CONTOURS_SOURCE_ID, { type: "geojson", data: empty.contours });
+    this.map.addSource(RESORT_PEAKS_SOURCE_ID, { type: "geojson", data: empty.peaks });
     this.map.addSource(RESORT_RUNS_SOURCE_ID, { type: "geojson", data: empty.runs });
     this.map.addSource(RESORT_LIFTS_SOURCE_ID, { type: "geojson", data: empty.lifts });
     this.map.addSource(RESORT_LIFT_TOWERS_SOURCE_ID, { type: "geojson", data: empty.liftTowers });
@@ -381,6 +384,9 @@ export class MapView extends LitElement {
     const contourLayers = buildContourLayers(RESORT_CONTOURS_SOURCE_ID);
     this.map.addLayer(contourLayers.lineLayer as never);
     this.map.addLayer(contourLayers.labelLayer as never);
+    const peakLayers = buildPeakLayers(RESORT_PEAKS_SOURCE_ID);
+    this.map.addLayer(peakLayers.circleLayer as never);
+    this.map.addLayer(peakLayers.labelLayer as never);
 
     const runLayers = buildRunLayers(RESORT_RUNS_SOURCE_ID);
     this.map.addLayer(runLayers.lineLayer as never);
@@ -403,10 +409,11 @@ export class MapView extends LitElement {
     const boundarySource = this.map.getSource(RESORT_BOUNDARY_SOURCE_ID) as GeoJSONSource | undefined;
     const areasSource = this.map.getSource(RESORT_AREAS_SOURCE_ID) as GeoJSONSource | undefined;
     const contoursSource = this.map.getSource(RESORT_CONTOURS_SOURCE_ID) as GeoJSONSource | undefined;
+    const peaksSource = this.map.getSource(RESORT_PEAKS_SOURCE_ID) as GeoJSONSource | undefined;
     const runsSource = this.map.getSource(RESORT_RUNS_SOURCE_ID) as GeoJSONSource | undefined;
     const liftsSource = this.map.getSource(RESORT_LIFTS_SOURCE_ID) as GeoJSONSource | undefined;
     const towersSource = this.map.getSource(RESORT_LIFT_TOWERS_SOURCE_ID) as GeoJSONSource | undefined;
-    if (!boundarySource || !areasSource || !contoursSource || !runsSource || !liftsSource || !towersSource) {
+    if (!boundarySource || !areasSource || !contoursSource || !peaksSource || !runsSource || !liftsSource || !towersSource) {
       return;
     }
 
@@ -414,6 +421,7 @@ export class MapView extends LitElement {
     boundarySource.setData(overlays.boundary);
     areasSource.setData(overlays.areas);
     contoursSource.setData(overlays.contours);
+    peaksSource.setData(overlays.peaks);
     runsSource.setData(overlays.runs);
     liftsSource.setData(overlays.lifts);
     towersSource.setData(overlays.liftTowers);

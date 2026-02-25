@@ -5,7 +5,7 @@ import { Ajv2020, type ErrorObject } from "ajv/dist/2020.js";
 export type ResortWorkspaceLayerStatus = "pending" | "running" | "complete" | "failed";
 
 export type ResortWorkspace = {
-  schemaVersion: "2.0.0";
+  schemaVersion: "2.0.0" | "2.1.0";
   resort: {
     query: {
       name: string;
@@ -21,7 +21,9 @@ export type ResortWorkspace = {
   };
   layers: {
     boundary: ResortWorkspaceLayerState;
+    contours?: ResortWorkspaceLayerState;
     lifts: ResortWorkspaceLayerState;
+    peaks?: ResortWorkspaceLayerState;
     runs: ResortWorkspaceLayerState;
   };
 };
@@ -56,7 +58,7 @@ const resortWorkspaceSchema = {
   additionalProperties: false,
   required: ["schemaVersion", "resort", "layers"],
   properties: {
-    schemaVersion: { const: "2.0.0" },
+    schemaVersion: { enum: ["2.0.0", "2.1.0"] },
     resort: {
       type: "object",
       additionalProperties: false,
@@ -97,7 +99,9 @@ const resortWorkspaceSchema = {
       required: ["boundary", "lifts", "runs"],
       properties: {
         boundary: layerStateSchema,
+        contours: layerStateSchema,
         lifts: layerStateSchema,
+        peaks: layerStateSchema,
         runs: layerStateSchema
       }
     }

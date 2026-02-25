@@ -450,6 +450,8 @@ type ExportBundle = {
   layers?: {
     boundary?: unknown;
     areas?: unknown;
+    contours?: unknown;
+    peaks?: unknown;
     runs?: unknown;
     lifts?: unknown;
   };
@@ -462,6 +464,8 @@ function convertExportBundleToResortPack(input: unknown, fallbackResortId: strin
 
   const boundary = extractBoundaryPolygon(bundle.layers?.boundary);
   const areas = extractAreas(bundle.layers?.areas);
+  const contours = extractContours(bundle.layers?.contours);
+  const peaks = extractPeaks(bundle.layers?.peaks);
   const runs = extractRuns(bundle.layers?.runs);
   const lifts = extractLifts(bundle.layers?.lifts);
 
@@ -481,6 +485,8 @@ function convertExportBundleToResortPack(input: unknown, fallbackResortId: strin
       liftProximityMeters: 90
     },
     areas: areas.length > 0 ? areas : undefined,
+    contours: contours.length > 0 ? contours : undefined,
+    peaks: peaks.length > 0 ? peaks : undefined,
     lifts,
     runs
   };
@@ -636,6 +642,73 @@ function extractLifts(input: unknown): ResortPack["lifts"] {
   }
 
   return lifts;
+}
+
+function extractContours(input: unknown): NonNullable<ResortPack["contours"]> {
+  if (!isObjectRecord(input) || input.type !== "FeatureCollection" || !Array.isArray(input.features)) {
+    return [];
+  }
+  const contours: NonNullable<ResortPack["contours"]> = [];
+  for (let index = 0; index < input.features.length; index += 1) {
+    const feature = input.features[index];
+    if (!isObjectRecord(feature) || !isObjectRecord(feature.geometry) || feature.geometry.type !== "LineString") {
+      continue;
+    }
+    const coordinates = feature.geometry.coordinates;
+    if (!Array.isArray(coordinates) || coordinates.length < 2) {
+      continue;
+    }
+    const properties = isObjectRecord(feature.properties) ? feature.properties : {};
+    const elevationMeters = typeof properties.elevationMeters === "number"
+      ? properties.elevationMeters
+      : typeof properties.ele === "number"
+        ? properties.ele
+        : undefined;
+    contours.push({
+      id: stringOrFallback(properties.id, `contour-${index + 1}`),
+      elevationMeters,
+      line: {
+        type: "LineString",
+        coordinates: coordinates as [number, number][]
+      }
+    });
+  }
+  return contours;
+}
+
+function extractPeaks(input: unknown): NonNullable<ResortPack["peaks"]> {
+  if (!isObjectRecord(input) || input.type !== "FeatureCollection" || !Array.isArray(input.features)) {
+    return [];
+  }
+  const peaks: NonNullable<ResortPack["peaks"]> = [];
+  for (let index = 0; index < input.features.length; index += 1) {
+    const feature = input.features[index];
+    if (!isObjectRecord(feature) || !isObjectRecord(feature.geometry) || feature.geometry.type !== "Point") {
+      continue;
+    }
+    const coordinates = feature.geometry.coordinates;
+    if (!Array.isArray(coordinates) || coordinates.length < 2) {
+      continue;
+    }
+    const lon = Number(coordinates[0]);
+    const lat = Number(coordinates[1]);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+      continue;
+    }
+    const properties = isObjectRecord(feature.properties) ? feature.properties : {};
+    const elevationMeters = typeof properties.elevationMeters === "number"
+      ? properties.elevationMeters
+      : typeof properties.ele === "number"
+        ? properties.ele
+        : undefined;
+    peaks.push({
+      id: stringOrFallback(properties.id, `peak-${index + 1}`),
+      name: stringOrFallback(properties.name, `Peak ${index + 1}`),
+      elevationMeters,
+      coordinates: [lon, lat]
+    });
+  }
+  return peaks;
 }
 
 function buildSimpleCorridor(centerline: [number, number][]): [number, number][] {

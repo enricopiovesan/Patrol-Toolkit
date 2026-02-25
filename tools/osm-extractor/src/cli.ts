@@ -15,7 +15,9 @@ import { selectResortToWorkspace } from "./resort-select.js";
 import { detectResortBoundaryCandidates } from "./resort-boundary-detect.js";
 import { setResortBoundary } from "./resort-boundary-set.js";
 import { syncResortLifts } from "./resort-sync-lifts.js";
+import { importResortContours } from "./resort-import-contours.js";
 import { syncResortRuns } from "./resort-sync-runs.js";
+import { syncResortPeaks } from "./resort-sync-peaks.js";
 import { readResortSyncStatus } from "./resort-sync-status.js";
 import { updateResortLayers, type ResortUpdateBatchResult, type ResortUpdateLayerSelection } from "./resort-update.js";
 import { runInteractiveMenu } from "./menu.js";
@@ -70,6 +72,8 @@ type ResortWorkspaceLike = {
   layers?: {
     boundary?: ResortWorkspaceLayerStateLike;
     areas?: ResortWorkspaceLayerStateLike;
+    contours?: ResortWorkspaceLayerStateLike;
+    peaks?: ResortWorkspaceLayerStateLike;
     lifts?: ResortWorkspaceLayerStateLike;
     runs?: ResortWorkspaceLayerStateLike;
   };
@@ -281,6 +285,8 @@ async function main(): Promise<void> {
     command !== "resort-boundary-set" &&
     command !== "resort-sync-lifts" &&
     command !== "resort-sync-runs" &&
+    command !== "resort-sync-peaks" &&
+    command !== "resort-import-contours" &&
     command !== "resort-sync-status" &&
     command !== "resort-update" &&
     command !== "resort-export-latest" &&
@@ -304,6 +310,8 @@ async function main(): Promise<void> {
         "resort-boundary-set",
         "resort-sync-lifts",
         "resort-sync-runs",
+        "resort-sync-peaks",
+        "resort-import-contours",
         "resort-sync-status",
         "resort-update",
         "resort-export-latest",
@@ -810,6 +818,105 @@ async function main(): Promise<void> {
 
     console.log(
       `RUNS_SYNCED workspace=${result.workspacePath} runs=${result.runCount} output=${result.outputPath} checksum=${result.checksumSha256}`
+    );
+    return;
+  }
+
+  if (command === "resort-sync-peaks") {
+    const workspacePath = readFlag(args, "--workspace");
+    const output = readFlag(args, "--output") ?? undefined;
+    const bufferMeters = readNumberFlag(args, "--buffer-meters");
+    const timeoutSeconds = readIntegerFlag(args, "--timeout-seconds");
+    const updatedAt = readFlag(args, "--updated-at") ?? undefined;
+    if (!workspacePath) {
+      throw new CliCommandError("MISSING_REQUIRED_FLAGS", "Missing required --workspace <path> argument.", {
+        command: "resort-sync-peaks",
+        required: ["--workspace"]
+      });
+    }
+    if (bufferMeters !== undefined && bufferMeters < 0) {
+      throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --buffer-meters expects a number >= 0.", {
+        flag: "--buffer-meters",
+        expected: "number>=0",
+        value: String(bufferMeters)
+      });
+    }
+    if (timeoutSeconds !== undefined && timeoutSeconds < 1) {
+      throw new CliCommandError("INVALID_FLAG_VALUE", "Flag --timeout-seconds expects an integer >= 1.", {
+        flag: "--timeout-seconds",
+        expected: "integer>=1",
+        value: String(timeoutSeconds)
+      });
+    }
+
+    let result;
+    try {
+      result = await syncResortPeaks({
+        workspacePath,
+        outputPath: output,
+        bufferMeters,
+        timeoutSeconds,
+        updatedAt
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CliCommandError("PEAKS_SYNC_FAILED", message, {
+        command: "resort-sync-peaks",
+        workspacePath
+      });
+    }
+
+    if (outputJson) {
+      console.log(JSON.stringify({ ok: true, peakSync: result }));
+      return;
+    }
+
+    console.log(
+      `PEAKS_SYNCED workspace=${result.workspacePath} peaks=${result.peakCount} output=${result.outputPath} checksum=${result.checksumSha256}`
+    );
+    return;
+  }
+
+  if (command === "resort-import-contours") {
+    const workspacePath = readFlag(args, "--workspace");
+    const input = readFlag(args, "--input");
+    const output = readFlag(args, "--output") ?? undefined;
+    const updatedAt = readFlag(args, "--updated-at") ?? undefined;
+    if (!workspacePath || !input) {
+      throw new CliCommandError(
+        "MISSING_REQUIRED_FLAGS",
+        "Missing required --workspace <path> and --input <path> arguments.",
+        {
+          command: "resort-import-contours",
+          required: ["--workspace", "--input"]
+        }
+      );
+    }
+
+    let result;
+    try {
+      result = await importResortContours({
+        workspacePath,
+        inputPath: input,
+        outputPath: output,
+        updatedAt
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new CliCommandError("CONTOURS_IMPORT_FAILED", message, {
+        command: "resort-import-contours",
+        workspacePath,
+        inputPath: input
+      });
+    }
+
+    if (outputJson) {
+      console.log(JSON.stringify({ ok: true, contourImport: result }));
+      return;
+    }
+
+    console.log(
+      `CONTOURS_IMPORTED workspace=${result.workspacePath} contours=${result.importedFeatureCount} output=${result.outputPath} checksum=${result.checksumSha256}`
     );
     return;
   }
@@ -1580,6 +1687,8 @@ export async function exportLatestValidatedResortVersion(args: {
 
   const boundary = await readLayerArtifactJson(versionPath, workspace.layers?.boundary?.artifactPath);
   const areas = await readLayerArtifactJson(versionPath, workspace.layers?.areas?.artifactPath);
+  const contours = await readLayerArtifactJson(versionPath, workspace.layers?.contours?.artifactPath);
+  const peaks = await readLayerArtifactJson(versionPath, workspace.layers?.peaks?.artifactPath);
   const runs = await readLayerArtifactJson(versionPath, workspace.layers?.runs?.artifactPath);
   const lifts = await readLayerArtifactJson(versionPath, workspace.layers?.lifts?.artifactPath);
 
@@ -1596,6 +1705,8 @@ export async function exportLatestValidatedResortVersion(args: {
     layers: {
       boundary,
       areas,
+      contours,
+      peaks,
       runs,
       lifts
     }
@@ -2482,7 +2593,7 @@ export function formatCliError(error: unknown, command: string | null): CliError
 
 function printHelp(): void {
   console.log(
-    `ptk-extractor commands:\n\n  menu [--resorts-root <path>] [--app-public-root <path>]\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs|all> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--dry-run] [--require-complete] [--json]\n  resort-export-latest --resort-key <value> --output <path> [--resorts-root <path>] [--exported-at <ISO-8601>] [--json]\n  resort-publish-latest --resort-key <value> [--resorts-root <path>] [--app-public-root <path>] [--exported-at <ISO-8601>] [--json]\n  resort-audit-published [--app-public-root <path>] [--resort-key <value>] [--json]\n  release-go-no-go [--resorts-root <path>] [--app-public-root <path>] [--resort-key <value> ...] [--published-only] [--json]\n  release-dry-run [--resorts-root <path>] [--app-public-root <path>] [--resort-key <value> ...] [--published-only] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
+    `ptk-extractor commands:\n\n  menu [--resorts-root <path>] [--app-public-root <path>]\n  validate-pack --input <path> [--json]\n  summarize-pack --input <path> [--json]\n  ingest-osm --input <path> --output <path> [--resort-id <id>] [--resort-name <name>] [--boundary-relation-id <id>] [--bbox <minLon,minLat,maxLon,maxLat>] [--json]\n  build-pack --input <normalized.json> --output <pack.json> --report <report.json> --timezone <IANA> --pmtiles-path <path> --style-path <path> [--lift-proximity-meters <n>] [--allow-outside-boundary] [--generated-at <ISO-8601>] [--json]\n  resort-search --name <value> --country <value> [--limit <n>] [--json]\n  resort-select --workspace <path> --name <value> --country <value> --index <n> [--limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-boundary-detect --workspace <path> [--search-limit <n>] [--json]\n  resort-boundary-set --workspace <path> --index <n> [--output <path>] [--search-limit <n>] [--selected-at <ISO-8601>] [--json]\n  resort-sync-lifts --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-runs --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-peaks --workspace <path> [--output <path>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--json]\n  resort-import-contours --workspace <path> --input <path> [--output <path>] [--updated-at <ISO-8601>] [--json]\n  resort-sync-status --workspace <path> [--json]\n  resort-update --workspace <path> --layer <boundary|lifts|runs|all> [--index <n>] [--output <path>] [--search-limit <n>] [--buffer-meters <n>] [--timeout-seconds <n>] [--updated-at <ISO-8601>] [--dry-run] [--require-complete] [--json]\n  resort-export-latest --resort-key <value> --output <path> [--resorts-root <path>] [--exported-at <ISO-8601>] [--json]\n  resort-publish-latest --resort-key <value> [--resorts-root <path>] [--app-public-root <path>] [--exported-at <ISO-8601>] [--json]\n  resort-audit-published [--app-public-root <path>] [--resort-key <value>] [--json]\n  release-go-no-go [--resorts-root <path>] [--app-public-root <path>] [--resort-key <value> ...] [--published-only] [--json]\n  release-dry-run [--resorts-root <path>] [--app-public-root <path>] [--resort-key <value> ...] [--published-only] [--json]\n  extract-resort --config <config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]\n  extract-fleet --config <fleet-config.json> [--log-file <audit.jsonl>] [--generated-at <ISO-8601>] [--json]`
   );
 }
 
