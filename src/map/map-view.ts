@@ -8,6 +8,7 @@ import {
 } from "../location/location-tracker";
 import type { ResortPack } from "../resort-pack/types";
 import { buildAreaLayers } from "./area-layers";
+import { resolveContourOverlayConfig } from "./contour-overlay";
 import { buildResortOverlayData } from "./overlays";
 import { buildLiftLayers } from "./lift-layers";
 import { ensurePackPmtilesArchiveLoaded, ensurePmtilesProtocolRegistered } from "./pmtiles-protocol";
@@ -26,6 +27,7 @@ const RESORT_LIFT_TOWERS_SOURCE_ID = "resort-lift-towers";
 const RESORT_BOUNDARY_FILL_LAYER = "resort-boundary-fill";
 const RESORT_BOUNDARY_LINE_LAYER = "resort-boundary-line";
 const DEFAULT_CENTER: [number, number] = [7.2, 45.1];
+const contourOverlayConfig = resolveContourOverlayConfig();
 
 export type PositionUpdateDetail = {
   coordinates: [number, number];
@@ -349,6 +351,8 @@ export class MapView extends LitElement {
     this.map.addSource(RESORT_LIFTS_SOURCE_ID, { type: "geojson", data: empty.lifts });
     this.map.addSource(RESORT_LIFT_TOWERS_SOURCE_ID, { type: "geojson", data: empty.liftTowers });
 
+    this.initializeContourOverlayLayer();
+
     this.map.addLayer({
       id: RESORT_BOUNDARY_FILL_LAYER,
       type: "fill",
@@ -386,6 +390,20 @@ export class MapView extends LitElement {
     this.map.addLayer(liftLayers.labelLayer as never);
     this.map.addLayer(liftLayers.towerCircleLayer as never);
     this.map.addLayer(liftLayers.towerLabelLayer as never);
+  }
+
+  private initializeContourOverlayLayer(): void {
+    if (!this.map || !contourOverlayConfig) {
+      return;
+    }
+
+    if (!this.map.getSource(contourOverlayConfig.sourceId)) {
+      this.map.addSource(contourOverlayConfig.sourceId, contourOverlayConfig.source as never);
+    }
+
+    if (!this.map.getLayer(contourOverlayConfig.layerId)) {
+      this.map.addLayer(contourOverlayConfig.layer as never);
+    }
   }
 
   private syncResortLayers(): void {
