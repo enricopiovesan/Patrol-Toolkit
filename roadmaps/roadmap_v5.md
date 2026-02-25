@@ -230,7 +230,7 @@
   - post-v5 prototype path documented
 
 ## Slice 11: v5 QA Pass + Spec-to-Code Audit + Closeout
-- Status: planned
+- Status: completed
 - Goal: finish v5 with a focused usability regression pass and documentation closure.
 - Deliverables:
   - audit v5 implementation against updated specs
@@ -244,6 +244,10 @@
   - manual v5 acceptance checks pass on all relevant viewports
   - roadmap slice statuses updated to completed
 - PR outcome: v5 usability and bug-fix program is complete and documented.
+- Outcome:
+  - manual v5 acceptance checks passed across target viewports and key flows
+  - full regression suite and production build passed (`npm run check`)
+  - v5 roadmap is complete
 
 ## Open Decisions (Track During v5)
 - None yet. Add only active decisions that block implementation or acceptance.
