@@ -25,6 +25,7 @@ export class PtkResortPage extends LitElement {
       min-height: 0;
       height: 100%;
       font-family: var(--ptk-font-family-base);
+      --ptk-resort-header-height: 72px;
     }
 
     .workspace {
@@ -80,10 +81,12 @@ export class PtkResortPage extends LitElement {
 
     .workspace.large .panel-shell {
       position: absolute;
-      inset: calc(72px + 20px) auto 0 0;
+      top: calc(var(--ptk-resort-header-height) + 20px);
+      left: 0;
+      bottom: 0;
       z-index: 5;
-      width: min(var(--ptk-size-panel-resort-lg), calc(100% - (var(--ptk-space-6))));
-      padding: var(--ptk-space-2);
+      width: min(var(--ptk-size-panel-resort-lg), calc(100% - 24px));
+      padding: 0;
       pointer-events: none;
     }
 
@@ -113,10 +116,12 @@ export class PtkResortPage extends LitElement {
 
     .panel-shell.medium {
       position: absolute;
-      inset: calc(72px + 20px) auto 0 0;
+      top: calc(var(--ptk-resort-header-height) + 20px);
+      left: 0;
+      bottom: 0;
       z-index: 5;
-      width: min(360px, calc(100% - (var(--ptk-space-6))));
-      padding: var(--ptk-space-2);
+      width: min(360px, calc(100% - 24px));
+      padding: 0;
       pointer-events: none;
     }
 
@@ -324,6 +329,8 @@ export class PtkResortPage extends LitElement {
       background: var(--ptk-surface-card);
       padding: var(--ptk-space-3) var(--ptk-space-3) var(--ptk-space-2);
       border-bottom: 1px solid var(--ptk-border-muted);
+      min-height: var(--ptk-resort-header-height);
+      box-sizing: border-box;
     }
 
     .workspace.small .map-header {
@@ -344,6 +351,8 @@ export class PtkResortPage extends LitElement {
       padding: var(--ptk-space-3) var(--ptk-space-3) var(--ptk-space-2);
       border-bottom: 1px solid var(--ptk-border-muted);
       border-radius: 0;
+      min-height: var(--ptk-resort-header-height);
+      box-sizing: border-box;
     }
 
     .workspace.large .map-header .panel-note {
@@ -370,6 +379,7 @@ export class PtkResortPage extends LitElement {
       grid-template-columns: auto minmax(0, 1fr) auto;
       align-items: center;
       gap: 8px;
+      min-height: calc(var(--ptk-resort-header-height) - 16px);
     }
 
     .icon-button {
@@ -463,6 +473,8 @@ export class PtkResortPage extends LitElement {
       background: color-mix(in srgb, var(--ptk-surface-card) 92%, transparent);
       box-shadow: var(--ptk-shadow-sm);
       position: relative;
+      display: grid;
+      place-items: center;
     }
 
     .workspace.medium .map-controls .ghost-button::before,
@@ -575,6 +587,7 @@ export class PtkResortPage extends LitElement {
       padding: 0;
       gap: 0;
       background: transparent;
+      overflow: hidden;
     }
 
     .map-test-surface {
