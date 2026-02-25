@@ -55,6 +55,42 @@ describe("ptk-resort-page", () => {
     expect(readText(element)).toContain("roadmap");
   });
 
+  it("aligns Runs Check and Sweeps temporary-state structure", async () => {
+    const element = createElement();
+    document.body.appendChild(element);
+
+    element.selectedTab = "runs-check";
+    await element.updateComplete;
+    const runsCheck = readTempTabState(element);
+
+    element.selectedTab = "sweeps";
+    await element.updateComplete;
+    const sweeps = readTempTabState(element);
+
+    expect(runsCheck.title).toBe("Runs Check");
+    expect(sweeps.title).toBe("Sweeps");
+    expect(runsCheck.note).toBe(sweeps.note);
+    expect(runsCheck.hasIllustration).toBe(true);
+    expect(sweeps.hasIllustration).toBe(true);
+    expect(runsCheck.hasPhraseButton).toBe(false);
+    expect(sweeps.hasPhraseButton).toBe(false);
+  });
+
+  it("does not leak debug or placeholder copy in Runs Check temporary state", async () => {
+    const element = createElement();
+    element.selectedTab = "runs-check";
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const text = readText(element);
+    expect(text).not.toContain("placeholder");
+    expect(text).not.toContain("debug");
+    expect(text).not.toContain("TODO");
+    expect(text).not.toContain("undefined");
+    expect(text).toContain("Runs Check");
+    expect(text).toContain("Not defined yet");
+  });
+
   it("emits tab select event", async () => {
     const element = createElement();
     const handler = vi.fn();
@@ -151,4 +187,23 @@ function clickButton(element: PtkResortPage, label: string): void {
     throw new Error(`Button not found: ${label}`);
   }
   button.click();
+}
+
+function readTempTabState(element: PtkResortPage): {
+  title: string;
+  note: string;
+  hasIllustration: boolean;
+  hasPhraseButton: boolean;
+} {
+  const root = element.shadowRoot;
+  const panel = root?.querySelector('.panel-card[role="tabpanel"]') as HTMLElement | null;
+  const title = (panel?.querySelector("h4")?.textContent ?? "").trim();
+  const note = (panel?.querySelector(".sweeps-note")?.textContent ?? "")
+    .replace(/\s+/gu, " ")
+    .trim();
+  const hasIllustration = Boolean(panel?.querySelector(".tab-illustration"));
+  const hasPhraseButton = Array.from(panel?.querySelectorAll("button") ?? []).some((node) =>
+    ((node.textContent ?? "").trim().length > 0)
+  );
+  return { title, note, hasIllustration, hasPhraseButton };
 }
