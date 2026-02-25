@@ -77,7 +77,8 @@ export class MapView extends LitElement {
     }
 
     .map {
-      height: clamp(360px, 58vh, 760px);
+      height: 100%;
+      min-height: clamp(360px, 58vh, 760px);
       border-radius: 12px;
       border: 1px solid #cbd5e1;
       overflow: hidden;
