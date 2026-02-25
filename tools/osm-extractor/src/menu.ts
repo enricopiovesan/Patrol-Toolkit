@@ -13,6 +13,7 @@ import type { ResortSearchCandidate, ResortSearchResult } from "./resort-search.
 import { readResortSyncStatus } from "./resort-sync-status.js";
 import { setResortBoundary } from "./resort-boundary-set.js";
 import { syncResortLifts } from "./resort-sync-lifts.js";
+import { syncResortPeaks } from "./resort-sync-peaks.js";
 import { syncResortRuns } from "./resort-sync-runs.js";
 import type { ResortWorkspace } from "./resort-workspace.js";
 import { readResortWorkspace, writeResortWorkspace } from "./resort-workspace.js";
@@ -30,6 +31,8 @@ export type KnownResortSummary = {
     boundary: KnownResortLayerSummary;
     runs: KnownResortLayerSummary;
     lifts: KnownResortLayerSummary;
+    peaks?: KnownResortLayerSummary;
+    contours?: KnownResortLayerSummary;
   };
 };
 
@@ -174,6 +177,20 @@ type StatusShape = {
       updatedAt?: string | null;
     };
     runs?: {
+      status?: "pending" | "running" | "complete" | "failed";
+      featureCount?: number | null;
+      artifactPath?: string | null;
+      checksumSha256?: string | null;
+      updatedAt?: string | null;
+    };
+    peaks?: {
+      status?: "pending" | "running" | "complete" | "failed";
+      featureCount?: number | null;
+      artifactPath?: string | null;
+      checksumSha256?: string | null;
+      updatedAt?: string | null;
+    };
+    contours?: {
       status?: "pending" | "running" | "complete" | "failed";
       featureCount?: number | null;
       artifactPath?: string | null;
@@ -894,7 +911,8 @@ async function runKnownResortMenu(args: {
     console.log("11. Re-select resort identity");
     console.log("12. Delete resort (all versions + published assets)");
     console.log("13. Unpublish resort (remove from app catalog only)");
-    const selected = (await args.rl.question("Select option (1-13): ")).trim();
+    console.log("14. Fetch/update other things");
+    const selected = (await args.rl.question("Select option (1-14): ")).trim();
 
     if (selected === "1") {
       const syncStatus = await readResortSyncStatus(workspacePath);
@@ -922,6 +940,17 @@ async function runKnownResortMenu(args: {
       console.log(
         `  - Lifts   : status=${syncStatus.layers.lifts.status}  features=${syncStatus.layers.lifts.featureCount ?? "?"}  ready=${syncStatus.layers.lifts.ready ? "yes" : "no"}`
       );
+      const workspaceForExtras = await readResortWorkspace(workspacePath);
+      if (workspaceForExtras.layers.peaks) {
+        console.log(
+          `  - Peaks   : status=${workspaceForExtras.layers.peaks.status}  features=${workspaceForExtras.layers.peaks.featureCount ?? "?"}`
+        );
+      }
+      if (workspaceForExtras.layers.contours) {
+        console.log(
+          `  - Contours: status=${workspaceForExtras.layers.contours.status}  features=${workspaceForExtras.layers.contours.featureCount ?? "?"}`
+        );
+      }
       console.log("- Validation");
       console.log(`  - Boundary: ${formatLayerValidationSummary(manualValidation.layers.boundary)}`);
       console.log(`  - Runs    : ${formatLayerValidationSummary(manualValidation.layers.runs)}`);
@@ -1456,7 +1485,56 @@ async function runKnownResortMenu(args: {
       continue;
     }
 
-    console.log("Invalid option. Please select 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, or 13.");
+    if (selected === "14") {
+      console.log("");
+      console.log("Fetch/update other things");
+      console.log("1. Peaks");
+      console.log("2. Back");
+      const extraSelected = (await args.rl.question("Select option (1-2): ")).trim();
+      if (extraSelected === "2" || extraSelected === "0") {
+        continue;
+      }
+      if (extraSelected !== "1") {
+        console.log("Invalid selection.");
+        continue;
+      }
+
+      const workspace = await readResortWorkspace(workspacePath);
+      if (!isBoundaryReadyForSync(workspace)) {
+        console.log("Cannot sync peaks yet. Boundary is not ready. Run 'Fetch/update boundary' first.");
+        continue;
+      }
+      let cloned: ClonedResortVersion | null = null;
+      try {
+        cloned = await createNextVersionClone({
+          resortsRoot: args.resortsRoot,
+          resortKey: args.resortKey,
+          workspacePath,
+          statusPath
+        });
+        const result = await syncResortPeaks({
+          workspacePath: cloned.workspacePath,
+          bufferMeters: 500
+        });
+        await syncStatusFileFromWorkspace({
+          workspacePath: cloned.workspacePath,
+          statusPath: cloned.statusPath
+        });
+        workspacePath = cloned.workspacePath;
+        statusPath = cloned.statusPath;
+        console.log(`Created version ${cloned.version} for peaks update.`);
+        console.log(`Peaks updated: count=${result.peakCount} checksum=${result.checksumSha256}`);
+      } catch (error: unknown) {
+        if (cloned) {
+          await rm(cloned.versionPath, { recursive: true, force: true });
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        console.log(`Peaks update failed: ${message}`);
+      }
+      continue;
+    }
+
+    console.log("Invalid option. Please select 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, or 14.");
   }
 }
 
@@ -1803,7 +1881,9 @@ async function syncStatusFileFromWorkspace(args: { workspacePath: string; status
     layers: {
       boundary: toStatusLayer(workspace.layers.boundary),
       runs: toStatusLayer(workspace.layers.runs),
-      lifts: toStatusLayer(workspace.layers.lifts)
+      lifts: toStatusLayer(workspace.layers.lifts),
+      ...(workspace.layers.peaks ? { peaks: toStatusLayer(workspace.layers.peaks) } : {}),
+      ...(workspace.layers.contours ? { contours: toStatusLayer(workspace.layers.contours) } : {})
     },
     readiness: {
       overall: sync.overall,
