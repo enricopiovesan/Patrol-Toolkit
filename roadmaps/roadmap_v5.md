@@ -159,7 +159,7 @@
 - PR outcome: first-time resort entry flow is less confusing.
 
 ## Slice 6: Select Resort Distance Sorting + Card Usability Polish
-- Status: planned
+- Status: completed
 - Goal: improve resort selection usefulness in the field.
 - Deliverables:
   - sort resorts by nearest distance when GPS position is available
