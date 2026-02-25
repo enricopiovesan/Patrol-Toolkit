@@ -111,7 +111,7 @@
 - PR outcome: bottom-sheet UX is significantly more usable and spec-aligned.
 
 ## Slice 3: Phrase UX Auto-Regeneration + Boundary-State Behavior
-- Status: planned
+- Status: completed
 - Goal: reduce manual friction in phrase workflow and improve phrase state clarity.
 - Deliverables:
   - auto-generate phrase when `My location` tab is active and GPS moves > `10m` from previous raw GPS point
