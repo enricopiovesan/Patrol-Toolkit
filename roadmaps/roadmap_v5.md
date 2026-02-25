@@ -284,8 +284,13 @@
   - either a shipped prototype (with constraints documented), or a documented no-ship result with concrete blockers
 - Outcome:
   - vector contour rendering foundation implemented in `map-view` using optional `ResortPack.contours`
+  - vector peaks rendering foundation implemented in `map-view` using optional `ResortPack.peaks`
+  - CLI management commands implemented for prototype data path:
+    - `resort-import-contours` (import/normalize contour GeoJSON)
+    - `resort-sync-peaks` (OSM `natural=peak` sync)
+  - export/publish/app conversion support added for `layers.contours` and `layers.peaks`
   - prototype config and constraints documented in `/Users/piovese/Documents/Patrol Toolkit/docs/feasibility/v5-contours-elevation-prototype.md`
-  - no contour generation/bundling pipeline or offline contour packaging in `v5`
+  - no DEM-based contour generation/bundling pipeline or complete offline contour source packaging in `v5`
   - no elevation labels/data UI beyond optional contour line label support
 
 ## Open Decisions (Track During v5)

@@ -136,6 +136,30 @@ export const resortPackSchema = {
         }
       }
     },
+    peaks: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "name", "coordinates"],
+        properties: {
+          id: { type: "string", minLength: 1 },
+          name: { type: "string", minLength: 1 },
+          elevationMeters: { type: "number" },
+          coordinates: {
+            type: "array",
+            minItems: 2,
+            maxItems: 2,
+            items: [
+              { type: "number", minimum: -180, maximum: 180 },
+              { type: "number", minimum: -90, maximum: 90 }
+            ],
+            additionalItems: false
+          }
+        }
+      }
+    },
     lifts: {
       type: "array",
       minItems: 1,

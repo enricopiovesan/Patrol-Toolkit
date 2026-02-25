@@ -220,6 +220,20 @@ describe("validateResortPack", () => {
     expect(result.errors.some((error) => error.code === "duplicate_id" && error.path === "#/areas/1/id")).toBe(true);
   });
 
+  it("rejects duplicate peak ids", () => {
+    const pack = clonePack();
+    pack.peaks = [
+      { id: "peak-1", name: "Terminator Peak", coordinates: [-106.95, 39.193], elevationMeters: 3500 },
+      { id: "peak-1", name: "Other Peak", coordinates: [-106.949, 39.194] }
+    ];
+    const result = validateResortPack(pack);
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("Expected semantic validation failure");
+    }
+    expect(result.errors.some((error) => error.code === "duplicate_id" && error.path === "#/peaks/1/id")).toBe(true);
+  });
+
   it("rejects unclosed area perimeter ring", () => {
     const pack = clonePack();
     pack.areas = [

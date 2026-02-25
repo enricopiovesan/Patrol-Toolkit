@@ -46,6 +46,13 @@ export type ContourLine = {
   line: GeoLineString;
 };
 
+export type Peak = {
+  id: string;
+  name: string;
+  coordinates: LngLat;
+  elevationMeters?: number;
+};
+
 export type ResortPack = {
   schemaVersion: "1.0.0";
   resort: {
@@ -63,6 +70,7 @@ export type ResortPack = {
   };
   areas?: ResortArea[];
   contours?: ContourLine[];
+  peaks?: Peak[];
   lifts: Lift[];
   runs: Run[];
 };
