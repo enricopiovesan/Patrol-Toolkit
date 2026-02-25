@@ -40,7 +40,7 @@ export function buildPeaksOverpassQuery(args: {
 (
   node["natural"="peak"](${args.minLat},${args.minLon},${args.maxLat},${args.maxLon});
 );
-out tags;`;
+out body;`;
 }
 
 export async function syncResortPeaks(
