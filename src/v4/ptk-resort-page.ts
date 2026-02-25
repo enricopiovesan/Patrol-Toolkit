@@ -884,6 +884,9 @@ export class PtkResortPage extends LitElement {
   @property({ type: Boolean })
   accessor phraseGenerating = false;
 
+  @property({ type: Boolean })
+  accessor showPhraseRegenerateButton = true;
+
   @property({ type: String })
   accessor mapState: "loading" | "ready" | "error" = "loading";
 
@@ -1096,9 +1099,18 @@ export class PtkResortPage extends LitElement {
             ${this.panelLayoutMode === "sheet" ? nothing : html`<p class="panel-note">${this.gpsStatusText}</p>`}
             <div class="phrase-output">${this.phraseOutputText}</div>
             ${showPhraseStatusLine ? html`<p class="panel-note">${this.phraseStatusText}</p>` : nothing}
-            <button class="ghost-button" type="button" ?disabled=${this.phraseGenerating} @click=${this.handleGeneratePhrase}>
-              ${this.phraseGenerating ? "Re generating..." : "Re generate"}
-            </button>
+            ${this.showPhraseRegenerateButton
+              ? html`
+                  <button
+                    class="ghost-button"
+                    type="button"
+                    ?disabled=${this.phraseGenerating}
+                    @click=${this.handleGeneratePhrase}
+                  >
+                    ${this.phraseGenerating ? "Re generating..." : "Re generate"}
+                  </button>
+                `
+              : nothing}
             ${this.gpsDisabled
               ? html`
                   <div class="gps-disabled-card" aria-label="GPS disabled state">

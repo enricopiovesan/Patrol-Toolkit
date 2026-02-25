@@ -8,6 +8,11 @@ import { createInitialToolPanelState } from "./tool-panel-state";
 import { DEFAULT_V4_THEME } from "./theme";
 import { readStoredV4Theme, writeStoredV4Theme } from "./theme-preferences";
 import { readStoredLastKnownPosition, writeStoredLastKnownPosition } from "./position-cache";
+import {
+  resolvePhraseBoundaryState,
+  shouldAutoRegeneratePhrase,
+  shouldShowPhraseRegenerateButton
+} from "./phrase-ux-state";
 import { classifyViewportWidth, type ViewportMode } from "./viewport";
 import { APP_VERSION } from "../app-version";
 import { requestPackAssetPrecache } from "../pwa/precache-pack-assets";
@@ -230,6 +235,7 @@ export class PtkAppShell extends LitElement {
   private accessor mapStateMessage = "Loading map…";
 
   private latestResortPosition: { coordinates: LngLat; accuracy: number } | null = null;
+  private previousRawResortPoint: LngLat | null = null;
 
   private repository: ResortPackRepository | null = null;
   private deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
@@ -359,6 +365,7 @@ export class PtkAppShell extends LitElement {
         .phraseOutputText=${this.phraseOutputText}
         .phraseStatusText=${this.phraseStatusText}
         .phraseGenerating=${this.phraseGenerating}
+        .showPhraseRegenerateButton=${this.computeShowPhraseRegenerateButton()}
         .mapState=${this.mapUiState}
         .mapStateMessage=${this.mapStateMessage}
         .selectedTab=${vm.selectedTab}
@@ -556,7 +563,9 @@ export class PtkAppShell extends LitElement {
   };
 
   private readonly handleResortPositionUpdate = (event: CustomEvent<{ coordinates: LngLat; accuracy: number }>): void => {
+    const previousRawPoint = this.latestResortPosition?.coordinates ?? null;
     this.latestResortPosition = event.detail;
+    this.previousRawResortPoint = previousRawPoint;
     writeStoredLastKnownPosition(safeStorage(), event.detail);
     this.gpsUiState = applyGpsPosition(this.gpsUiState, event.detail.accuracy);
     if (
@@ -566,6 +575,8 @@ export class PtkAppShell extends LitElement {
     ) {
       this.phraseStatusText = "Ready to generate phrase.";
     }
+    this.applyPhraseBoundaryStateForCurrentPosition();
+    this.maybeAutoGeneratePhraseForRawPosition(previousRawPoint, event.detail.coordinates);
   };
 
   private readonly handleResortGpsError = (event: CustomEvent<{ kind: GpsErrorKind; message: string }>): void => {
@@ -590,6 +601,55 @@ export class PtkAppShell extends LitElement {
   };
 
   private readonly handleResortGeneratePhrase = (): void => {
+    void this.generatePhraseFromAvailablePosition("manual");
+  };
+
+  private computeShowPhraseRegenerateButton(): boolean {
+    const fallbackPosition = readStoredLastKnownPosition(safeStorage());
+    const hasUsablePosition = Boolean(this.latestResortPosition || fallbackPosition);
+    const boundaryState = resolvePhraseBoundaryState(
+      this.latestResortPosition?.coordinates ?? fallbackPosition?.coordinates ?? null,
+      this.selectedResortPack?.boundary
+    );
+    return shouldShowPhraseRegenerateButton({
+      hasUsablePosition,
+      boundaryState
+    });
+  }
+
+  private applyPhraseBoundaryStateForCurrentPosition(): void {
+    if (!this.selectedResortPack || !this.latestResortPosition) {
+      return;
+    }
+    const boundaryState = resolvePhraseBoundaryState(this.latestResortPosition.coordinates, this.selectedResortPack.boundary);
+    if (boundaryState === "outside") {
+      this.phraseOutputText = "Outside resort boundaries";
+      this.phraseStatusText = "Location is outside the resort boundary.";
+      this.phraseGenerating = false;
+    }
+  }
+
+  private maybeAutoGeneratePhraseForRawPosition(previousRawPoint: LngLat | null, currentRawPoint: LngLat): void {
+    if (!this.selectedResortPack) {
+      return;
+    }
+    const boundaryState = resolvePhraseBoundaryState(currentRawPoint, this.selectedResortPack.boundary);
+    if (boundaryState === "outside") {
+      return;
+    }
+    const shouldGenerate = shouldAutoRegeneratePhrase({
+      selectedTab: this.resortPageUiState.selectedTab,
+      previousRawPoint,
+      currentRawPoint,
+      thresholdMeters: 10
+    });
+    if (!shouldGenerate) {
+      return;
+    }
+    void this.generatePhraseFromAvailablePosition("auto");
+  }
+
+  private async generatePhraseFromAvailablePosition(mode: "manual" | "auto"): Promise<void> {
     if (!this.selectedResortPack) {
       this.phraseStatusText = "Resort pack is not loaded.";
       return;
@@ -609,19 +669,29 @@ export class PtkAppShell extends LitElement {
       return;
     }
 
+    const boundaryState = resolvePhraseBoundaryState(position.coordinates, this.selectedResortPack.boundary);
+    if (boundaryState === "outside") {
+      this.phraseOutputText = "Outside resort boundaries";
+      this.phraseStatusText = "Location is outside the resort boundary.";
+      this.phraseGenerating = false;
+      return;
+    }
+
     this.phraseGenerating = true;
     try {
       const outcome = composeRadioPhrase(position.coordinates, this.selectedResortPack);
       this.phraseOutputText = outcome.phrase;
       this.phraseStatusText = this.latestResortPosition
-        ? "Phrase generated."
+        ? mode === "auto"
+          ? "Phrase updated from live GPS."
+          : "Phrase generated."
         : "Phrase generated from last known location (offline fallback).";
     } catch {
       this.phraseStatusText = "Unable to generate phrase.";
     } finally {
       this.phraseGenerating = false;
     }
-  };
+  }
 
   private readonly handleResortMapReady = (): void => {
     this.mapUiState = "ready";
@@ -695,6 +765,7 @@ export class PtkAppShell extends LitElement {
 
   private resetResortPageDerivedState(): void {
     this.latestResortPosition = null;
+    this.previousRawResortPoint = null;
     this.phraseOutputText = "No phrase generated yet.";
     const cached = readStoredLastKnownPosition(safeStorage());
     this.phraseStatusText = cached

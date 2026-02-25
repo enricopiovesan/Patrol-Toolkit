@@ -579,6 +579,75 @@ describe("ptk-app-shell", () => {
     await waitFor(() => readResortPageText(element).includes("offline fallback"));
     expect(readResortPageText(element)).not.toContain("No phrase generated yet.");
   });
+
+  it("auto-generates phrase on gps movement while my-location tab is active", async () => {
+    repoState.activePackId = "CA_Fernie_Fernie";
+    repoState.installedPacks = [
+      {
+        id: "CA_Fernie_Fernie",
+        name: "Fernie",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v7"
+      }
+    ];
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+    await waitFor(() => readShellAttr(element, "page") === "resort");
+
+    dispatchResortPositionUpdate(element, { coordinates: [-116.9, 51.2], accuracy: 18 });
+    await waitFor(() => !readResortPageText(element).includes("No phrase generated yet."));
+  });
+
+  it("does not auto-generate phrase while my-location tab is inactive", async () => {
+    repoState.activePackId = "CA_Fernie_Fernie";
+    repoState.installedPacks = [
+      {
+        id: "CA_Fernie_Fernie",
+        name: "Fernie",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v7"
+      }
+    ];
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+    await waitFor(() => readShellAttr(element, "page") === "resort");
+
+    clickResortPageButtonByLabel(element, "Runs Check");
+    dispatchResortPositionUpdate(element, { coordinates: [-116.9, 51.2], accuracy: 18 });
+    clickResortPageButtonByLabel(element, "My location");
+
+    await waitFor(() => readResortPageText(element).includes("No phrase generated yet."));
+  });
+
+  it("shows outside-boundary phrase and hides re-generate button", async () => {
+    repoState.activePackId = "CA_Fernie_Fernie";
+    repoState.installedPacks = [
+      {
+        id: "CA_Fernie_Fernie",
+        name: "Fernie",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v7"
+      }
+    ];
+    repoState.packsById.CA_Fernie_Fernie = {
+      ...repoState.packsById.CA_Fernie_Fernie,
+      boundary: {
+        type: "Polygon",
+        coordinates: [[[-116.91, 51.19], [-116.89, 51.19], [-116.89, 51.21], [-116.91, 51.21], [-116.91, 51.19]]]
+      }
+    };
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+    await waitFor(() => readShellAttr(element, "page") === "resort");
+
+    dispatchResortPositionUpdate(element, { coordinates: [-116.85, 51.25], accuracy: 18 });
+
+    await waitFor(() => readResortPageText(element).includes("Outside resort boundaries"));
+    expect(listResortPageButtons(element)).not.toContain("Re generate");
+  });
 });
 
 function setWindowWidth(width: number): void {
@@ -713,6 +782,20 @@ function dispatchResortGpsError(
   const page = element.shadowRoot?.querySelector("ptk-resort-page");
   page?.dispatchEvent(
     new CustomEvent("ptk-resort-gps-error", {
+      detail,
+      bubbles: true,
+      composed: true
+    })
+  );
+}
+
+function dispatchResortPositionUpdate(
+  element: HTMLElement,
+  detail: { coordinates: [number, number]; accuracy: number }
+): void {
+  const page = element.shadowRoot?.querySelector("ptk-resort-page");
+  page?.dispatchEvent(
+    new CustomEvent("ptk-resort-position-update", {
       detail,
       bubbles: true,
       composed: true

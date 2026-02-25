@@ -89,6 +89,15 @@ describe("ptk-resort-page", () => {
     clickButton(element, "Close");
     expect(dismissHandler).toHaveBeenCalledTimes(1);
   });
+
+  it("hides phrase action button when disabled by shell state", async () => {
+    const element = createElement();
+    element.showPhraseRegenerateButton = false;
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(readButtons(element)).not.toContain("Re generate");
+  });
 });
 
 function createElement(): PtkResortPage {
