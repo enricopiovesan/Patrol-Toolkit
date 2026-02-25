@@ -408,7 +408,8 @@ describe("ptk-app-shell", () => {
     document.body.appendChild(element);
 
     await waitFor(() => readShellAttr(element, "page") === "select-resort");
-    expect(readSelectPageText(element)).toContain("Previous resort could not be restored");
+    expect(readSelectPageText(element)).not.toContain("Previous resort could not be restored");
+    expect(readToastHostText(element)).toContain("Previous resort could not be restored");
   });
 
   it("switches theme at runtime and persists selection", async () => {
@@ -709,6 +710,11 @@ function countResortCards(element: HTMLElement): number {
 function readSelectPageText(element: HTMLElement): string {
   const page = element.shadowRoot?.querySelector("ptk-select-resort-page") as HTMLElement | null;
   return (page?.shadowRoot?.textContent ?? "").replace(/\s+/gu, " ").trim();
+}
+
+function readToastHostText(element: HTMLElement): string {
+  const host = element.shadowRoot?.querySelector("ptk-toast-host") as HTMLElement | null;
+  return (host?.shadowRoot?.textContent ?? "").replace(/\s+/gu, " ").trim();
 }
 
 function findSearchInput(element: HTMLElement): HTMLInputElement | null {

@@ -3,6 +3,7 @@ import { customElement, state } from "lit/decorators.js";
 import "./ptk-select-resort-page";
 import "./ptk-resort-page";
 import "./ptk-settings-help-panel";
+import "./ptk-toast-host";
 import { v4DesignTokens } from "./design-tokens";
 import { createInitialToolPanelState } from "./tool-panel-state";
 import { DEFAULT_V4_THEME } from "./theme";
@@ -52,6 +53,13 @@ import {
   togglePackCandidateSelection,
   type V4PackUpdateCandidate
 } from "./settings-help-model";
+import {
+  createInitialToastQueueState,
+  dismissToast,
+  enqueueToast,
+  type V4ToastQueueState,
+  type V4ToastTone
+} from "./toast-state";
 
 @customElement("ptk-app-shell")
 export class PtkAppShell extends LitElement {
@@ -234,10 +242,15 @@ export class PtkAppShell extends LitElement {
   @state()
   private accessor mapStateMessage = "Loading map…";
 
+  @state()
+  private accessor toastQueueState: V4ToastQueueState = createInitialToastQueueState(2);
+
   private latestResortPosition: { coordinates: LngLat; accuracy: number } | null = null;
   private previousRawResortPoint: LngLat | null = null;
 
   private repository: ResortPackRepository | null = null;
+  private readonly toastTimers = new Map<string, number>();
+  private toastSequence = 0;
   private deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
   private readonly onBeforeInstallPrompt = (event: Event) => {
     if (!isBeforeInstallPromptEvent(event)) {
@@ -245,11 +258,11 @@ export class PtkAppShell extends LitElement {
     }
     event.preventDefault();
     this.deferredInstallPrompt = event;
-    this.installHint = "Install available. Tap 'Install App'.";
+    this.pushToast("Install available. Open Settings / Help and tap Install App.", "info");
   };
   private readonly onAppInstalled = () => {
     this.deferredInstallPrompt = null;
-    this.installHint = "App installed. Open from home screen.";
+    this.pushToast("App installed. Open from your home screen.", "success");
   };
 
   connectedCallback(): void {
@@ -268,6 +281,10 @@ export class PtkAppShell extends LitElement {
     window.removeEventListener("appinstalled", this.onAppInstalled);
     this.repository?.close();
     this.repository = null;
+    for (const timerId of this.toastTimers.values()) {
+      window.clearTimeout(timerId);
+    }
+    this.toastTimers.clear();
     super.disconnectedCallback();
   }
 
@@ -293,6 +310,7 @@ export class PtkAppShell extends LitElement {
               ? html`${this.renderInstallBlockingState()}`
               : html`${this.renderResortPage(resortPanelOpen, fullscreenSupported)}`}
         ${this.settingsPanelOpen && this.page === "resort" ? html`${this.renderSettingsHelpPanel()}` : html``}
+        <ptk-toast-host .toasts=${this.toastQueueState.visible} @ptk-toast-dismiss=${this.handleToastDismiss}></ptk-toast-host>
       </div>
     `;
   }
@@ -300,6 +318,61 @@ export class PtkAppShell extends LitElement {
   private readonly handleWindowResize = (): void => {
     this.syncViewport();
   };
+
+  private readonly handleToastDismiss = (event: CustomEvent<{ id?: string }>): void => {
+    const toastId = event.detail?.id;
+    if (!toastId) {
+      return;
+    }
+    this.dismissToastById(toastId);
+  };
+
+  private pushToast(message: string, tone: V4ToastTone): void {
+    const trimmed = message.trim();
+    if (!trimmed) {
+      return;
+    }
+    this.toastSequence += 1;
+    this.toastQueueState = enqueueToast(this.toastQueueState, {
+      id: `toast-${Date.now()}-${this.toastSequence}`,
+      message: trimmed,
+      tone
+    });
+    this.syncToastTimers();
+  }
+
+  private dismissToastById(toastId: string): void {
+    const next = dismissToast(this.toastQueueState, toastId);
+    if (next === this.toastQueueState) {
+      return;
+    }
+    const timerId = this.toastTimers.get(toastId);
+    if (timerId) {
+      window.clearTimeout(timerId);
+      this.toastTimers.delete(toastId);
+    }
+    this.toastQueueState = next;
+    this.syncToastTimers();
+  }
+
+  private syncToastTimers(): void {
+    const visibleIds = new Set(this.toastQueueState.visible.map((toast) => toast.id));
+    for (const [toastId, timerId] of this.toastTimers.entries()) {
+      if (!visibleIds.has(toastId)) {
+        window.clearTimeout(timerId);
+        this.toastTimers.delete(toastId);
+      }
+    }
+    for (const toast of this.toastQueueState.visible) {
+      if (this.toastTimers.has(toast.id)) {
+        continue;
+      }
+      const timerId = window.setTimeout(() => {
+        this.dismissToastById(toast.id);
+      }, 10_000);
+      this.toastTimers.set(toast.id, timerId);
+    }
+  }
 
   private setTheme(themeId: "default" | "high-contrast"): void {
     if (this.theme === themeId) {
@@ -483,8 +556,9 @@ export class PtkAppShell extends LitElement {
           await this.openInstalledResort(activeEntry.resortId, activeEntry.resortName);
         } else {
           this.page = "select-resort";
-          this.selectPageMessage =
-            "Previous resort could not be restored. Select a resort to continue.";
+          const message = "Previous resort could not be restored. Select a resort to continue.";
+          this.selectPageMessage = "";
+          this.pushToast(message, "warning");
         }
       } else {
         this.page = "select-resort";
@@ -701,6 +775,7 @@ export class PtkAppShell extends LitElement {
   private readonly handleResortMapRenderError = (event: CustomEvent<{ message?: string }>): void => {
     this.mapUiState = "error";
     this.mapStateMessage = event.detail?.message?.trim() ? `Map rendering error: ${event.detail.message}` : "Map rendering error.";
+    this.pushToast(this.mapStateMessage, "error");
   };
 
   private readonly handleOpenSettingsPanel = (): void => {
@@ -810,20 +885,24 @@ export class PtkAppShell extends LitElement {
   private async installApp(): Promise<void> {
     if (!this.deferredInstallPrompt) {
       if (isStandaloneInstalled()) {
-        this.installHint = "Patrol Toolkit is already installed. Open it from your home screen.";
+        this.pushToast("Patrol Toolkit is already installed. Open it from your home screen.", "info");
         return;
       }
-      this.installHint =
-        "Install prompt unavailable on this browser. iPhone/iPad: open in Safari, tap Share, then Add to Home Screen. Android/Desktop: browser menu > Install app/Add to Home Screen.";
+      this.pushToast(
+        "Install prompt unavailable on this browser. iPhone/iPad: open in Safari, tap Share, then Add to Home Screen. Android/Desktop: browser menu > Install app/Add to Home Screen.",
+        "warning"
+      );
       return;
     }
 
     await this.deferredInstallPrompt.prompt();
     const choice = await this.deferredInstallPrompt.userChoice;
-    this.installHint =
+    this.pushToast(
       choice.outcome === "accepted"
-        ? "Install accepted. Open Patrol Toolkit from home screen."
-        : "Install dismissed. You can retry from Settings/Help.";
+        ? "Install accepted. Open Patrol Toolkit from your home screen."
+        : "Install dismissed. You can retry from Settings / Help.",
+      choice.outcome === "accepted" ? "success" : "info"
+    );
     this.deferredInstallPrompt = null;
   }
 
@@ -834,6 +913,7 @@ export class PtkAppShell extends LitElement {
         this.appUpdateResult = "No structured release metadata found.";
         this.appUpdateTargetVersion = null;
         this.appUpdateSummary = "";
+        this.pushToast(this.appUpdateResult, "warning");
         return;
       }
 
@@ -842,22 +922,26 @@ export class PtkAppShell extends LitElement {
         this.appUpdateResult = `App is up to date (${APP_VERSION}).`;
         this.appUpdateTargetVersion = null;
         this.appUpdateSummary = "";
+        this.pushToast(this.appUpdateResult, "info");
         return;
       }
 
       this.appUpdateTargetVersion = catalog.release.appVersion;
       this.appUpdateSummary = catalog.release.notesSummary ?? "Release notes summary unavailable.";
       this.appUpdateResult = `Update available: ${catalog.release.appVersion}`;
+      this.pushToast(this.appUpdateResult, "success");
     } catch (error) {
       this.appUpdateResult = error instanceof Error ? error.message : "Failed to check app updates.";
       this.appUpdateTargetVersion = null;
       this.appUpdateSummary = "";
+      this.pushToast(this.appUpdateResult, "error");
     }
   }
 
   private async applyAppUpdate(): Promise<void> {
     if (!this.appUpdateTargetVersion) {
       this.appUpdateResult = "No pending app update to apply.";
+      this.pushToast(this.appUpdateResult, "warning");
       return;
     }
 
@@ -869,15 +953,18 @@ export class PtkAppShell extends LitElement {
       }
 
       this.appUpdateResult = `Applying update ${this.appUpdateTargetVersion}...`;
+      this.pushToast(this.appUpdateResult, "info");
       window.location.reload();
     } catch {
       this.appUpdateResult = "Could not trigger update automatically. Close and reopen the app.";
+      this.pushToast(this.appUpdateResult, "error");
     }
   }
 
   private async checkPackUpdates(): Promise<void> {
     if (!this.repository) {
       this.packUpdateResult = "Pack update check unavailable: storage not ready.";
+      this.pushToast(this.packUpdateResult, "error");
       return;
     }
 
@@ -926,25 +1013,30 @@ export class PtkAppShell extends LitElement {
       this.blockedPackUpdates = blocked;
       if (this.packUpdateCandidates.length === 0 && blocked.length === 0) {
         this.packUpdateResult = "No pack updates available.";
+        this.pushToast(this.packUpdateResult, "info");
       } else {
         this.packUpdateResult = `Pack update check complete: ${this.packUpdateCandidates.length} selectable, ${blocked.length} blocked.`;
+        this.pushToast(this.packUpdateResult, blocked.length > 0 ? "warning" : "success");
       }
     } catch (error) {
       this.packUpdateCandidates = [];
       this.blockedPackUpdates = [];
       this.packUpdateResult = error instanceof Error ? error.message : "Failed to check pack updates.";
+      this.pushToast(this.packUpdateResult, "error");
     }
   }
 
   private async applySelectedPackUpdates(): Promise<void> {
     if (!this.repository) {
       this.packUpdateResult = "Pack update apply unavailable: storage not ready.";
+      this.pushToast(this.packUpdateResult, "error");
       return;
     }
 
     const selectedIds = this.packUpdateCandidates.filter((candidate) => candidate.selected).map((candidate) => candidate.resortId);
     if (selectedIds.length === 0) {
       this.packUpdateResult = "Select at least one resort to update.";
+      this.pushToast(this.packUpdateResult, "warning");
       return;
     }
 
@@ -977,12 +1069,14 @@ export class PtkAppShell extends LitElement {
       this.installedPacks = await this.repository.listPacks();
       this.packUpdateCandidates = clearPackCandidateSelections(this.packUpdateCandidates);
       this.packUpdateResult = `Pack updates complete: ${successes.length} succeeded, ${failures.length} failed.${failures.length > 0 ? ` ${failures.join(" ")}` : ""}`;
+      this.pushToast(this.packUpdateResult, failures.length > 0 ? "warning" : "success");
 
       if (this.selectedResortId && this.installedPacks.some((pack) => pack.id === this.selectedResortId) && this.page === "resort") {
         await this.openInstalledResort(this.selectedResortId, this.selectedResortName);
       }
     } catch (error) {
       this.packUpdateResult = error instanceof Error ? error.message : "Failed to apply pack updates.";
+      this.pushToast(this.packUpdateResult, "error");
     }
   }
 }

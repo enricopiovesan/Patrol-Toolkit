@@ -128,7 +128,7 @@
 - PR outcome: phrase workflow is more automatic and clearer to users.
 
 ## Slice 4: Toast System + Message Migration
-- Status: planned
+- Status: completed
 - Goal: centralize transient messaging and reduce inline message clutter.
 - Deliverables:
   - implement toast system (component + queue/state)
