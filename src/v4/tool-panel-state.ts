@@ -20,15 +20,14 @@ export function createInitialToolPanelState(viewport: ViewportMode): ToolPanelVi
     case "medium":
       return {
         presentation: "sidebar",
-        visibility: "hidden",
+        visibility: "visible",
         fullscreenSupported: true
       };
     case "large":
       return {
         presentation: "sidebar",
         visibility: "visible",
-        fullscreenSupported: false
+        fullscreenSupported: true
       };
   }
 }
-

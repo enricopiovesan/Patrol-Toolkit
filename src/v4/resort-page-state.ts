@@ -47,7 +47,7 @@ export function toggleResortPageFullscreen(
   viewport: ViewportMode,
   fullscreenSupported: boolean
 ): ResortPageUiState {
-  if (!fullscreenSupported || viewport === "large") {
+  if (!fullscreenSupported) {
     return state;
   }
 
@@ -93,8 +93,8 @@ export function syncResortPageUiStateForViewport(
 
   return {
     ...previous,
-    panelOpen: previous.fullscreen ? false : false,
+    panelOpen: previous.fullscreen ? false : true,
     fullscreen: previous.fullscreen,
-    panelOpenBeforeFullscreen: previous.fullscreen ? previous.panelOpenBeforeFullscreen : initialForViewport.panelOpen
+    panelOpenBeforeFullscreen: previous.fullscreen ? previous.panelOpenBeforeFullscreen : true
   };
 }

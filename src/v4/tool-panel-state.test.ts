@@ -10,20 +10,19 @@ describe("createInitialToolPanelState", () => {
     });
   });
 
-  it("uses hidden sidebar on medium", () => {
+  it("uses visible sidebar on medium", () => {
     expect(createInitialToolPanelState("medium")).toEqual({
       presentation: "sidebar",
-      visibility: "hidden",
+      visibility: "visible",
       fullscreenSupported: true
     });
   });
 
-  it("uses visible sidebar and disables fullscreen on large", () => {
+  it("uses visible sidebar and enables fullscreen on large", () => {
     expect(createInitialToolPanelState("large")).toEqual({
       presentation: "sidebar",
       visibility: "visible",
-      fullscreenSupported: false
+      fullscreenSupported: true
     });
   });
 });
-

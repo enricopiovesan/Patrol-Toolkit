@@ -203,7 +203,7 @@ describe("ptk-app-shell", () => {
     await waitFor(() => listResortPageButtons(element).includes("Full screen"));
   });
 
-  it("hides fullscreen control on large viewport", async () => {
+  it("shows fullscreen control on large viewport", async () => {
     repoState.installedPacks = [
       {
         id: "CA_Golden_Kicking_Horse",
@@ -220,11 +220,11 @@ describe("ptk-app-shell", () => {
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
     await waitFor(() => readShellAttr(element, "page") === "resort");
 
-    expect(readShellAttr(element, "fullscreen-supported")).toBe("no");
-    expect(listResortPageButtons(element)).not.toContain("Full screen");
+    expect(readShellAttr(element, "fullscreen-supported")).toBe("yes");
+    expect(listResortPageButtons(element)).toContain("Full screen");
   });
 
-  it("opens hidden medium sidebar when toggled from resort page", async () => {
+  it("keeps medium sidebar visible by default in resort page", async () => {
     repoState.installedPacks = [
       {
         id: "CA_Golden_Kicking_Horse",
@@ -241,9 +241,7 @@ describe("ptk-app-shell", () => {
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
     await waitFor(() => readShellAttr(element, "page") === "resort");
 
-    expect(readShellAttr(element, "panel-open")).toBe("no");
-    clickResortPageButtonByLabel(element, "Open side menu");
-    await waitFor(() => readShellAttr(element, "panel-open") === "yes");
+    expect(readShellAttr(element, "panel-open")).toBe("yes");
   });
 
   it("filters resorts using search query", async () => {
@@ -317,7 +315,7 @@ describe("ptk-app-shell", () => {
 
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
     await waitFor(() => readShellAttr(element, "page") === "resort");
-    expect(readResortPageText(element)).toContain("Generate Phrase");
+    expect(readResortPageText(element)).toContain("Re generate");
     expect(readResortPageText(element)).toContain("No phrase generated yet.");
   });
 
@@ -376,7 +374,7 @@ describe("ptk-app-shell", () => {
     expect(readResortPageText(element)).toContain("No phrase generated yet.");
 
     clickResortPageButtonByLabel(element, "Runs Check");
-    await waitFor(() => readResortPageText(element).includes("Run verification workflows"));
+    await waitFor(() => readResortPageText(element).includes("Not defined yet."));
   });
 
   it("updates fullscreen-active meta when fullscreen is toggled on small", async () => {
@@ -432,7 +430,7 @@ describe("ptk-app-shell", () => {
     const host = element.shadowRoot?.querySelector(".root");
     expect(host?.getAttribute("data-theme")).toBe("default");
 
-    clickResortPageButtonByLabel(element, "Settings / Help");
+    clickResortPageButtonByLabel(element, "Open settings");
     await waitFor(() => Boolean(findSettingsPanel(element)));
     clickSettingsPanelButtonByLabel(element, "High contrast");
     await (element as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete;
@@ -468,9 +466,59 @@ describe("ptk-app-shell", () => {
     document.body.appendChild(element);
 
     await waitFor(() => readShellAttr(element, "page") === "resort");
-    clickResortPageButtonByLabel(element, "Settings / Help");
+    clickResortPageButtonByLabel(element, "Open settings");
     await waitFor(() => Boolean(findSettingsPanel(element)));
     expect(readSettingsPanelText(element)).toContain("Check for updates");
+  });
+
+  it("opens settings from icon without toggling sidebar on medium landscape", async () => {
+    repoState.activePackId = "CA_Fernie_Fernie";
+    repoState.installedPacks = [
+      {
+        id: "CA_Fernie_Fernie",
+        name: "Fernie",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v7"
+      }
+    ];
+    setWindowWidth(932);
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+
+    await waitFor(() => readShellAttr(element, "page") === "resort");
+    expect(readShellAttr(element, "viewport")).toBe("medium");
+    expect(readShellAttr(element, "panel-open")).toBe("yes");
+
+    clickResortPageButtonByLabel(element, "Open settings");
+
+    await waitFor(() => Boolean(findSettingsPanel(element)));
+    expect(readShellAttr(element, "panel-open")).toBe("yes");
+  });
+
+  it("opens settings from icon without toggling sidebar on large", async () => {
+    repoState.activePackId = "CA_Fernie_Fernie";
+    repoState.installedPacks = [
+      {
+        id: "CA_Fernie_Fernie",
+        name: "Fernie",
+        updatedAt: "2026-03-02T12:00:00Z",
+        sourceVersion: "v7"
+      }
+    ];
+    setWindowWidth(1280);
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+
+    await waitFor(() => readShellAttr(element, "page") === "resort");
+    expect(readShellAttr(element, "viewport")).toBe("large");
+    expect(readShellAttr(element, "panel-open")).toBe("yes");
+
+    clickResortPageButtonByLabel(element, "Open settings");
+
+    await waitFor(() => Boolean(findSettingsPanel(element)));
+    expect(readShellAttr(element, "panel-open")).toBe("yes");
   });
 
   it("shows gps guidance modal, then non-blocking disabled state, then retry state", async () => {
@@ -526,7 +574,7 @@ describe("ptk-app-shell", () => {
     await waitFor(() => readShellAttr(element, "page") === "resort");
     await waitFor(() => readResortPageText(element).includes("last known location"));
 
-    clickResortPageButtonByLabel(element, "Generate Phrase");
+    clickResortPageButtonByLabel(element, "Re generate");
 
     await waitFor(() => readResortPageText(element).includes("offline fallback"));
     expect(readResortPageText(element)).not.toContain("No phrase generated yet.");
@@ -553,6 +601,7 @@ function readShellAttr(
   key:
     | "page"
     | "theme"
+    | "viewport"
     | "panel-open"
     | "panel-presentation"
     | "fullscreen-supported"

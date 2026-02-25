@@ -50,6 +50,33 @@ export class PtkPageHeader extends LitElement {
       font-size: var(--ptk-font-body-s-size);
       text-align: right;
     }
+
+    :host([compact]) .header {
+      gap: var(--ptk-space-2);
+      align-items: start;
+    }
+
+    :host([compact]) .main {
+      gap: 0;
+    }
+
+    :host([compact]) .title {
+      font-size: 18px;
+      line-height: 1.15;
+      font-weight: var(--ptk-font-weight-extrabold);
+    }
+
+    :host([compact]) .subtitle {
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    :host([compact]) .meta {
+      font-size: 12px;
+      line-height: 1.15;
+      gap: 2px;
+      padding-top: 1px;
+    }
   `;
 
   @property({ type: String })
@@ -63,6 +90,9 @@ export class PtkPageHeader extends LitElement {
 
   @property({ type: String })
   accessor metaLine2 = "";
+
+  @property({ type: Boolean, reflect: true })
+  accessor compact = false;
 
   protected render() {
     return html`

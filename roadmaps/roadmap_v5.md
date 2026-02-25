@@ -94,7 +94,7 @@
 - PR outcome: implementation slices can proceed without UX ambiguity.
 
 ## Slice 2: Bottom Sheet Interaction + Small/Medium Layout Polish
-- Status: planned
+- Status: completed
 - Goal: improve bottom-sheet usability and native-app feel on `small` and vertical iPad (`medium` portrait).
 - Deliverables:
   - align `small` and vertical-`medium` layout behavior where specified
