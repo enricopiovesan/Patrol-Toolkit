@@ -4,6 +4,7 @@ import "./ptk-select-resort-page";
 import "./ptk-resort-page";
 import "./ptk-settings-help-panel";
 import "./ptk-toast-host";
+import "./ptk-page-header";
 import { v4DesignTokens } from "./design-tokens";
 import { createInitialToolPanelState } from "./tool-panel-state";
 import { DEFAULT_V4_THEME } from "./theme";
@@ -146,6 +147,54 @@ export class PtkAppShell extends LitElement {
       display: flex;
       flex-wrap: wrap;
       gap: var(--ptk-space-2);
+    }
+
+    .blocking-shell {
+      min-height: 100%;
+      display: grid;
+      align-content: start;
+      gap: var(--ptk-space-3);
+      background: var(--ptk-surface-app);
+    }
+
+    .blocking-header {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: var(--ptk-space-2);
+      align-items: start;
+      border: 1px solid var(--ptk-border-default);
+      background: var(--ptk-surface-card);
+      border-radius: var(--ptk-radius-md);
+      box-shadow: var(--ptk-shadow-sm);
+      padding: var(--ptk-space-3);
+    }
+
+    .icon-button {
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      min-height: 36px;
+      border-radius: 999px;
+      border: 1px solid var(--ptk-control-border);
+      background: var(--ptk-control-bg);
+      color: var(--ptk-control-fg);
+      font: inherit;
+      font-size: 20px;
+      line-height: 1;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .blocking-body {
+      border: 1px solid var(--ptk-border-default);
+      background: var(--ptk-surface-card);
+      border-radius: var(--ptk-radius-md);
+      box-shadow: var(--ptk-shadow-sm);
+      padding: var(--ptk-space-3);
+      display: grid;
+      gap: var(--ptk-space-3);
     }
   `;
 
@@ -491,35 +540,46 @@ export class PtkAppShell extends LitElement {
 
   private renderInstallBlockingState() {
     return html`
-      <section aria-label="Resort install required" class="header">
-        <h2 class="title">${this.selectedResortName || "Selected resort"}</h2>
-        <p class="subtitle">
-          This resort pack is not offline-ready on this device. A blocking install/download flow is required before
-          opening the Resort Page.
-        </p>
-        ${this.installBlockingError
-          ? html`<div class="message-card message-card--error">${this.installBlockingError}</div>`
-          : html``}
-        <div class="action-row">
+      <section aria-label="Resort install required" class="blocking-shell">
+        <header class="blocking-header">
           <button
-            class="nav-button nav-button--primary"
+            class="icon-button"
             type="button"
+            aria-label="Back to Select Resort"
             ?disabled=${this.installBlockingBusy}
-            @click=${this.handleInstallRetry}
+            @click=${this.handleBackToSelect}
           >
-            ${this.installBlockingBusy
-              ? "Installing..."
-              : this.installBlockingAttempted || Boolean(this.installBlockingError)
-                ? "Retry"
-                : "Install resort data"}
+            ‹
           </button>
+          <ptk-page-header
+            compact
+            .title=${this.selectedResortName || "Selected resort"}
+            .subtitle=${this.selectedResortSourceVersion || ""}
+          ></ptk-page-header>
+        </header>
+
+        <div class="blocking-body">
+          <p class="subtitle meta--tight">
+            This resort pack is not offline-ready on this device. A blocking install/download flow is required before
+            opening the Resort Page.
+          </p>
           ${this.installBlockingError
-            ? html`
-                <button class="nav-button" type="button" ?disabled=${this.installBlockingBusy} @click=${this.handleInstallCancel}>
-                  Cancel
-                </button>
-              `
+            ? html`<div class="message-card message-card--error">${this.installBlockingError}</div>`
             : html``}
+          <div class="action-row">
+            <button
+              class="nav-button nav-button--primary"
+              type="button"
+              ?disabled=${this.installBlockingBusy}
+              @click=${this.handleInstallRetry}
+            >
+              ${this.installBlockingBusy
+                ? "Installing..."
+                : this.installBlockingAttempted || Boolean(this.installBlockingError)
+                  ? "Retry"
+                  : "Install resort data"}
+            </button>
+          </div>
         </div>
       </section>
     `;
@@ -613,14 +673,6 @@ export class PtkAppShell extends LitElement {
 
   private readonly handleInstallRetry = (): void => {
     void this.installSelectedResort();
-  };
-
-  private readonly handleInstallCancel = (): void => {
-    this.page = "select-resort";
-    this.searchQuery = "";
-    this.installBlockingError = "";
-    this.installBlockingBusy = false;
-    this.installBlockingAttempted = false;
   };
 
   private readonly handleResortTabSelect = (event: CustomEvent<{ tabId: "my-location" | "runs-check" | "sweeps" }>) => {

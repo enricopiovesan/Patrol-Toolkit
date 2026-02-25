@@ -265,7 +265,7 @@ describe("ptk-app-shell", () => {
 
     dispatchResortSelect(element, "CA_Golden_Kicking_Horse");
     await waitFor(() => readShellAttr(element, "page") === "install-blocking");
-    expect(readShellText(element)).toContain("Kicking Horse");
+    expect(readInstallBlockingHeaderTitle(element)).toContain("Kicking Horse");
     expect(readShellText(element)).toContain("blocking install/download flow");
     expect(readShellText(element)).toContain("Install resort data");
     expect(readShellText(element)).not.toContain("selected=CA_Golden_Kicking_Horse");
@@ -295,7 +295,7 @@ describe("ptk-app-shell", () => {
     await waitFor(() => readShellAttr(element, "page") === "install-blocking");
     clickButtonByLabel(element, "Install resort data");
     await waitFor(() => readShellText(element).includes("download failed"));
-    clickButtonByLabel(element, "Cancel");
+    clickButtonByLabel(element, "Back to Select Resort");
     await waitFor(() => readShellAttr(element, "page") === "select-resort");
   });
 
@@ -331,8 +331,8 @@ describe("ptk-app-shell", () => {
     dispatchResortSelect(element, "CA_Fernie_Fernie");
     await waitFor(() => readShellAttr(element, "page") === "install-blocking");
     clickButtonByLabel(element, "Install resort data");
-    await waitFor(() => readShellText(element).includes("Cancel"));
-    clickButtonByLabel(element, "Cancel");
+    await waitFor(() => readShellText(element).includes("download failed"));
+    clickButtonByLabel(element, "Back to Select Resort");
     await waitFor(() => readShellAttr(element, "page") === "select-resort");
     await waitFor(() => countResortCards(element) === 2);
     expect(findSearchInput(element)?.value ?? "").toBe("");
@@ -755,12 +755,19 @@ function dispatchResortSelect(element: HTMLElement, resortId: string): void {
 
 function clickButtonByLabel(element: HTMLElement, label: string): void {
   const button = Array.from(element.shadowRoot?.querySelectorAll("button") ?? []).find((node) =>
-    (node.textContent ?? "").includes(label)
+    (node.textContent ?? "").includes(label) || ((node as HTMLElement).getAttribute("aria-label") ?? "").includes(label)
   ) as HTMLButtonElement | undefined;
   if (!button) {
     throw new Error(`Button not found: ${label}`);
   }
   button.click();
+}
+
+function readInstallBlockingHeaderTitle(element: HTMLElement): string {
+  const header = element.shadowRoot?.querySelector(".blocking-header ptk-page-header") as
+    | (HTMLElement & { title?: string })
+    | null;
+  return header?.title ?? "";
 }
 
 function listResortPageButtons(element: HTMLElement): string[] {

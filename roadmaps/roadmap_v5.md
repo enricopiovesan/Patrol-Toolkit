@@ -145,7 +145,7 @@
 - PR outcome: consistent transient messaging UX across the app.
 
 ## Slice 5: Resort Install Blocking Flow UX Fixes
-- Status: planned
+- Status: completed
 - Goal: reduce friction when opening a resort that is not yet installed.
 - Deliverables:
   - add back navigation via top header back arrow in install-blocking state
