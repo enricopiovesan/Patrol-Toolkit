@@ -199,7 +199,7 @@
 - PR outcome: tab temporary states are consistent and intentional.
 
 ## Slice 9: Aerial View Feasibility (Free / Online / Offline Constraints)
-- Status: planned
+- Status: completed
 - Goal: determine if a free aerial-view toggle is viable within project constraints.
 - Deliverables:
   - evaluate free aerial tile/source options for online usage
@@ -210,6 +210,7 @@
   - documented feasibility outcome exists
   - if prototyped, integration does not regress current map behavior
 - PR outcome: clear decision on aerial-view support path.
+  - Outcome (v5): no shipped aerial toggle; documented online-only prototype path (MapTiler-style key-gated raster) and no offline aerial packaging in v5.
 
 ## Slice 10: Contours / Elevation Feasibility (Best-Effort)
 - Status: planned
