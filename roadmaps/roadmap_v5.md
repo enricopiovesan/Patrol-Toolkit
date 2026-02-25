@@ -213,7 +213,7 @@
   - Outcome (v5): no shipped aerial toggle; documented online-only prototype path (MapTiler-style key-gated raster) and no offline aerial packaging in v5.
 
 ## Slice 10: Contours / Elevation Feasibility (Best-Effort)
-- Status: planned
+- Status: completed
 - Goal: determine if contour lines and elevation visualization can be added under current data/tool constraints.
 - Deliverables:
   - evaluate available contour/elevation data sources and licensing
@@ -224,6 +224,10 @@
   - documented feasibility outcome exists
   - if prototyped, overlay is legible and does not break map performance/UX
 - PR outcome: clear decision on contour/elevation support path.
+- Outcome:
+  - documented in `/Users/piovese/Documents/Patrol Toolkit/docs/feasibility/v5-contours-elevation-feasibility.md`
+  - no shipped contour/elevation feature in `v5`
+  - post-v5 prototype path documented
 
 ## Slice 11: v5 QA Pass + Spec-to-Code Audit + Closeout
 - Status: planned
