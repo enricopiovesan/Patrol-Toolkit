@@ -3,6 +3,7 @@ import type { ResortPack } from "../resort-pack/types";
 export type ResortOverlayData = {
   boundary: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
   areas: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+  contours: GeoJSON.FeatureCollection<GeoJSON.LineString>;
   runs: GeoJSON.FeatureCollection<GeoJSON.LineString>;
   lifts: GeoJSON.FeatureCollection<GeoJSON.LineString>;
   liftTowers: GeoJSON.FeatureCollection<GeoJSON.Point>;
@@ -28,6 +29,16 @@ export function buildResortOverlayData(pack: ResortPack | null): ResortOverlayDa
         id: run.id,
         name: run.name,
         difficulty: run.difficulty
+      }
+    })) ?? [];
+
+  const contourFeatures: GeoJSON.Feature<GeoJSON.LineString>[] =
+    pack?.contours?.map((contour) => ({
+      type: "Feature",
+      geometry: contour.line,
+      properties: {
+        id: contour.id,
+        elevationMeters: contour.elevationMeters ?? null
       }
     })) ?? [];
 
@@ -80,6 +91,7 @@ export function buildResortOverlayData(pack: ResortPack | null): ResortOverlayDa
   return {
     boundary: featureCollection(boundaryFeatures),
     areas: featureCollection(areaFeatures),
+    contours: featureCollection(contourFeatures),
     runs: featureCollection(runFeatures),
     lifts: featureCollection(liftLineFeatures),
     liftTowers: featureCollection(towerFeatures)

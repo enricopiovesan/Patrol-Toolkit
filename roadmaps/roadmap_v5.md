@@ -283,9 +283,10 @@
 - PR outcome:
   - either a shipped prototype (with constraints documented), or a documented no-ship result with concrete blockers
 - Outcome:
-  - config-gated contour raster overlay prototype implemented in `map-view` (disabled by default)
+  - vector contour rendering foundation implemented in `map-view` using optional `ResortPack.contours`
   - prototype config and constraints documented in `/Users/piovese/Documents/Patrol Toolkit/docs/feasibility/v5-contours-elevation-prototype.md`
-  - no elevation labels/data UI and no offline contour packaging in `v5`
+  - no contour generation/bundling pipeline or offline contour packaging in `v5`
+  - no elevation labels/data UI beyond optional contour line label support
 
 ## Open Decisions (Track During v5)
 - None yet. Add only active decisions that block implementation or acceptance.

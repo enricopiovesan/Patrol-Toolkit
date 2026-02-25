@@ -40,6 +40,12 @@ export type Run = {
   centerline: GeoLineString;
 };
 
+export type ContourLine = {
+  id: string;
+  elevationMeters?: number;
+  line: GeoLineString;
+};
+
 export type ResortPack = {
   schemaVersion: "1.0.0";
   resort: {
@@ -56,6 +62,7 @@ export type ResortPack = {
     liftProximityMeters: number;
   };
   areas?: ResortArea[];
+  contours?: ContourLine[];
   lifts: Lift[];
   runs: Run[];
 };

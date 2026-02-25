@@ -39,6 +39,7 @@ function mapSchemaErrors(errors: ErrorObject[] | null | undefined): ResortPackVa
 function validateSemanticRules(pack: ResortPack): ResortPackValidationIssue[] {
   const errors: ResortPackValidationIssue[] = [];
   const areaIds = new Set<string>();
+  const contourIds = new Set<string>();
   const runIds = new Set<string>();
   const liftIds = new Set<string>();
 
@@ -100,6 +101,32 @@ function validateSemanticRules(pack: ResortPack): ResortPackValidationIssue[] {
         code: "invalid_geometry",
         path: `${areaPath}/perimeter/coordinates/0`,
         message: "Area perimeter outer ring must be closed."
+      });
+    }
+  }
+
+  for (let index = 0; index < (pack.contours ?? []).length; index += 1) {
+    const contour = pack.contours?.[index];
+    if (!contour) {
+      continue;
+    }
+    const contourPath = `#/contours/${index}`;
+
+    if (contourIds.has(contour.id)) {
+      errors.push({
+        code: "duplicate_id",
+        path: `${contourPath}/id`,
+        message: `Duplicate contour id '${contour.id}'.`
+      });
+    } else {
+      contourIds.add(contour.id);
+    }
+
+    if (hasDuplicateConsecutivePoints(contour.line.coordinates)) {
+      errors.push({
+        code: "invalid_geometry",
+        path: `${contourPath}/line/coordinates`,
+        message: "Contour line has duplicate consecutive points."
       });
     }
   }
