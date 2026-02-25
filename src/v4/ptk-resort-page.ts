@@ -20,6 +20,12 @@ import type { MapView } from "../map/map-view";
 @customElement("ptk-resort-page")
 export class PtkResortPage extends LitElement {
   private static readonly SMALL_SHEET_HEIGHT_FALLBACK = 232;
+  private readonly handlePanelVisualContentLoad = (): void => {
+    const panel = this.renderRoot.querySelector("ptk-tool-panel") as
+      | (HTMLElement & { refitToContent?: () => void })
+      | null;
+    panel?.refitToContent?.();
+  };
 
   static styles = css`
     ${v4DesignTokens}
@@ -227,7 +233,7 @@ export class PtkResortPage extends LitElement {
       color: var(--ptk-text-primary);
       min-height: 56px;
       display: grid;
-      padding: 20px 0p;
+      padding: 40px 0p;
       align-items: center;
       font-size: var(--ptk-font-body-l-size);
       font-weight: var(--ptk-font-weight-semibold);
@@ -248,13 +254,10 @@ export class PtkResortPage extends LitElement {
 
     .tab-illustration {
       display: block;
-      width: 100%;
-      max-width: 420px;
+      width: 60%;
       height: auto;
-      margin-top: 12px;
-      border-radius: 12px;
-      border: 1px solid var(--ptk-border-default);
-      background: var(--ptk-surface-subtle);
+      max-width: 100%;
+      margin: 12px auto 0;
       object-fit: contain;
     }
 
@@ -485,7 +488,18 @@ export class PtkResortPage extends LitElement {
     }
 
     .workspace.fullscreen .map-controls {
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+      bottom: 20px;
+    }
+
+    .map-frame.fullscreen .map-controls {
+      bottom: 20px;
+      transform: translateY(-20px);
+    }
+
+    .workspace.small .map-frame.fullscreen .map-controls,
+    .workspace.medium-sheet .map-frame.fullscreen .map-controls {
+      bottom: 20px;
+      transform: translateY(-20px);
     }
 
     .workspace.medium .map-controls .ghost-button,
@@ -679,6 +693,7 @@ export class PtkResortPage extends LitElement {
       border-radius: 14px;
       background: #eef0f5;
       border: 1px solid var(--ptk-border-default);
+      margin-bottom: 20px;
     }
 
     .workspace.small .tabs button {
@@ -711,7 +726,7 @@ export class PtkResortPage extends LitElement {
       border: none;
       background: transparent;
       min-height: unset;
-      padding: 0;
+      padding: 20px 0;
       align-items: start;
       font-size: 18px;
       line-height: 1.25;
@@ -721,6 +736,11 @@ export class PtkResortPage extends LitElement {
     .workspace.small .panel-card > .phrase-output,
     .workspace.small .panel-card > .sweeps-note {
       margin-top: var(--ptk-space-2);
+    }
+
+    .workspace.small .panel-card > .panel-note {
+      margin-top: var(--ptk-space-2);
+      margin-bottom: var(--ptk-space-2);
     }
 
     .workspace.small .panel-card .ghost-button {
@@ -735,6 +755,7 @@ export class PtkResortPage extends LitElement {
       border-radius: 14px;
       background: #eef0f5;
       border: 1px solid var(--ptk-border-default);
+      margin-bottom: 20px;
     }
 
     .workspace.medium-sheet .tabs button {
@@ -767,7 +788,7 @@ export class PtkResortPage extends LitElement {
       border: none;
       background: transparent;
       min-height: unset;
-      padding: 0;
+      padding: 20px 0;
       align-items: start;
       font-size: 18px;
       line-height: 1.25;
@@ -777,6 +798,11 @@ export class PtkResortPage extends LitElement {
     .workspace.medium-sheet .panel-card > .phrase-output,
     .workspace.medium-sheet .panel-card > .sweeps-note {
       margin-top: var(--ptk-space-2);
+    }
+
+    .workspace.medium-sheet .panel-card > .panel-note {
+      margin-top: var(--ptk-space-2);
+      margin-bottom: var(--ptk-space-2);
     }
 
     .workspace.medium-sheet .panel-card .ghost-button {
@@ -802,7 +828,18 @@ export class PtkResortPage extends LitElement {
     }
 
     .workspace.fullscreen .gps-overlay-status {
-      bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+      bottom: 20px;
+    }
+
+    .map-frame.fullscreen .gps-overlay-status {
+      bottom: 20px;
+      transform: translateY(-20px);
+    }
+
+    .workspace.small .map-frame.fullscreen .gps-overlay-status,
+    .workspace.medium-sheet .map-frame.fullscreen .gps-overlay-status {
+      bottom: 20px;
+      transform: translateY(-20px);
     }
 
     .modal-layer {
@@ -958,6 +995,12 @@ export class PtkResortPage extends LitElement {
     const workspaceStyle = usesSheetLayout
       ? `--ptk-small-sheet-height:${this.getSmallSheetHeightForLayout()}px;`
       : nothing;
+    const floatingControlsLiftStyle =
+      usesSheetLayout && (this.fullscreenActive || !this.panelOpen)
+        ? "bottom:20px; transform: translateY(-20px);"
+        : this.fullscreenActive
+          ? "bottom:20px; transform: translateY(-20px);"
+          : nothing;
     return html`
       <section
         class=${classMap(workspaceClasses)}
@@ -1015,7 +1058,7 @@ export class PtkResortPage extends LitElement {
                 `
               : html`<div class="map-test-surface" aria-hidden="true"></div>`}
           </div>
-          <div class="map-controls">
+          <div class="map-controls" style=${floatingControlsLiftStyle}>
             <button
               class="ghost-button center"
               type="button"
@@ -1047,6 +1090,7 @@ export class PtkResortPage extends LitElement {
             ? html`<div
                 class="gps-overlay-status"
                 aria-label="GPS status overlay"
+                style=${floatingControlsLiftStyle}
               >
                 ${this.gpsStatusText}
               </div>`
@@ -1249,6 +1293,7 @@ export class PtkResortPage extends LitElement {
               class="tab-illustration"
               src=${resolveAppUrl("/assets/runs_check.png")}
               alt="Runs Check capability illustration"
+              @load=${this.handlePanelVisualContentLoad}
             />
           </section>
         `;
@@ -1264,6 +1309,7 @@ export class PtkResortPage extends LitElement {
               class="tab-illustration"
               src=${resolveAppUrl("/assets/sweeps.png")}
               alt="Sweeps capability illustration"
+              @load=${this.handlePanelVisualContentLoad}
             />
           </section>
         `;
