@@ -14,6 +14,7 @@ import { readResortSyncStatus } from "./resort-sync-status.js";
 import { setResortBoundary } from "./resort-boundary-set.js";
 import { syncResortLifts } from "./resort-sync-lifts.js";
 import { syncResortPeaks } from "./resort-sync-peaks.js";
+import { syncResortContours } from "./resort-sync-contours.js";
 import { syncResortRuns } from "./resort-sync-runs.js";
 import type { ResortWorkspace } from "./resort-workspace.js";
 import { readResortWorkspace, writeResortWorkspace } from "./resort-workspace.js";
@@ -1489,12 +1490,13 @@ async function runKnownResortMenu(args: {
       console.log("");
       console.log("Fetch/update other things");
       console.log("1. Peaks");
-      console.log("2. Back");
-      const extraSelected = (await args.rl.question("Select option (1-2): ")).trim();
-      if (extraSelected === "2" || extraSelected === "0") {
+      console.log("2. Contours");
+      console.log("3. Back");
+      const extraSelected = (await args.rl.question("Select option (1-3): ")).trim();
+      if (extraSelected === "3" || extraSelected === "0") {
         continue;
       }
-      if (extraSelected !== "1") {
+      if (extraSelected !== "1" && extraSelected !== "2") {
         console.log("Invalid selection.");
         continue;
       }
@@ -1504,16 +1506,66 @@ async function runKnownResortMenu(args: {
         console.log("Cannot sync peaks yet. Boundary is not ready. Run 'Fetch/update boundary' first.");
         continue;
       }
-      const peaksBufferInput = (
-        await args.rl.question("Peaks buffer meters (default 5000): ")
+      let cloned: ClonedResortVersion | null = null;
+      if (extraSelected === "1") {
+        const peaksBufferInput = (
+          await args.rl.question("Peaks buffer meters (default 5000): ")
+        ).trim();
+        const peaksBufferMeters =
+          peaksBufferInput.length === 0 ? 5000 : Number.parseInt(peaksBufferInput, 10);
+        if (!Number.isFinite(peaksBufferMeters) || peaksBufferMeters < 0) {
+          console.log("Invalid buffer. Enter a non-negative integer number of meters.");
+          continue;
+        }
+        try {
+          cloned = await createNextVersionClone({
+            resortsRoot: args.resortsRoot,
+            resortKey: args.resortKey,
+            workspacePath,
+            statusPath
+          });
+          const result = await syncResortPeaks({
+            workspacePath: cloned.workspacePath,
+            bufferMeters: peaksBufferMeters
+          });
+          await syncStatusFileFromWorkspace({
+            workspacePath: cloned.workspacePath,
+            statusPath: cloned.statusPath
+          });
+          workspacePath = cloned.workspacePath;
+          statusPath = cloned.statusPath;
+          console.log(`Created version ${cloned.version} for peaks update.`);
+          console.log(
+            `Peaks updated: count=${result.peakCount} buffer=${peaksBufferMeters}m checksum=${result.checksumSha256}`
+          );
+        } catch (error: unknown) {
+          if (cloned) {
+            await rm(cloned.versionPath, { recursive: true, force: true });
+          }
+          const message = error instanceof Error ? error.message : String(error);
+          console.log(`Peaks update failed: ${message}`);
+        }
+        continue;
+      }
+
+      const contourBufferInput = (
+        await args.rl.question("Contours buffer meters (default 2000): ")
       ).trim();
-      const peaksBufferMeters =
-        peaksBufferInput.length === 0 ? 5000 : Number.parseInt(peaksBufferInput, 10);
-      if (!Number.isFinite(peaksBufferMeters) || peaksBufferMeters < 0) {
+      const contourBufferMeters =
+        contourBufferInput.length === 0 ? 2000 : Number.parseInt(contourBufferInput, 10);
+      if (!Number.isFinite(contourBufferMeters) || contourBufferMeters < 0) {
         console.log("Invalid buffer. Enter a non-negative integer number of meters.");
         continue;
       }
-      let cloned: ClonedResortVersion | null = null;
+      const contourIntervalInput = (
+        await args.rl.question("Contour interval meters (default 20): ")
+      ).trim();
+      const contourIntervalMeters =
+        contourIntervalInput.length === 0 ? 20 : Number.parseInt(contourIntervalInput, 10);
+      if (!Number.isFinite(contourIntervalMeters) || contourIntervalMeters <= 0) {
+        console.log("Invalid contour interval. Enter an integer number of meters > 0.");
+        continue;
+      }
       try {
         cloned = await createNextVersionClone({
           resortsRoot: args.resortsRoot,
@@ -1521,9 +1573,10 @@ async function runKnownResortMenu(args: {
           workspacePath,
           statusPath
         });
-        const result = await syncResortPeaks({
+        const result = await syncResortContours({
           workspacePath: cloned.workspacePath,
-          bufferMeters: peaksBufferMeters
+          bufferMeters: contourBufferMeters,
+          contourIntervalMeters
         });
         await syncStatusFileFromWorkspace({
           workspacePath: cloned.workspacePath,
@@ -1531,16 +1584,16 @@ async function runKnownResortMenu(args: {
         });
         workspacePath = cloned.workspacePath;
         statusPath = cloned.statusPath;
-        console.log(`Created version ${cloned.version} for peaks update.`);
+        console.log(`Created version ${cloned.version} for contours update.`);
         console.log(
-          `Peaks updated: count=${result.peakCount} buffer=${peaksBufferMeters}m checksum=${result.checksumSha256}`
+          `Contours updated: count=${result.importedFeatureCount} interval=${contourIntervalMeters}m buffer=${contourBufferMeters}m checksum=${result.checksumSha256}`
         );
       } catch (error: unknown) {
         if (cloned) {
           await rm(cloned.versionPath, { recursive: true, force: true });
         }
         const message = error instanceof Error ? error.message : String(error);
-        console.log(`Peaks update failed: ${message}`);
+        console.log(`Contours update failed: ${message}`);
       }
       continue;
     }

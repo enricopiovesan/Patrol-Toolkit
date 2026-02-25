@@ -293,5 +293,29 @@
   - no DEM-based contour generation/bundling pipeline or complete offline contour source packaging in `v5`
   - no elevation labels/data UI beyond optional contour line label support
 
+## Slice 14: Automated DEM-Backed Contour Generation (CLI) (Conditional / Best-Effort)
+- Status: completed
+- Goal: automate vector contour generation in the CLI using a DEM provider and local contour tooling, so contours can be generated, versioned, published, and rendered like other bundled overlays.
+- Deliverables:
+  - CLI command `resort-sync-contours` (DEM fetch -> local contour generation -> contour import)
+  - interactive menu path `Fetch/update other things -> Contours`
+  - boundary-driven buffered area selection
+  - contour interval prompt/configuration
+  - clear provider/tooling preflight failures (API key / GDAL missing)
+  - immutable version + status sync integration
+- Test / Acceptance:
+  - contour sync works from CLI command and interactive menu
+  - generated contours publish and render via bundled vector data path
+  - peaks submenu remains functional
+  - app and extractor checks pass
+- PR outcome:
+  - automated DEM-backed contour generation is available behind local setup prerequisites
+- Outcome:
+  - `resort-sync-contours` implemented using OpenTopography DEM download + local `gdal_contour`
+  - `Fetch/update other things` submenu now supports both `Peaks` and `Contours`
+  - contour generation prompts for buffer and contour interval in the interactive CLI
+  - app vector contour rendering path (from `ResortPack.contours`) is reused with no runtime contour API dependency
+  - prerequisites documented/required for local use: `PTK_OPENTOPO_API_KEY` and `gdal_contour`
+
 ## Open Decisions (Track During v5)
 - None yet. Add only active decisions that block implementation or acceptance.
