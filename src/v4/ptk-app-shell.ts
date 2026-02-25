@@ -27,7 +27,7 @@ import {
   type SelectableResortPack
 } from "../resort-pack/catalog";
 import { ResortPackRepository, type ResortPackListItem } from "../resort-pack/repository";
-import { buildSelectResortPageViewModel } from "./select-resort-model";
+import { buildSelectResortPageViewModel, deriveResortCenterFromBoundary } from "./select-resort-model";
 import { buildResortPageViewModel } from "./resort-page-model";
 import {
   createInitialResortPageUiState,
@@ -253,6 +253,9 @@ export class PtkAppShell extends LitElement {
   private accessor selectPageMessage = "";
 
   @state()
+  private accessor selectResortCentersById: Record<string, LngLat | undefined> = {};
+
+  @state()
   private accessor installHint = "Install from browser menu (iOS: Share > Add to Home Screen).";
 
   @state()
@@ -432,7 +435,12 @@ export class PtkAppShell extends LitElement {
   }
 
   private renderSelectResortPage() {
-    const model = buildSelectResortPageViewModel(this.catalogEntries, this.installedPacks, this.searchQuery);
+    const cachedPosition = readStoredLastKnownPosition(safeStorage());
+    const userPosition = this.latestResortPosition?.coordinates ?? cachedPosition?.coordinates ?? null;
+    const model = buildSelectResortPageViewModel(this.catalogEntries, this.installedPacks, this.searchQuery, {
+      userPosition,
+      resortCentersById: this.selectResortCentersById
+    });
     return html`
       <ptk-select-resort-page
         .viewport=${this.viewport}
@@ -609,6 +617,7 @@ export class PtkAppShell extends LitElement {
 
       this.catalogEntries = selectLatestEligibleVersions(catalog);
       this.installedPacks = installedPacks;
+      await this.refreshSelectableResortCenters();
 
       if (activePackId) {
         const activeEntry = this.catalogEntries.find((entry) => entry.resortId === activePackId);
@@ -890,6 +899,37 @@ export class PtkAppShell extends LitElement {
     this.page = "resort";
   }
 
+  private async refreshSelectableResortCenters(): Promise<void> {
+    const centers: Record<string, LngLat | undefined> = {};
+
+    if (this.repository) {
+      for (const installed of this.installedPacks) {
+        const pack = await this.repository.getPack(installed.id);
+        const center = deriveResortCenterFromBoundary(pack?.boundary);
+        if (center) {
+          centers[installed.id] = center;
+        }
+      }
+    }
+
+    for (const entry of this.catalogEntries) {
+      if (centers[entry.resortId]) {
+        continue;
+      }
+      try {
+        const pack = await loadPackFromCatalogEntry(entry);
+        const center = deriveResortCenterFromBoundary(pack.boundary);
+        if (center) {
+          centers[entry.resortId] = center;
+        }
+      } catch {
+        // Best-effort sorting only. Keep unsortable resorts in fallback order.
+      }
+    }
+
+    this.selectResortCentersById = centers;
+  }
+
   private resetResortPageDerivedState(): void {
     this.latestResortPosition = null;
     this.previousRawResortPoint = null;
@@ -925,6 +965,7 @@ export class PtkAppShell extends LitElement {
       });
       requestPackAssetPrecache(pack);
       this.installedPacks = await this.repository.listPacks();
+      await this.refreshSelectableResortCenters();
       await this.repository.setActivePackId(entry.resortId);
       await this.openInstalledResort(entry.resortId, entry.resortName);
     } catch (error) {
@@ -1119,6 +1160,7 @@ export class PtkAppShell extends LitElement {
       }
 
       this.installedPacks = await this.repository.listPacks();
+      await this.refreshSelectableResortCenters();
       this.packUpdateCandidates = clearPackCandidateSelections(this.packUpdateCandidates);
       this.packUpdateResult = `Pack updates complete: ${successes.length} succeeded, ${failures.length} failed.${failures.length > 0 ? ` ${failures.join(" ")}` : ""}`;
       this.pushToast(this.packUpdateResult, failures.length > 0 ? "warning" : "success");

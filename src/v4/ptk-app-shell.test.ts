@@ -256,6 +256,77 @@ describe("ptk-app-shell", () => {
     expect(listCardNames(element)).toEqual(["Kicking Horse"]);
   });
 
+  it("sorts resorts nearest-first on select page when gps position is available", async () => {
+    repoState.installedPacks = [
+      {
+        id: "CA_Golden_Kicking_Horse",
+        name: "Kicking Horse",
+        updatedAt: "2026-03-01T11:00:00Z",
+        sourceVersion: "v4"
+      },
+      {
+        id: "CA_Fernie_Fernie",
+        name: "Fernie",
+        updatedAt: "2026-03-01T11:00:00Z",
+        sourceVersion: "v7"
+      }
+    ];
+    repoState.packsById.CA_Golden_Kicking_Horse = {
+      ...repoState.packsById.CA_Golden_Kicking_Horse,
+      boundary: {
+        type: "Polygon",
+        coordinates: [[[-117.1, 51.2], [-117.0, 51.2], [-117.0, 51.4], [-117.1, 51.4], [-117.1, 51.2]]]
+      }
+    };
+    repoState.packsById.CA_Fernie_Fernie = {
+      ...repoState.packsById.CA_Fernie_Fernie,
+      boundary: {
+        type: "Polygon",
+        coordinates: [[[-115.2, 49.4], [-115.0, 49.4], [-115.0, 49.6], [-115.2, 49.6], [-115.2, 49.4]]]
+      }
+    };
+    window.localStorage.setItem(
+      V4_LAST_POSITION_STORAGE_KEY,
+      JSON.stringify({ coordinates: [-117.03, 51.3], accuracy: 35, recordedAtIso: "2026-03-01T12:00:00Z" })
+    );
+
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+    await waitFor(() => countResortCards(element) === 2);
+    await waitFor(() => listCardNames(element)[0] === "Kicking Horse");
+    expect(listCardNames(element)).toEqual(["Kicking Horse", "Fernie"]);
+  });
+
+  it("keeps resorts without distance data after sortable resorts in original relative order", async () => {
+    repoState.installedPacks = [
+      {
+        id: "CA_Golden_Kicking_Horse",
+        name: "Kicking Horse",
+        updatedAt: "2026-03-01T11:00:00Z",
+        sourceVersion: "v4"
+      }
+    ];
+    repoState.packsById.CA_Golden_Kicking_Horse = {
+      ...repoState.packsById.CA_Golden_Kicking_Horse,
+      boundary: {
+        type: "Polygon",
+        coordinates: [[[-117.1, 51.2], [-117.0, 51.2], [-117.0, 51.4], [-117.1, 51.4], [-117.1, 51.2]]]
+      }
+    };
+    window.localStorage.setItem(
+      V4_LAST_POSITION_STORAGE_KEY,
+      JSON.stringify({ coordinates: [-117.03, 51.3], accuracy: 35, recordedAtIso: "2026-03-01T12:00:00Z" })
+    );
+
+    await import("./ptk-app-shell");
+    const element = document.createElement("ptk-app-shell") as HTMLElement;
+    document.body.appendChild(element);
+    await waitFor(() => countResortCards(element) === 2);
+    await waitFor(() => listCardNames(element)[0] === "Kicking Horse");
+    expect(listCardNames(element)).toEqual(["Kicking Horse", "Fernie"]);
+  });
+
   it("opens blocking install state when a non-installed resort is selected", async () => {
     await import("./ptk-app-shell");
     setWindowWidth(1024);
@@ -285,7 +356,13 @@ describe("ptk-app-shell", () => {
   });
 
   it("shows retry then cancel flow in blocking install state when install fails", async () => {
-    loadPackFromCatalogEntryMock.mockRejectedValueOnce(new Error("download failed"));
+    loadPackFromCatalogEntryMock.mockImplementation(async (...args: unknown[]) => {
+      const entry = args[0] as SelectableResortPack | undefined;
+      if (entry?.resortId === "CA_Golden_Kicking_Horse") {
+        throw new Error("download failed");
+      }
+      return packFixture;
+    });
     await import("./ptk-app-shell");
     const element = document.createElement("ptk-app-shell") as HTMLElement;
     document.body.appendChild(element);
@@ -327,7 +404,13 @@ describe("ptk-app-shell", () => {
 
     dispatchSearchChange(element, "fernie");
     await waitFor(() => countResortCards(element) === 1);
-    loadPackFromCatalogEntryMock.mockRejectedValueOnce(new Error("download failed"));
+    loadPackFromCatalogEntryMock.mockImplementation(async (...args: unknown[]) => {
+      const entry = args[0] as SelectableResortPack | undefined;
+      if (entry?.resortId === "CA_Fernie_Fernie") {
+        throw new Error("download failed");
+      }
+      return packFixture;
+    });
     dispatchResortSelect(element, "CA_Fernie_Fernie");
     await waitFor(() => readShellAttr(element, "page") === "install-blocking");
     clickButtonByLabel(element, "Install resort data");

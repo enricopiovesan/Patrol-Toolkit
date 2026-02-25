@@ -1,6 +1,8 @@
 import type { SelectableResortPack } from "../resort-pack/catalog";
 import type { ResortPackListItem } from "../resort-pack/repository";
 import { resolveAppUrl } from "../runtime/base-url";
+import { distanceMetersBetween } from "../geometry/primitives";
+import type { GeoPolygon, LngLat } from "../resort-pack/types";
 
 export type SelectResortCardStatus =
   | "installed"
@@ -25,10 +27,16 @@ export type SelectResortPageViewModel = {
   cards: SelectResortCardViewModel[];
 };
 
+export type SelectResortSortingInputs = {
+  userPosition?: LngLat | null;
+  resortCentersById?: Record<string, LngLat | undefined>;
+};
+
 export function buildSelectResortPageViewModel(
   catalogEntries: SelectableResortPack[],
   installedPacks: ResortPackListItem[],
-  query: string
+  query: string,
+  sorting?: SelectResortSortingInputs
 ): SelectResortPageViewModel {
   const normalizedQuery = query.trim();
   const installedById = new Map(installedPacks.map((item) => [item.id, item]));
@@ -38,10 +46,49 @@ export function buildSelectResortPageViewModel(
     .filter((card) => matchesSearch(card, normalizedQuery))
     .sort((left, right) => left.resortName.localeCompare(right.resortName));
 
+  const sortedCards = sortSelectResortCardsByDistance(cards, {
+    userPosition: sorting?.userPosition ?? null,
+    resortCentersById: sorting?.resortCentersById ?? {}
+  });
+
   return {
     query,
-    cards
+    cards: sortedCards
   };
+}
+
+export function sortSelectResortCardsByDistance(
+  cards: SelectResortCardViewModel[],
+  input: {
+    userPosition: LngLat | null;
+    resortCentersById: Record<string, LngLat | undefined>;
+  }
+): SelectResortCardViewModel[] {
+  if (!input.userPosition) {
+    return cards;
+  }
+
+  const sortable: Array<{ card: SelectResortCardViewModel; distanceMeters: number }> = [];
+  const unsortable: SelectResortCardViewModel[] = [];
+
+  for (const card of cards) {
+    const center = input.resortCentersById[card.resortId];
+    if (!center) {
+      unsortable.push(card);
+      continue;
+    }
+    sortable.push({
+      card,
+      distanceMeters: distanceMetersBetween(input.userPosition, center)
+    });
+  }
+
+  if (sortable.length === 0) {
+    return cards;
+  }
+
+  sortable.sort((left, right) => left.distanceMeters - right.distanceMeters);
+  return [...sortable.map((item) => item.card), ...unsortable];
 }
 
 function toCardViewModel(
@@ -146,4 +193,35 @@ function humanizeToken(token: string): string {
     .filter((part) => part.length > 0)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ");
+}
+
+export function deriveResortCenterFromBoundary(boundary: GeoPolygon | undefined): LngLat | null {
+  if (!boundary) {
+    return null;
+  }
+  const ring = boundary.coordinates[0];
+  if (!ring || ring.length === 0) {
+    return null;
+  }
+
+  let minLng = Number.POSITIVE_INFINITY;
+  let minLat = Number.POSITIVE_INFINITY;
+  let maxLng = Number.NEGATIVE_INFINITY;
+  let maxLat = Number.NEGATIVE_INFINITY;
+
+  for (const [lng, lat] of ring) {
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+      continue;
+    }
+    minLng = Math.min(minLng, lng);
+    minLat = Math.min(minLat, lat);
+    maxLng = Math.max(maxLng, lng);
+    maxLat = Math.max(maxLat, lat);
+  }
+
+  if (!Number.isFinite(minLng) || !Number.isFinite(minLat) || !Number.isFinite(maxLng) || !Number.isFinite(maxLat)) {
+    return null;
+  }
+
+  return [(minLng + maxLng) / 2, (minLat + maxLat) / 2];
 }
