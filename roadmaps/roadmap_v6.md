@@ -101,7 +101,7 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - no production rendering behavior changed in this slice
 
 ## Slice 2: Double-Black Run Symbology Differentiation (Dashed)
-- Status: planned
+- Status: completed
 - Goal: make double-black runs visually distinct from black runs without reducing readability.
 - Deliverables:
   - identify double-black run classification mapping in existing run style logic
@@ -114,6 +114,11 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - dashed rendering does not break labels/arrow placement
   - no regressions to green/blue/black styles
 - PR outcome: run symbology is improved for patrol readability.
+- Outcome:
+  - double-black runs already render with dashed line styling in existing run map layer paint (`line-dasharray` by `difficulty === double-black`)
+  - black runs remain solid and visually distinct
+  - deterministic style/layer tests already cover the dashed behavior (`src/map/run-style.test.ts`, `src/map/run-layers.test.ts`)
+  - no additional production code changes required in this slice
 
 ## Slice 3: Basemap Layer Availability Audit (Offline Vector Tile Coverage)
 - Status: planned
