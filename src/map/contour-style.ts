@@ -1,3 +1,16 @@
+import {
+  TERRAIN_CONTOUR_COLORS,
+  TERRAIN_CONTOUR_LABEL_FONT,
+  TERRAIN_CONTOUR_LABEL_HALO_WIDTH,
+  TERRAIN_CONTOUR_LABEL_MAX_ANGLE,
+  TERRAIN_CONTOUR_LABEL_OPACITY_STOPS,
+  TERRAIN_CONTOUR_LABEL_SIZE_STOPS,
+  TERRAIN_CONTOUR_LABEL_SPACING,
+  TERRAIN_CONTOUR_LINE_OPACITY_STOPS,
+  TERRAIN_CONTOUR_LINE_WIDTH_STOPS,
+  buildMajorContourFilterExpression
+} from "./terrain-config";
+
 export function buildContourLinePaint(): {
   "line-color": unknown[];
   "line-width": unknown[];
@@ -6,22 +19,17 @@ export function buildContourLinePaint(): {
   return {
     "line-color": [
       "case",
-      ["all", ["has", "elevationMeters"], ["==", ["%", ["to-number", ["get", "elevationMeters"]], 100], 0]],
-      "#334155",
-      "#64748b"
+      buildMajorContourFilterExpression(),
+      TERRAIN_CONTOUR_COLORS.major,
+      TERRAIN_CONTOUR_COLORS.minor
     ],
     "line-width": [
       "interpolate",
       ["linear"],
       ["zoom"],
-      11,
-      0.8,
-      13,
-      1.05,
-      16,
-      1.6
+      ...TERRAIN_CONTOUR_LINE_WIDTH_STOPS
     ],
-    "line-opacity": ["interpolate", ["linear"], ["zoom"], 10.5, 0, 12, 0.275, 15, 0.41]
+    "line-opacity": ["interpolate", ["linear"], ["zoom"], ...TERRAIN_CONTOUR_LINE_OPACITY_STOPS]
   };
 }
 
@@ -41,10 +49,10 @@ export function buildContourLabelLayout(): {
       ""
     ],
     "symbol-placement": "line",
-    "symbol-spacing": 260,
-    "text-size": ["interpolate", ["linear"], ["zoom"], 13, 10, 16, 11],
-    "text-font": ["Noto Sans Regular"],
-    "text-max-angle": 40
+    "symbol-spacing": TERRAIN_CONTOUR_LABEL_SPACING,
+    "text-size": ["interpolate", ["linear"], ["zoom"], ...TERRAIN_CONTOUR_LABEL_SIZE_STOPS],
+    "text-font": [...TERRAIN_CONTOUR_LABEL_FONT],
+    "text-max-angle": TERRAIN_CONTOUR_LABEL_MAX_ANGLE
   };
 }
 
@@ -55,9 +63,9 @@ export function buildContourLabelPaint(): {
   "text-opacity": unknown[];
 } {
   return {
-    "text-color": "#1f2937",
-    "text-halo-color": "#f8fafc",
-    "text-halo-width": 1.2,
-    "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0, 13.5, 0.375, 16, 0.45]
+    "text-color": TERRAIN_CONTOUR_COLORS.label,
+    "text-halo-color": TERRAIN_CONTOUR_COLORS.labelHalo,
+    "text-halo-width": TERRAIN_CONTOUR_LABEL_HALO_WIDTH,
+    "text-opacity": ["interpolate", ["linear"], ["zoom"], ...TERRAIN_CONTOUR_LABEL_OPACITY_STOPS]
   };
 }
