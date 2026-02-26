@@ -384,6 +384,8 @@ export class MapView extends LitElement {
 
     const terrainBandLayers = buildTerrainBandLayers(RESORT_TERRAIN_BANDS_SOURCE_ID);
     this.map.addLayer(terrainBandLayers.fillLayer as never);
+    this.map.addLayer(terrainBandLayers.darkShadeLayer as never);
+    this.map.addLayer(terrainBandLayers.lightShadeLayer as never);
 
     const areaLayers = buildAreaLayers(RESORT_AREAS_SOURCE_ID);
     this.map.addLayer(areaLayers.fillLayer as never);
