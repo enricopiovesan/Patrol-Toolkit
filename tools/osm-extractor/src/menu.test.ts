@@ -2552,7 +2552,7 @@ describe("menu interactive flows", () => {
       expect(sharedStyle.sources?.basemap?.url).toBe("pmtiles://./base.pmtiles");
       const layerIds = (sharedStyle.layers ?? []).map((layer) => layer.id);
       expect(layerIds).toEqual(
-        expect.arrayContaining(["water", "waterway", "water-name", "transportation", "boundary"])
+        expect.arrayContaining(["water", "waterway", "water-name", "waterway-name", "transportation", "boundary"])
       );
       const waterwayLayer = (sharedStyle.layers ?? []).find((layer) => layer.id === "waterway");
       expect(waterwayLayer?.["source-layer"]).toBe("waterway");
@@ -2561,6 +2561,11 @@ describe("menu interactive flows", () => {
       expect(waterNameLayer?.type).toBe("symbol");
       expect(waterNameLayer?.minzoom).toBe(11);
       expect(waterNameLayer?.layout?.["symbol-placement"]).toBe("line");
+      const waterwayNameLayer = (sharedStyle.layers ?? []).find((layer) => layer.id === "waterway-name");
+      expect(waterwayNameLayer?.["source-layer"]).toBe("waterway");
+      expect(waterwayNameLayer?.type).toBe("symbol");
+      expect(waterwayNameLayer?.minzoom).toBe(12);
+      expect(waterwayNameLayer?.layout?.["symbol-placement"]).toBe("line");
     } finally {
       restoreProcessEnv(originalEnv);
       await rm(root, { recursive: true, force: true });

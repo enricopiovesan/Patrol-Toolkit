@@ -2,14 +2,14 @@
   "schemaVersion": "1.0.0",
   "export": {
     "resortKey": "CA_Fernie_Fernie",
-    "version": "v9",
-    "exportedAt": "2026-02-26T03:08:37.648Z"
+    "version": "v10",
+    "exportedAt": "2026-02-26T04:51:40.264Z"
   },
   "status": {
     "schemaVersion": "1.0.0",
     "resortKey": "CA_Fernie_Fernie",
-    "version": "v9",
-    "createdAt": "2026-02-26T03:07:08.135Z",
+    "version": "v10",
+    "createdAt": "2026-02-26T04:51:04.849Z",
     "query": {
       "name": "Fernie",
       "countryCode": "CA",
@@ -49,9 +49,9 @@
       "peaks": {
         "status": "complete",
         "featureCount": 10,
-        "artifactPath": "../../resorts/CA_Fernie_Fernie/v8/peaks.geojson",
+        "artifactPath": "../../resorts/CA_Fernie_Fernie/v10/peaks.geojson",
         "checksumSha256": "4502ec0aa8ed7f17b27146dc75633f7c58eb191c89503f7e1b3f78b50187fcaf",
-        "updatedAt": "2026-02-26T03:06:38.079Z"
+        "updatedAt": "2026-02-26T04:51:04.853Z"
       },
       "contours": {
         "status": "complete",
@@ -67,25 +67,25 @@
     },
     "manualValidation": {
       "validated": true,
-      "validatedAt": "2026-02-26T03:08:37.644Z",
+      "validatedAt": "2026-02-26T04:51:40.260Z",
       "validatedBy": null,
       "notes": null,
       "layers": {
         "boundary": {
           "validated": true,
-          "validatedAt": "2026-02-26T03:08:29.729Z",
+          "validatedAt": "2026-02-26T04:51:22.225Z",
           "validatedBy": null,
           "notes": null
         },
         "runs": {
           "validated": true,
-          "validatedAt": "2026-02-26T03:08:33.971Z",
+          "validatedAt": "2026-02-26T04:51:33.702Z",
           "validatedBy": null,
-          "notes": null
+          "notes": "8"
         },
         "lifts": {
           "validated": true,
-          "validatedAt": "2026-02-26T03:08:37.644Z",
+          "validatedAt": "2026-02-26T04:51:40.260Z",
           "validatedBy": null,
           "notes": null
         }
@@ -137,8 +137,8 @@
       "peaks": {
         "status": "complete",
         "queryHash": "412dee3b511245cfe6283e29d35122f44aaaba44a83a3140d28d7622bca6b962",
-        "updatedAt": "2026-02-26T03:06:38.079Z",
-        "artifactPath": "../../resorts/CA_Fernie_Fernie/v8/peaks.geojson",
+        "updatedAt": "2026-02-26T04:51:04.853Z",
+        "artifactPath": "../../resorts/CA_Fernie_Fernie/v10/peaks.geojson",
         "featureCount": 10,
         "checksumSha256": "4502ec0aa8ed7f17b27146dc75633f7c58eb191c89503f7e1b3f78b50187fcaf"
       },
