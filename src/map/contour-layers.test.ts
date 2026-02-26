@@ -4,6 +4,7 @@ import {
   RESORT_CONTOURS_LABEL_LAYER_ID,
   RESORT_CONTOURS_LABEL_LAYER_MIN_ZOOM,
   RESORT_CONTOURS_LINE_LAYER_ID,
+  TERRAIN_RENDER_LAYER_ORDER_CONTRACT,
   buildContourLayers
 } from "./contour-layers";
 
@@ -21,5 +22,8 @@ describe("contour-layers", () => {
     expect(result.labelLayer.minzoom).toBe(RESORT_CONTOURS_LABEL_LAYER_MIN_ZOOM);
     expect(result.labelLayer.filter).toEqual(RESORT_CONTOURS_LABEL_FILTER);
   });
-});
 
+  it("exports terrain render order contract with contours between areas and peaks", () => {
+    expect(TERRAIN_RENDER_LAYER_ORDER_CONTRACT).toEqual(["areas", "contours", "peaks", "runs", "lifts"]);
+  });
+});

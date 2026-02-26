@@ -195,7 +195,7 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - added extractor test coverage asserting POI layers and key configuration are present in generated fallback style
 
 ## Slice 7: Terrain Render Config Foundation (Vector-Only)
-- Status: planned
+- Status: completed
 - Goal: create a configuration-driven terrain style foundation before adding full terrain visual effects.
 - Deliverables:
   - central terrain style config module/constants (colors, contour widths/opacities, label density, zoom thresholds)
@@ -206,6 +206,11 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - style config values are centralized and unit tested
   - no terrain style values hardcoded across multiple modules after refactor
 - PR outcome: terrain styling becomes tunable and maintainable.
+- Outcome (completed):
+  - added centralized terrain config module `/Users/piovese/Documents/Patrol Toolkit/src/map/terrain-config.ts` for contour intervals, colors, widths/opacities, label thresholds, and terrain overlay layer order contract
+  - added shared/tested contour classification + filter helpers (`isMajorContourElevationMeters`, major/label filter expressions)
+  - refactored `/Users/piovese/Documents/Patrol Toolkit/src/map/contour-style.ts` and `/Users/piovese/Documents/Patrol Toolkit/src/map/contour-layers.ts` to consume terrain config values instead of local hardcoded constants
+  - added unit tests `/Users/piovese/Documents/Patrol Toolkit/src/map/terrain-config.test.ts` and updated contour layer/style tests to validate centralized config and render-order contract
 
 ## Slice 8: Contour Hierarchy Refinement + Major Labels (Vector Overlay)
 - Status: planned
