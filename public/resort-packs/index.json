@@ -4,8 +4,8 @@
     "channel": "stable",
     "appVersion": "0.0.1",
     "manifestUrl": "/releases/stable-manifest.json",
-    "manifestSha256": "4968f642e749bf885e96aa9fd2a0c1a2652f63ab221124296ecbbba581befa85",
-    "createdAt": "2026-02-26T00:13:15.820Z"
+    "manifestSha256": "cec54a1919b779341333d30e536c56e9c0064ecbbc283ce4da7b9b471507acfe",
+    "createdAt": "2026-02-26T03:08:37.648Z"
   },
   "resorts": [
     {
@@ -36,10 +36,10 @@
       "resortName": "Fernie",
       "versions": [
         {
-          "version": "v7",
+          "version": "v9",
           "approved": true,
           "packUrl": "/packs/CA_Fernie_Fernie.latest.validated.json",
-          "createdAt": "2026-02-21T05:06:46.868Z",
+          "createdAt": "2026-02-26T03:08:37.648Z",
           "compatibility": {
             "minAppVersion": "0.0.1",
             "supportedPackSchemaVersions": [
@@ -47,7 +47,7 @@
             ]
           },
           "checksums": {
-            "packSha256": "641281200c8d5a672a5327f9bac52b1109bc4084e6b9bb09b1ee4f7e0bacd2d5",
+            "packSha256": "29f8d7d8e68eb23cb10a981863beb65f0008f930d07d6fe8b4f6667f97870602",
             "pmtilesSha256": "51ccdfc236f9c53dc072971611f28c90a9f3e0c8b05c9ce94e305ad914af0b2a",
             "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
           }

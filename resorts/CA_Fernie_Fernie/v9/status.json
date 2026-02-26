@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_Fernie_Fernie",
+  "version": "v9",
+  "createdAt": "2026-02-26T03:07:08.135Z",
+  "query": {
+    "name": "Fernie",
+    "countryCode": "CA",
+    "town": "Fernie"
+  },
+  "selection": {
+    "osmType": "relation",
+    "osmId": 2221420,
+    "displayName": "Fernie, Regional District of East Kootenay, British Columbia, Canada",
+    "center": [
+      -115.062867,
+      49.5041747
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v5/boundary.geojson",
+      "checksumSha256": "863977b49f7bc4ff264fb43c45136b7df8605886b82056e0985e6511780e9457",
+      "updatedAt": "2026-02-20T21:37:14.566Z"
+    },
+    "runs": {
+      "status": "complete",
+      "featureCount": 103,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v6/runs.geojson",
+      "checksumSha256": "c8507ff5ba351c051cb741dfc9c809796970fc92c9a725630eefccb6c5c76e66",
+      "updatedAt": "2026-02-20T21:37:19.394Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "featureCount": 20,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v7/lifts.geojson",
+      "checksumSha256": "fe43a5da5c71e7e5424615e09982a551e0a6d4d8f444cdacb5ad87e00b7f9e9b",
+      "updatedAt": "2026-02-20T21:37:27.574Z"
+    },
+    "peaks": {
+      "status": "complete",
+      "featureCount": 10,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v8/peaks.geojson",
+      "checksumSha256": "4502ec0aa8ed7f17b27146dc75633f7c58eb191c89503f7e1b3f78b50187fcaf",
+      "updatedAt": "2026-02-26T03:06:38.079Z"
+    },
+    "contours": {
+      "status": "complete",
+      "featureCount": 127,
+      "artifactPath": "../../resorts/CA_Fernie_Fernie/v9/contours.geojson",
+      "checksumSha256": "266fc52a9af279866c701fbc0fc559d4ec42e07c4b6aaad17831cd37af0590d7",
+      "updatedAt": "2026-02-26T03:07:08.137Z"
+    }
+  },
+  "readiness": {
+    "overall": "ready",
+    "issues": []
+  },
+  "manualValidation": {
+    "validated": true,
+    "validatedAt": "2026-02-26T03:08:37.644Z",
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": true,
+        "validatedAt": "2026-02-26T03:08:29.729Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": true,
+        "validatedAt": "2026-02-26T03:08:33.971Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": true,
+        "validatedAt": "2026-02-26T03:08:37.644Z",
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}
