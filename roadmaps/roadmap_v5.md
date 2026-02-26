@@ -250,7 +250,7 @@
   - v5 roadmap is complete
 
 ## Slice 12: Aerial View Prototype Implementation (Conditional / Best-Effort)
-- Status: planned
+- Status: completed
 - Goal: implement an online-only aerial map prototype if a free-tier provider path is enabled and compliant.
 - Deliverables:
   - add config-gated aerial basemap integration path (provider/key-based)
@@ -266,6 +266,10 @@
   - no regressions to default vector/offline basemap path
 - PR outcome:
   - either a shipped prototype behind config (with docs), or a documented no-ship result with specific blocker(s)
+- Outcome:
+  - shipped config-gated online-only aerial prototype (`MapTiler`) in Resort Page map controls
+  - aerial toggle is hidden when config is absent and auto-falls back to standard mode when offline
+  - overlays remain unchanged on top of aerial basemap; offline pack generation remains vector-only
 
 ## Slice 13: Contours / Elevation Prototype Implementation (Conditional / Best-Effort)
 - Status: completed

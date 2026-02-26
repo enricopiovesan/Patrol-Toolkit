@@ -2,8 +2,8 @@
 
 ## Outcome
 
-- **v5 decision:** no shipped aerial-view toggle in `v5`.
-- **Prototype path:** feasible for **online-only** use behind config (recommended provider: MapTiler Satellite).
+- **v5 shipped:** config-gated **online-only aerial-view prototype** in the Resort Page (MapTiler Satellite).
+- **Provider path:** `MapTiler` raster tiles behind env config (`VITE_AERIAL_PROVIDER`, `VITE_MAPTILER_KEY`).
 - **Offline aerial basemap:** **no-ship in v5** due licensing/redistribution/packaging constraints and data volume.
 
 ## Scope and constraints
@@ -67,9 +67,9 @@ Reasons:
 - no-server local build workflow becomes substantially heavier
 - verification burden for attribution/terms would exceed v5 scope
 
-## Recommended prototype integration path (future slice / post-v5)
+## Implemented prototype path (v5 Slice 12)
 
-If aerial view is prototyped later, use this path:
+Implemented path:
 
 1. Add config-gated aerial provider settings (environment variables)
    - example:
@@ -84,19 +84,28 @@ If aerial view is prototyped later, use this path:
    - keep resort overlays (boundary/runs/lifts/labels) unchanged
    - preserve existing offline fallback behavior when offline
 
-4. Add explicit attribution in UI when aerial mode is active
+4. Attribution
+   - attribution is provided through the raster source style metadata and MapLibre attribution control
 
 5. Keep aerial mode out of offline pack generation in v5
    - no aerial imagery in resort bundles
 
-## UX guidance for future prototype
+## UX behavior (implemented)
 
 - Aerial mode must be clearly marked as **online only**
-- If user is offline, hide/disable aerial toggle and show a toast
+- If user is offline, aerial toggle is disabled and switching offline while aerial is active auto-falls back to standard mode with a toast
 - Toggle should never break the current vector/offline map mode
 
 ## v5 ship / no-ship summary
 
-- **Ship in v5:** documented feasibility outcome + prototype integration path
-- **Do not ship in v5:** user-facing aerial toggle, offline aerial packaging
+- **Ship in v5:** config-gated user-facing aerial toggle prototype (online-only), documented constraints
+- **Do not ship in v5:** offline aerial packaging in resort bundles
 
+## Local configuration (prototype)
+
+Set env vars before running the app:
+
+- `VITE_AERIAL_PROVIDER=maptiler`
+- `VITE_MAPTILER_KEY=<your_maptiler_key>`
+
+If config is missing/invalid, the aerial toggle is hidden and the app continues using the existing vector/offline basemap path.

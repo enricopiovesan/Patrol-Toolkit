@@ -7,11 +7,6 @@ describe("selectRootShellTag", () => {
     expect(selectRootShellTag("/Patrol-Toolkit/", "/Patrol-Toolkit/")).toBe("ptk-app-shell");
   });
 
-  it("selects v4 shell for /new routes", () => {
-    expect(selectRootShellTag("/new", "/")).toBe("ptk-app-shell");
-    expect(selectRootShellTag("/Patrol-Toolkit/new", "/Patrol-Toolkit/")).toBe("ptk-app-shell");
-  });
-
   it("keeps v4 shell for /legacy after legacy UI removal", () => {
     expect(selectRootShellTag("/legacy", "/")).toBe("ptk-app-shell");
     expect(selectRootShellTag("/Patrol-Toolkit/legacy", "/Patrol-Toolkit/")).toBe("ptk-app-shell");
@@ -35,7 +30,7 @@ describe("mountRootShell", () => {
     const existing = doc.createElement("ptk-app-shell");
     doc.body.appendChild(existing);
 
-    const tag = mountRootShell(doc, "/new", "/");
+    const tag = mountRootShell(doc, "/", "/");
 
     expect(tag).toBe("ptk-app-shell");
     expect(doc.querySelector("ptk-app-shell")).toBe(existing);

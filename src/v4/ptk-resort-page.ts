@@ -529,6 +529,16 @@ export class PtkResortPage extends LitElement {
       content: "⌖";
     }
 
+    .workspace.medium .map-controls .ghost-button.aerial-on::before,
+    .workspace.large .map-controls .ghost-button.aerial-on::before {
+      content: "◩";
+    }
+
+    .workspace.medium .map-controls .ghost-button.aerial-off::before,
+    .workspace.large .map-controls .ghost-button.aerial-off::before {
+      content: "◫";
+    }
+
     .workspace.medium .map-controls .ghost-button.fullscreen::before,
     .workspace.large .map-controls .ghost-button.fullscreen::before {
       content: "⛶";
@@ -559,6 +569,14 @@ export class PtkResortPage extends LitElement {
 
     .workspace.small .map-controls .ghost-button.center::before {
       content: "⌖";
+    }
+
+    .workspace.small .map-controls .ghost-button.aerial-on::before {
+      content: "◩";
+    }
+
+    .workspace.small .map-controls .ghost-button.aerial-off::before {
+      content: "◫";
     }
 
     .workspace.small .map-controls .ghost-button.fullscreen::before {
@@ -914,6 +932,15 @@ export class PtkResortPage extends LitElement {
   @property({ type: Boolean })
   accessor fullscreenActive = false;
 
+  @property({ type: Boolean })
+  accessor aerialToggleVisible = false;
+
+  @property({ type: Boolean })
+  accessor aerialModeActive = false;
+
+  @property({ type: Boolean })
+  accessor aerialToggleDisabled = false;
+
   @property({ type: String })
   accessor shellTheme: "default" | "high-contrast" = "default";
 
@@ -1048,6 +1075,7 @@ export class PtkResortPage extends LitElement {
               ? html`
                   <map-view
                     .pack=${this.pack}
+                    .aerialMode=${this.aerialModeActive}
                     .showStatusBar=${false}
                     .showBuiltInControls=${false}
                     @position-update=${this.handleMapPositionUpdate}
@@ -1067,6 +1095,21 @@ export class PtkResortPage extends LitElement {
             >
               Center to user position
             </button>
+            ${this.aerialToggleVisible
+              ? html`
+                  <button
+                    class="ghost-button ${this.aerialModeActive ? "aerial-on" : "aerial-off"}"
+                    type="button"
+                    ?disabled=${this.aerialToggleDisabled}
+                    aria-label=${this.aerialModeActive
+                      ? "Switch to standard map"
+                      : "Switch to aerial map"}
+                    @click=${this.handleToggleAerial}
+                  >
+                    ${this.aerialModeActive ? "Standard map" : "Aerial map"}
+                  </button>
+                `
+              : nothing}
             ${this.fullscreenSupported
               ? html`
                   <button
@@ -1380,6 +1423,15 @@ export class PtkResortPage extends LitElement {
     mapView?.recenterToUserPosition();
     this.dispatchEvent(
       new CustomEvent("ptk-resort-center-user", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private readonly handleToggleAerial = (): void => {
+    this.dispatchEvent(
+      new CustomEvent("ptk-resort-toggle-aerial", {
         bubbles: true,
         composed: true,
       }),

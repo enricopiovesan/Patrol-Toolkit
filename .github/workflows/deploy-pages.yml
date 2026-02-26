@@ -34,6 +34,8 @@ jobs:
         run: npm run build
         env:
           PTK_VITE_BASE: /Patrol-Toolkit/
+          VITE_AERIAL_PROVIDER: maptiler
+          VITE_MAPTILER_KEY: ${{ secrets.VITE_MAPTILER_KEY }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
