@@ -324,7 +324,7 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - manual QA signoff completed (`all good`) with no additional terrain/overlay tuning changes required in this slice
 
 ## Slice 13: Basemap Generation Style Profile Upgrade (Optional, Data-Driven)
-- Status: planned
+- Status: completed
 - Goal: improve source basemap style/profile generation if current PMTiles lack required vector data richness for v6 context layers.
 - Deliverables:
   - evaluate whether current Planetiler/OpenMapTiles profile includes sufficient features for buildings/POIs/water labels/trees
@@ -334,6 +334,11 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - any generation changes are measurable and justified
   - offline basemap generation/publish workflow remains stable
 - PR outcome: either no change needed (data already sufficient) or targeted basemap generation improvements documented and implemented.
+- Outcome (completed):
+  - completed a data-driven evaluation in `/Users/piovese/Documents/Patrol Toolkit/docs/feasibility/v6-basemap-profile-upgrade-evaluation.md`
+  - confirmed current `openmaptiles-planetiler` output is sufficient for v6 context layers (buildings, trees, water features/labels, restaurant POIs)
+  - documented that v6 requirements were satisfied via style augmentation (fallback + provider-generated styles) without changing the basemap generation profile
+  - recorded no-change decision for provider/profile command/config to preserve offline basemap workflow stability
 
 ## Slice 14: v6 Closeout (Spec-to-Code Audit, Performance, Docs)
 - Status: planned
