@@ -80,7 +80,7 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - no noticeable lag during standard pan/zoom on target phones
 
 ## Slice 1: v6 Spec + Map Style Strategy Gate (No Production Behavior Changes)
-- Status: planned
+- Status: completed
 - Goal: lock v6 map styling goals, layer priority rules, and acceptance criteria before implementation.
 - Deliverables:
   - document v6 map style goals and visual acceptance criteria (terrain + basemap context)
@@ -95,6 +95,10 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - no unresolved ambiguity on v6 symbology/terrain goals
   - all slice acceptance criteria references are clear enough for incremental PR review
 - PR outcome: implementation slices can proceed with stable visual targets and rules.
+- Outcome:
+  - map style strategy spec added: `/Users/piovese/Documents/Patrol Toolkit/spec/XD/map_style_strategy_spec_v1.md`
+  - locked layer priority, basemap-vs-overlay architecture split, double-black dashed symbology direction, terrain vector-only constraints, and v6 terrain testing strategy
+  - no production rendering behavior changed in this slice
 
 ## Slice 2: Double-Black Run Symbology Differentiation (Dashed)
 - Status: planned
