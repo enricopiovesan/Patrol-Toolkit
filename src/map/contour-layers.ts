@@ -83,8 +83,8 @@ export function buildContourLayers(sourceId: string): {
       source: sourceId,
       minzoom: RESORT_CONTOURS_LABEL_LAYER_MIN_ZOOM,
       filter: RESORT_CONTOURS_LABEL_FILTER,
-      layout: buildContourLabelLayout(),
-      paint: buildContourLabelPaint()
+      layout: buildContourLabelLayout("major"),
+      paint: buildContourLabelPaint("major")
     },
     minorLabelLayer: {
       id: RESORT_CONTOURS_MINOR_LABEL_LAYER_ID,
@@ -92,8 +92,8 @@ export function buildContourLayers(sourceId: string): {
       source: sourceId,
       minzoom: RESORT_CONTOURS_MINOR_LABEL_LAYER_MIN_ZOOM,
       filter: RESORT_CONTOURS_MINOR_LABEL_FILTER,
-      layout: buildContourLabelLayout(),
-      paint: buildContourLabelPaint()
+      layout: buildContourLabelLayout("minor"),
+      paint: buildContourLabelPaint("minor")
     }
   };
 }

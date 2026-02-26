@@ -282,7 +282,7 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - limitation (documented): this is a band-lightness depth cue, not true aspect/slope hillshade; visual impact is intentionally modest pending Slice 12 QA tuning
 
 ## Slice 11: Peaks Label System + Elevation Label Readability Polish
-- Status: planned
+- Status: completed
 - Goal: improve peak and elevation labeling so they stay legible over terrain layers and contours.
 - Deliverables:
   - refine `peak name + elevation` label placement/zoom rules
@@ -293,6 +293,17 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - contour labels remain legible but not dominant
   - no significant label clutter regressions in peak-dense areas
 - PR outcome: terrain labels feel intentional and readable.
+- Outcome (completed):
+  - refined peak label placement in `/Users/piovese/Documents/Patrol Toolkit/src/map/peak-layers.ts` using variable anchors + radial offset to reduce collisions with runs/contours/lifts
+  - kept peak marker and label styling configuration-driven via new centralized terrain config constants (`/Users/piovese/Documents/Patrol Toolkit/src/map/terrain-config.ts`)
+  - improved peak label readability with slightly stronger halo and zoom-based formatting:
+    - name only at lower zooms
+    - `peak name + elevation` at higher zooms
+  - split contour label styling into major vs minor variants in `/Users/piovese/Documents/Patrol Toolkit/src/map/contour-style.ts`
+    - major labels: stronger halo/opacity and moderate spacing
+    - minor labels: lower opacity and lower density at high zoom only
+  - preserved existing contour major/minor label layer structure while improving readability/collision behavior through style/layout tuning (no data model changes)
+  - added/updated unit tests for peak label placement and contour label style variants
 
 ## Slice 12: Terrain + Overlay Readability QA Pass (Small/Medium/Large)
 - Status: planned

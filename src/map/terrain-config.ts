@@ -60,12 +60,28 @@ export const TERRAIN_CONTOUR_MAJOR_LINE_OPACITY_STOPS = [
 
 export const TERRAIN_CONTOUR_LABEL_MIN_ZOOM = 13;
 export const TERRAIN_CONTOUR_MINOR_LABEL_MIN_ZOOM = 15;
-export const TERRAIN_CONTOUR_LABEL_SPACING = 320;
+export const TERRAIN_CONTOUR_MAJOR_LABEL_SPACING = 340;
+export const TERRAIN_CONTOUR_MINOR_LABEL_SPACING = 420;
 export const TERRAIN_CONTOUR_LABEL_FONT = ["Noto Sans Regular"] as const;
 export const TERRAIN_CONTOUR_LABEL_MAX_ANGLE = 40;
-export const TERRAIN_CONTOUR_LABEL_SIZE_STOPS = [13, 10, 16, 11] as const;
-export const TERRAIN_CONTOUR_LABEL_OPACITY_STOPS = [12.5, 0, 13.5, 0.28, 16, 0.34] as const;
-export const TERRAIN_CONTOUR_LABEL_HALO_WIDTH = 1.2;
+export const TERRAIN_CONTOUR_MAJOR_LABEL_SIZE_STOPS = [13, 10, 16, 11] as const;
+export const TERRAIN_CONTOUR_MINOR_LABEL_SIZE_STOPS = [15, 9.5, 17, 10] as const;
+export const TERRAIN_CONTOUR_MAJOR_LABEL_OPACITY_STOPS = [12.5, 0, 13.5, 0.34, 16, 0.4] as const;
+export const TERRAIN_CONTOUR_MINOR_LABEL_OPACITY_STOPS = [14.8, 0, 15.4, 0.18, 17, 0.24] as const;
+export const TERRAIN_CONTOUR_MAJOR_LABEL_HALO_WIDTH = 1.35;
+export const TERRAIN_CONTOUR_MINOR_LABEL_HALO_WIDTH = 1.1;
+export const TERRAIN_CONTOUR_LABEL_PADDING = 2;
+
+export const TERRAIN_PEAK_MARKER_MIN_ZOOM = 10;
+export const TERRAIN_PEAK_LABEL_MIN_ZOOM = 11;
+export const TERRAIN_PEAK_LABEL_ELEVATION_DETAIL_MIN_ZOOM = 13;
+export const TERRAIN_PEAK_LABEL_FONT = ["Open Sans Semibold", "Arial Unicode MS Bold"] as const;
+export const TERRAIN_PEAK_LABEL_SIZE_STOPS = [11, 10, 15, 12, 17, 13] as const;
+export const TERRAIN_PEAK_LABEL_COLOR = "#111827";
+export const TERRAIN_PEAK_LABEL_HALO_COLOR = "#f8fafc";
+export const TERRAIN_PEAK_LABEL_HALO_WIDTH = 1.4;
+export const TERRAIN_PEAK_LABEL_RADIAL_OFFSET = 0.9;
+export const TERRAIN_PEAK_LABEL_VARIABLE_ANCHORS = ["top", "top-right", "top-left", "right", "left", "bottom"] as const;
 
 export const TERRAIN_OVERLAY_LAYER_ORDER = [
   "terrainBands",

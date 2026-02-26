@@ -1,11 +1,16 @@
 import {
   TERRAIN_CONTOUR_COLORS,
   TERRAIN_CONTOUR_LABEL_FONT,
-  TERRAIN_CONTOUR_LABEL_HALO_WIDTH,
+  TERRAIN_CONTOUR_LABEL_PADDING,
   TERRAIN_CONTOUR_LABEL_MAX_ANGLE,
-  TERRAIN_CONTOUR_LABEL_OPACITY_STOPS,
-  TERRAIN_CONTOUR_LABEL_SIZE_STOPS,
-  TERRAIN_CONTOUR_LABEL_SPACING,
+  TERRAIN_CONTOUR_MAJOR_LABEL_HALO_WIDTH,
+  TERRAIN_CONTOUR_MAJOR_LABEL_OPACITY_STOPS,
+  TERRAIN_CONTOUR_MAJOR_LABEL_SIZE_STOPS,
+  TERRAIN_CONTOUR_MAJOR_LABEL_SPACING,
+  TERRAIN_CONTOUR_MINOR_LABEL_HALO_WIDTH,
+  TERRAIN_CONTOUR_MINOR_LABEL_OPACITY_STOPS,
+  TERRAIN_CONTOUR_MINOR_LABEL_SIZE_STOPS,
+  TERRAIN_CONTOUR_MINOR_LABEL_SPACING,
   TERRAIN_CONTOUR_MAJOR_LINE_OPACITY_STOPS,
   TERRAIN_CONTOUR_MAJOR_LINE_WIDTH_STOPS,
   TERRAIN_CONTOUR_MINOR_LINE_OPACITY_STOPS,
@@ -53,13 +58,17 @@ export function buildContourMajorLinePaint(): {
   );
 }
 
-export function buildContourLabelLayout(): {
+type ContourLabelVariant = "major" | "minor";
+
+export function buildContourLabelLayout(variant: ContourLabelVariant = "major"): {
   "text-field": unknown[];
   "symbol-placement": "line";
   "symbol-spacing": number;
   "text-size": unknown[];
   "text-font": string[];
   "text-max-angle": number;
+  "text-keep-upright": boolean;
+  "text-padding": number;
 } {
   return {
     "text-field": [
@@ -69,14 +78,21 @@ export function buildContourLabelLayout(): {
       ""
     ],
     "symbol-placement": "line",
-    "symbol-spacing": TERRAIN_CONTOUR_LABEL_SPACING,
-    "text-size": ["interpolate", ["linear"], ["zoom"], ...TERRAIN_CONTOUR_LABEL_SIZE_STOPS],
+    "symbol-spacing": variant === "major" ? TERRAIN_CONTOUR_MAJOR_LABEL_SPACING : TERRAIN_CONTOUR_MINOR_LABEL_SPACING,
+    "text-size": [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      ...(variant === "major" ? TERRAIN_CONTOUR_MAJOR_LABEL_SIZE_STOPS : TERRAIN_CONTOUR_MINOR_LABEL_SIZE_STOPS)
+    ],
     "text-font": [...TERRAIN_CONTOUR_LABEL_FONT],
-    "text-max-angle": TERRAIN_CONTOUR_LABEL_MAX_ANGLE
+    "text-max-angle": TERRAIN_CONTOUR_LABEL_MAX_ANGLE,
+    "text-keep-upright": true,
+    "text-padding": TERRAIN_CONTOUR_LABEL_PADDING
   };
 }
 
-export function buildContourLabelPaint(): {
+export function buildContourLabelPaint(variant: ContourLabelVariant = "major"): {
   "text-color": string;
   "text-halo-color": string;
   "text-halo-width": number;
@@ -85,7 +101,12 @@ export function buildContourLabelPaint(): {
   return {
     "text-color": TERRAIN_CONTOUR_COLORS.label,
     "text-halo-color": TERRAIN_CONTOUR_COLORS.labelHalo,
-    "text-halo-width": TERRAIN_CONTOUR_LABEL_HALO_WIDTH,
-    "text-opacity": ["interpolate", ["linear"], ["zoom"], ...TERRAIN_CONTOUR_LABEL_OPACITY_STOPS]
+    "text-halo-width": variant === "major" ? TERRAIN_CONTOUR_MAJOR_LABEL_HALO_WIDTH : TERRAIN_CONTOUR_MINOR_LABEL_HALO_WIDTH,
+    "text-opacity": [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      ...(variant === "major" ? TERRAIN_CONTOUR_MAJOR_LABEL_OPACITY_STOPS : TERRAIN_CONTOUR_MINOR_LABEL_OPACITY_STOPS)
+    ]
   };
 }
