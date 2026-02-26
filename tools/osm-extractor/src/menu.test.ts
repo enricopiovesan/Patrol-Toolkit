@@ -2540,9 +2540,27 @@ describe("menu interactive flows", () => {
 
       const sharedStyle = JSON.parse(await readFile(join(root, resortKey, "basemap", "style.json"), "utf8")) as {
         sources?: Record<string, { type?: string; url?: string }>;
+        layers?: Array<{
+          id?: string;
+          ["source-layer"]?: string;
+          type?: string;
+          minzoom?: number;
+          layout?: Record<string, unknown>;
+        }>;
       };
       expect(sharedStyle.sources?.basemap?.type).toBe("vector");
       expect(sharedStyle.sources?.basemap?.url).toBe("pmtiles://./base.pmtiles");
+      const layerIds = (sharedStyle.layers ?? []).map((layer) => layer.id);
+      expect(layerIds).toEqual(
+        expect.arrayContaining(["water", "waterway", "water-name", "transportation", "boundary"])
+      );
+      const waterwayLayer = (sharedStyle.layers ?? []).find((layer) => layer.id === "waterway");
+      expect(waterwayLayer?.["source-layer"]).toBe("waterway");
+      const waterNameLayer = (sharedStyle.layers ?? []).find((layer) => layer.id === "water-name");
+      expect(waterNameLayer?.["source-layer"]).toBe("water_name");
+      expect(waterNameLayer?.type).toBe("symbol");
+      expect(waterNameLayer?.minzoom).toBe(11);
+      expect(waterNameLayer?.layout?.["symbol-placement"]).toBe("line");
     } finally {
       restoreProcessEnv(originalEnv);
       await rm(root, { recursive: true, force: true });

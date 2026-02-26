@@ -2936,7 +2936,64 @@ async function writeDefaultOfflineStyle(args: { stylePath: string; maxZoom: numb
     layers: [
       { id: "background", type: "background", paint: { "background-color": "#dce8ef" } },
       { id: "landcover", type: "fill", source: "basemap", "source-layer": "landcover", paint: { "fill-color": "#d6ead0" } },
-      { id: "water", type: "fill", source: "basemap", "source-layer": "water", paint: { "fill-color": "#9ec7ea" } },
+      {
+        id: "water",
+        type: "fill",
+        source: "basemap",
+        "source-layer": "water",
+        paint: { "fill-color": "#a8cfe8", "fill-opacity": 0.9 }
+      },
+      {
+        id: "waterway",
+        type: "line",
+        source: "basemap",
+        "source-layer": "waterway",
+        paint: {
+          "line-color": "#7fb4d7",
+          "line-opacity": 0.75,
+          "line-width": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            10,
+            0.5,
+            13,
+            0.9,
+            15,
+            1.4
+          ]
+        }
+      },
+      {
+        id: "water-name",
+        type: "symbol",
+        source: "basemap",
+        "source-layer": "water_name",
+        minzoom: 11,
+        layout: {
+          "text-field": ["coalesce", ["get", "name_en"], ["get", "name"], ""],
+          "text-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            10,
+            14,
+            12,
+            15,
+            13
+          ],
+          "symbol-placement": "line",
+          "text-letter-spacing": 0.02
+        },
+        paint: {
+          "text-color": "#4f83a8",
+          "text-opacity": 0.85,
+          "text-halo-color": "#eef5fa",
+          "text-halo-width": 0.8,
+          "text-halo-blur": 0.2
+        }
+      },
       {
         id: "transportation",
         type: "line",
