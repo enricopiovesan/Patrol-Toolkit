@@ -3,6 +3,7 @@ import {
   TERRAIN_CONTOUR_COLORS,
   TERRAIN_CONTOUR_LABEL_FONT,
   TERRAIN_CONTOUR_LABEL_MIN_ZOOM,
+  TERRAIN_CONTOUR_MINOR_LABEL_MIN_ZOOM,
   TERRAIN_CONTOUR_MAJOR_INTERVAL_METERS,
   TERRAIN_CONTOUR_MINOR_INTERVAL_METERS,
   TERRAIN_OVERLAY_LAYER_ORDER,
@@ -17,6 +18,7 @@ describe("terrain-config", () => {
       minorInterval: TERRAIN_CONTOUR_MINOR_INTERVAL_METERS,
       majorInterval: TERRAIN_CONTOUR_MAJOR_INTERVAL_METERS,
       labelMinZoom: TERRAIN_CONTOUR_LABEL_MIN_ZOOM,
+      minorLabelMinZoom: TERRAIN_CONTOUR_MINOR_LABEL_MIN_ZOOM,
       colors: TERRAIN_CONTOUR_COLORS,
       labelFont: TERRAIN_CONTOUR_LABEL_FONT
     }).toMatchInlineSnapshot(`
@@ -33,6 +35,7 @@ describe("terrain-config", () => {
         "labelMinZoom": 13,
         "majorInterval": 100,
         "minorInterval": 20,
+        "minorLabelMinZoom": 15,
       }
     `);
   });

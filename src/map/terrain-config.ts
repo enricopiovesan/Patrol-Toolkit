@@ -33,6 +33,7 @@ export const TERRAIN_CONTOUR_MAJOR_LINE_OPACITY_STOPS = [
 ] as const;
 
 export const TERRAIN_CONTOUR_LABEL_MIN_ZOOM = 13;
+export const TERRAIN_CONTOUR_MINOR_LABEL_MIN_ZOOM = 15;
 export const TERRAIN_CONTOUR_LABEL_SPACING = 320;
 export const TERRAIN_CONTOUR_LABEL_FONT = ["Noto Sans Regular"] as const;
 export const TERRAIN_CONTOUR_LABEL_MAX_ANGLE = 40;

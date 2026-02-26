@@ -5,6 +5,9 @@ import {
   RESORT_CONTOURS_LABEL_FILTER,
   RESORT_CONTOURS_LABEL_LAYER_ID,
   RESORT_CONTOURS_LABEL_LAYER_MIN_ZOOM,
+  RESORT_CONTOURS_MINOR_LABEL_FILTER,
+  RESORT_CONTOURS_MINOR_LABEL_LAYER_ID,
+  RESORT_CONTOURS_MINOR_LABEL_LAYER_MIN_ZOOM,
   RESORT_CONTOURS_MINOR_FILTER,
   RESORT_CONTOURS_MINOR_LINE_LAYER_ID,
   TERRAIN_RENDER_LAYER_ORDER_CONTRACT,
@@ -12,7 +15,7 @@ import {
 } from "./contour-layers";
 
 describe("contour-layers", () => {
-  it("builds contour minor/major line layers and label layer", () => {
+  it("builds contour minor/major line layers and major/minor label layers", () => {
     const result = buildContourLayers("resort-contours");
 
     expect(result.minorLineLayer.id).toBe(RESORT_CONTOURS_MINOR_LINE_LAYER_ID);
@@ -30,6 +33,12 @@ describe("contour-layers", () => {
     expect(result.labelLayer.source).toBe("resort-contours");
     expect(result.labelLayer.minzoom).toBe(RESORT_CONTOURS_LABEL_LAYER_MIN_ZOOM);
     expect(result.labelLayer.filter).toEqual(RESORT_CONTOURS_LABEL_FILTER);
+
+    expect(result.minorLabelLayer.id).toBe(RESORT_CONTOURS_MINOR_LABEL_LAYER_ID);
+    expect(result.minorLabelLayer.type).toBe("symbol");
+    expect(result.minorLabelLayer.source).toBe("resort-contours");
+    expect(result.minorLabelLayer.minzoom).toBe(RESORT_CONTOURS_MINOR_LABEL_LAYER_MIN_ZOOM);
+    expect(result.minorLabelLayer.filter).toEqual(RESORT_CONTOURS_MINOR_LABEL_FILTER);
   });
 
   it("exports terrain render order contract with contours between areas and peaks", () => {
