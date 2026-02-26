@@ -3,6 +3,7 @@ import {
   TERRAIN_CONTOUR_COLORS,
   TERRAIN_CONTOUR_LABEL_FONT,
   TERRAIN_CONTOUR_LABEL_MIN_ZOOM,
+  TERRAIN_CONTOUR_MINOR_LABEL_MIN_ZOOM,
   TERRAIN_CONTOUR_MAJOR_INTERVAL_METERS,
   TERRAIN_CONTOUR_MINOR_INTERVAL_METERS,
   TERRAIN_OVERLAY_LAYER_ORDER,
@@ -17,15 +18,16 @@ describe("terrain-config", () => {
       minorInterval: TERRAIN_CONTOUR_MINOR_INTERVAL_METERS,
       majorInterval: TERRAIN_CONTOUR_MAJOR_INTERVAL_METERS,
       labelMinZoom: TERRAIN_CONTOUR_LABEL_MIN_ZOOM,
+      minorLabelMinZoom: TERRAIN_CONTOUR_MINOR_LABEL_MIN_ZOOM,
       colors: TERRAIN_CONTOUR_COLORS,
       labelFont: TERRAIN_CONTOUR_LABEL_FONT
     }).toMatchInlineSnapshot(`
       {
         "colors": {
-          "label": "#1f2937",
-          "labelHalo": "#f8fafc",
-          "major": "#334155",
-          "minor": "#64748b",
+          "label": "#5b4637",
+          "labelHalo": "#f6f1ea",
+          "major": "#6b4f3a",
+          "minor": "#8f735f",
         },
         "labelFont": [
           "Noto Sans Regular",
@@ -33,6 +35,7 @@ describe("terrain-config", () => {
         "labelMinZoom": 13,
         "majorInterval": 100,
         "minorInterval": 20,
+        "minorLabelMinZoom": 15,
       }
     `);
   });
@@ -51,11 +54,14 @@ describe("terrain-config", () => {
       ["has", "elevationMeters"],
       ["==", ["%", ["to-number", ["get", "elevationMeters"]], 100], 0]
     ]);
-    expect(buildContourLabelFilterExpression()).toEqual(["all", ["has", "elevationMeters"]]);
+    expect(buildContourLabelFilterExpression()).toEqual([
+      "all",
+      ["has", "elevationMeters"],
+      ["==", ["%", ["to-number", ["get", "elevationMeters"]], 100], 0]
+    ]);
   });
 
   it("defines terrain overlay ordering contract", () => {
     expect(TERRAIN_OVERLAY_LAYER_ORDER).toEqual(["areas", "contours", "peaks", "runs", "lifts"]);
   });
 });
-

@@ -213,7 +213,7 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - added unit tests `/Users/piovese/Documents/Patrol Toolkit/src/map/terrain-config.test.ts` and updated contour layer/style tests to validate centralized config and render-order contract
 
 ## Slice 8: Contour Hierarchy Refinement + Major Labels (Vector Overlay)
-- Status: planned
+- Status: completed
 - Goal: transform current contour rendering into a major/minor contour system with improved labels and lower visual dominance.
 - Deliverables:
   - split contour rendering into minor vs major contours (e.g., every Nth line major)
@@ -226,6 +226,12 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - contour labels are readable and not overly dense
   - contours remain subordinate to ski overlays
 - PR outcome: contours become terrain-informative and style-aligned.
+- Outcome (completed):
+  - split contour rendering into separate minor and major line layers in `/Users/piovese/Documents/Patrol Toolkit/src/map/contour-layers.ts` with shared major/minor filter expressions
+  - updated `/Users/piovese/Documents/Patrol Toolkit/src/map/map-view.ts` to add contour layers in explicit order: minor line -> major line -> major labels
+  - refined contour palette and hierarchy in `/Users/piovese/Documents/Patrol Toolkit/src/map/terrain-config.ts` and `/Users/piovese/Documents/Patrol Toolkit/src/map/contour-style.ts` using muted sepia colors, lighter minors, stronger majors, and reduced label density/opacity
+  - restricted contour labels to major contours only via shared label filter helper (`buildContourLabelFilterExpression`)
+  - added/updated unit tests in `/Users/piovese/Documents/Patrol Toolkit/src/map/terrain-config.test.ts`, `/Users/piovese/Documents/Patrol Toolkit/src/map/contour-style.test.ts`, and `/Users/piovese/Documents/Patrol Toolkit/src/map/contour-layers.test.ts`
 
 ## Slice 9: Hypsometric Tint Prototype (Vector-Only Terrain Fill)
 - Status: planned
