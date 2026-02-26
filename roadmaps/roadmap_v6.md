@@ -306,7 +306,7 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - added/updated unit tests for peak label placement and contour label style variants
 
 ## Slice 12: Terrain + Overlay Readability QA Pass (Small/Medium/Large)
-- Status: planned
+- Status: completed
 - Goal: validate that the enriched basemap + terrain styling remains usable for patrol workflows across viewports.
 - Deliverables:
   - manual QA matrix for `small`, `medium`, `large` (portrait/landscape where relevant)
@@ -318,6 +318,10 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - all key layers render correctly online/offline where expected
   - identified issues are either fixed or documented with rationale
 - PR outcome: terrain/basemap style is operationally usable.
+- Outcome (completed):
+  - added execution checklist + QA matrix for terrain/overlay readability across `small`/`medium`/`large` and online/offline in `/Users/piovese/Documents/Patrol Toolkit/docs/checklists/v6-terrain-overlay-readability-qa.md`
+  - documented tuning rubric mapped to current terrain/contour/peak config constants in `/Users/piovese/Documents/Patrol Toolkit/src/map/terrain-config.ts`
+  - manual QA signoff completed (`all good`) with no additional terrain/overlay tuning changes required in this slice
 
 ## Slice 13: Basemap Generation Style Profile Upgrade (Optional, Data-Driven)
 - Status: planned
