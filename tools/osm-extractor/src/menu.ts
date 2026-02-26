@@ -2995,6 +2995,37 @@ async function writeDefaultOfflineStyle(args: { stylePath: string; maxZoom: numb
         }
       },
       {
+        id: "waterway-name",
+        type: "symbol",
+        source: "basemap",
+        "source-layer": "waterway",
+        minzoom: 12,
+        filter: ["has", "name"],
+        layout: {
+          "text-field": ["coalesce", ["get", "name_en"], ["get", "name"], ""],
+          "text-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            12,
+            10,
+            14,
+            11,
+            15,
+            12
+          ],
+          "symbol-placement": "line",
+          "text-letter-spacing": 0.02
+        },
+        paint: {
+          "text-color": "#5f8fb0",
+          "text-opacity": 0.82,
+          "text-halo-color": "#edf5fa",
+          "text-halo-width": 0.7,
+          "text-halo-blur": 0.2
+        }
+      },
+      {
         id: "transportation",
         type: "line",
         source: "basemap",

@@ -3,7 +3,7 @@
   "release": {
     "channel": "stable",
     "appVersion": "0.0.1",
-    "createdAt": "2026-02-26T04:35:40.592Z"
+    "createdAt": "2026-02-26T04:51:40.264Z"
   },
   "artifacts": [
     {
@@ -33,15 +33,15 @@
     {
       "kind": "pack",
       "resortId": "CA_Fernie_Fernie",
-      "version": "v9",
+      "version": "v10",
       "url": "/packs/CA_Fernie_Fernie.latest.validated.json",
-      "sha256": "29f8d7d8e68eb23cb10a981863beb65f0008f930d07d6fe8b4f6667f97870602",
-      "bytes": 1971791
+      "sha256": "84fd0704b8bfd0851b9a719fa2d61202577d667bec767993d30c23d88c0583c1",
+      "bytes": 1971794
     },
     {
       "kind": "pmtiles",
       "resortId": "CA_Fernie_Fernie",
-      "version": "v9",
+      "version": "v10",
       "url": "/packs/CA_Fernie_Fernie/base.pmtiles",
       "sha256": "51ccdfc236f9c53dc072971611f28c90a9f3e0c8b05c9ce94e305ad914af0b2a",
       "bytes": 443421
@@ -49,7 +49,7 @@
     {
       "kind": "style",
       "resortId": "CA_Fernie_Fernie",
-      "version": "v9",
+      "version": "v10",
       "url": "/packs/CA_Fernie_Fernie/style.json",
       "sha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527",
       "bytes": 1096
