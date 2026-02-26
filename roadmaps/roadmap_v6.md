@@ -173,7 +173,7 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - added extractor test coverage asserting generated fallback style includes waterway + water labels configuration
 
 ## Slice 6: Restaurants + Key Amenity POIs (Basemap Style)
-- Status: planned
+- Status: completed
 - Goal: show restaurants/food POIs (and only a minimal amenity subset) without cluttering the map.
 - Deliverables:
   - identify and style restaurant/food POIs from basemap layers
@@ -185,6 +185,14 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - map remains readable in resort core areas
   - no excessive label clutter on `small`
 - PR outcome: useful operational amenities are visible in context.
+- Outcome (completed):
+  - extended generated default offline basemap style with a strict food/restaurant POI subset from `poi`
+    - `poi-food-dot` (small muted marker)
+    - `poi-food-label` (high-zoom label, text-only)
+  - filtered POIs conservatively using `class/subclass` (`restaurant`, `cafe`, `fast_food`, `food_court`, `pub`, `bar`)
+  - gated POI marker/labels to higher zooms (`14+` / `15+`) to reduce mobile clutter
+  - kept POI styling visually subordinate to patrol overlays and run/lift labels
+  - added extractor test coverage asserting POI layers and key configuration are present in generated fallback style
 
 ## Slice 7: Terrain Render Config Foundation (Vector-Only)
 - Status: planned

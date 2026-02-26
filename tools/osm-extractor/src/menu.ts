@@ -1618,7 +1618,9 @@ export async function attachBasemapAssetsToVersion(args: {
   const basemapDir = join(args.versionPath, "basemap");
   await mkdir(basemapDir, { recursive: true });
   await cp(args.pmtilesSourcePath, join(basemapDir, "base.pmtiles"));
-  await cp(args.styleSourcePath, join(basemapDir, "style.json"));
+  const targetStylePath = join(basemapDir, "style.json");
+  await cp(args.styleSourcePath, targetStylePath);
+  await augmentOfflineBasemapStyleIfNeeded({ stylePath: targetStylePath });
 }
 
 export async function generateBasemapAssetsForVersion(args: {
@@ -2320,6 +2322,7 @@ async function publishBasemapAssetsForVersion(args: {
   await mkdir(destinationDir, { recursive: true });
   await cp(pmtilesSourcePath, pmtilesDestinationPath);
   await cp(styleSourcePath, styleDestinationPath);
+  await augmentOfflineBasemapStyleIfNeeded({ stylePath: styleDestinationPath });
 }
 
 async function assertRegularFile(path: string, label: string): Promise<void> {
@@ -2590,6 +2593,7 @@ async function buildSharedBasemapFromProvider(args: {
       maxZoom: provider.maxZoom
     });
   }
+  await augmentOfflineBasemapStyleIfNeeded({ stylePath: targetStyle });
 
   await assertOfflineReadyBasemapAssets({
     pmtilesPath: targetPmtiles,
@@ -2924,7 +2928,263 @@ async function downloadBinaryWithRetries(args: {
   throw new Error(`Failed to download Geofabrik extract: ${lastError}`);
 }
 
+type BasemapStyleLike = {
+  sources?: Record<string, { type?: unknown; url?: unknown }>;
+  layers?: Array<Record<string, unknown>>;
+  [key: string]: unknown;
+};
+
+async function augmentOfflineBasemapStyleIfNeeded(args: { stylePath: string }): Promise<void> {
+  let raw: string;
+  try {
+    raw = await readFile(args.stylePath, "utf8");
+  } catch {
+    return;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return;
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return;
+  }
+
+  const style = parsed as BasemapStyleLike;
+  if (!Array.isArray(style.layers) || !style.sources || typeof style.sources !== "object") {
+    return;
+  }
+
+  const existingLayerIds = new Set(
+    style.layers.map((layer) => (typeof layer.id === "string" ? layer.id : null)).filter((id): id is string => id !== null)
+  );
+  const sourceName = resolveVectorBasemapSourceName(style.sources);
+  if (!sourceName) {
+    return;
+  }
+
+  const enhancementLayers = buildOfflineBasemapEnhancementLayers(sourceName).filter((layer) => !existingLayerIds.has(layer.id));
+  if (enhancementLayers.length === 0) {
+    return;
+  }
+
+  const insertBeforeIds = new Set(["transportation", "transportation_name", "boundary"]);
+  const insertIndex = style.layers.findIndex(
+    (layer) => typeof layer.id === "string" && insertBeforeIds.has(layer.id)
+  );
+  if (insertIndex >= 0) {
+    style.layers.splice(insertIndex, 0, ...enhancementLayers);
+  } else {
+    style.layers.push(...enhancementLayers);
+  }
+
+  await writeFile(args.stylePath, `${JSON.stringify(style, null, 2)}\n`, "utf8");
+}
+
+function resolveVectorBasemapSourceName(sources: Record<string, { type?: unknown; url?: unknown }>): string | null {
+  for (const [name, source] of Object.entries(sources)) {
+    if (source?.type !== "vector") {
+      continue;
+    }
+    if (typeof source.url === "string" && source.url.includes("pmtiles://")) {
+      return name;
+    }
+  }
+  for (const [name, source] of Object.entries(sources)) {
+    if (source?.type === "vector") {
+      return name;
+    }
+  }
+  return null;
+}
+
+function buildOfflineBasemapEnhancementLayers(sourceName: string): Array<Record<string, unknown> & { id: string }> {
+  const foodPoiFilter = [
+    "any",
+    ["==", ["get", "class"], "restaurant"],
+    ["==", ["get", "subclass"], "restaurant"],
+    ["==", ["get", "subclass"], "cafe"],
+    ["==", ["get", "subclass"], "fast_food"],
+    ["==", ["get", "subclass"], "food_court"],
+    ["==", ["get", "subclass"], "pub"],
+    ["==", ["get", "subclass"], "bar"]
+  ];
+
+  return [
+    {
+      id: "landcover-wood",
+      type: "fill",
+      source: sourceName,
+      "source-layer": "landcover",
+      filter: ["==", ["get", "class"], "wood"],
+      minzoom: 9,
+      paint: {
+        "fill-color": "#b8d7b5",
+        "fill-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          9,
+          0.24,
+          12,
+          0.28,
+          15,
+          0.32
+        ]
+      }
+    },
+    {
+      id: "waterway",
+      type: "line",
+      source: sourceName,
+      "source-layer": "waterway",
+      paint: {
+        "line-color": "#7fb4d7",
+        "line-opacity": 0.75,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 13, 0.9, 15, 1.4]
+      }
+    },
+    {
+      id: "water-name",
+      type: "symbol",
+      source: sourceName,
+      "source-layer": "water_name",
+      minzoom: 11,
+      layout: {
+        "text-field": ["coalesce", ["get", "name_en"], ["get", "name"], ""],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 11, 10, 14, 12, 15, 13],
+        "symbol-placement": "line",
+        "text-letter-spacing": 0.02
+      },
+      paint: {
+        "text-color": "#4f83a8",
+        "text-opacity": 0.85,
+        "text-halo-color": "#eef5fa",
+        "text-halo-width": 0.8,
+        "text-halo-blur": 0.2
+      }
+    },
+    {
+      id: "waterway-name",
+      type: "symbol",
+      source: sourceName,
+      "source-layer": "waterway",
+      minzoom: 12,
+      filter: ["has", "name"],
+      layout: {
+        "text-field": ["coalesce", ["get", "name_en"], ["get", "name"], ""],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 12, 10, 14, 11, 15, 12],
+        "symbol-placement": "line",
+        "text-letter-spacing": 0.02
+      },
+      paint: {
+        "text-color": "#5f8fb0",
+        "text-opacity": 0.82,
+        "text-halo-color": "#edf5fa",
+        "text-halo-width": 0.7,
+        "text-halo-blur": 0.2
+      }
+    },
+    {
+      id: "building-fill",
+      type: "fill",
+      source: sourceName,
+      "source-layer": "building",
+      minzoom: 13,
+      paint: {
+        "fill-color": "#c8d2d8",
+        "fill-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          13,
+          0.28,
+          15,
+          0.38,
+          17,
+          0.48
+        ]
+      }
+    },
+    {
+      id: "building-line",
+      type: "line",
+      source: sourceName,
+      "source-layer": "building",
+      minzoom: 13,
+      paint: {
+        "line-color": "#9daab2",
+        "line-opacity": 0.55,
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          13,
+          0.5,
+          15,
+          0.8,
+          17,
+          1.1
+        ]
+      }
+    },
+    {
+      id: "poi-food-dot",
+      type: "circle",
+      source: sourceName,
+      "source-layer": "poi",
+      minzoom: 13,
+      filter: foodPoiFilter,
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 2.4, 14, 3, 16, 3.6],
+        "circle-color": "#8a5a3a",
+        "circle-opacity": 0.9,
+        "circle-stroke-color": "#f4efe8",
+        "circle-stroke-width": 1,
+        "circle-stroke-opacity": 0.9
+      }
+    },
+    {
+      id: "poi-food-label",
+      type: "symbol",
+      source: sourceName,
+      "source-layer": "poi",
+      minzoom: 14,
+      filter: ["all", foodPoiFilter, ["has", "name"]],
+      layout: {
+        "text-field": ["coalesce", ["get", "name_en"], ["get", "name"], ""],
+        "symbol-sort-key": ["coalesce", ["get", "rank"], 999],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10.5, 16, 11.5],
+        "text-offset": [0, 1.1],
+        "text-anchor": "top",
+        "text-letter-spacing": 0.01,
+        "text-allow-overlap": true
+      },
+      paint: {
+        "text-color": "#5b4637",
+        "text-opacity": 0.9,
+        "text-halo-color": "#f6f1ea",
+        "text-halo-width": 0.9,
+        "text-halo-blur": 0.2
+      }
+    }
+  ];
+}
+
 async function writeDefaultOfflineStyle(args: { stylePath: string; maxZoom: number }): Promise<void> {
+  const foodPoiFilter = [
+    "any",
+    ["==", ["get", "class"], "restaurant"],
+    ["==", ["get", "subclass"], "restaurant"],
+    ["==", ["get", "subclass"], "cafe"],
+    ["==", ["get", "subclass"], "fast_food"],
+    ["==", ["get", "subclass"], "food_court"],
+    ["==", ["get", "subclass"], "pub"],
+    ["==", ["get", "subclass"], "bar"]
+  ] as const;
+
   const style = {
     version: 8,
     sources: {
@@ -3022,6 +3282,68 @@ async function writeDefaultOfflineStyle(args: { stylePath: string; maxZoom: numb
           "text-opacity": 0.82,
           "text-halo-color": "#edf5fa",
           "text-halo-width": 0.7,
+          "text-halo-blur": 0.2
+        }
+      },
+      {
+        id: "poi-food-dot",
+        type: "circle",
+        source: "basemap",
+        "source-layer": "poi",
+        minzoom: 13,
+        filter: foodPoiFilter,
+        paint: {
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            13,
+            2.4,
+            14,
+            3.0,
+            16,
+            3.6
+          ],
+          "circle-color": "#8a5a3a",
+          "circle-opacity": 0.9,
+          "circle-stroke-color": "#f4efe8",
+          "circle-stroke-width": 1.0,
+          "circle-stroke-opacity": 0.9
+        }
+      },
+      {
+        id: "poi-food-label",
+        type: "symbol",
+        source: "basemap",
+        "source-layer": "poi",
+        minzoom: 14,
+        filter: [
+          "all",
+          foodPoiFilter,
+          ["has", "name"]
+        ],
+        layout: {
+          "text-field": ["coalesce", ["get", "name_en"], ["get", "name"], ""],
+          "symbol-sort-key": ["coalesce", ["get", "rank"], 999],
+          "text-size": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            14,
+            10.5,
+            16,
+            11.5
+          ],
+          "text-offset": [0, 1.1],
+          "text-anchor": "top",
+          "text-letter-spacing": 0.01,
+          "text-allow-overlap": true
+        },
+        paint: {
+          "text-color": "#5b4637",
+          "text-opacity": 0.9,
+          "text-halo-color": "#f6f1ea",
+          "text-halo-width": 0.9,
           "text-halo-blur": 0.2
         }
       },

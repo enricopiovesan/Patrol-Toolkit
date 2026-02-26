@@ -4,8 +4,8 @@
     "channel": "stable",
     "appVersion": "0.0.1",
     "manifestUrl": "/releases/stable-manifest.json",
-    "manifestSha256": "166be1d99b0e4fb171021ac5c9e6a1565899707f503e4804de5dd782aa99a87b",
-    "createdAt": "2026-02-26T04:35:40.592Z"
+    "manifestSha256": "1e7e9d95b302707f617ae8e7d96737ea7916aa9a920ba4d25dee4b33e4ed80e0",
+    "createdAt": "2026-02-26T07:03:15.431Z"
   },
   "resorts": [
     {
@@ -39,7 +39,7 @@
           "version": "v10",
           "approved": true,
           "packUrl": "/packs/CA_Fernie_Fernie.latest.validated.json",
-          "createdAt": "2026-02-26T04:51:40.264Z",
+          "createdAt": "2026-02-26T06:26:01.696Z",
           "compatibility": {
             "minAppVersion": "0.0.1",
             "supportedPackSchemaVersions": [
@@ -47,7 +47,7 @@
             ]
           },
           "checksums": {
-            "packSha256": "84fd0704b8bfd0851b9a719fa2d61202577d667bec767993d30c23d88c0583c1",
+            "packSha256": "f3b76b8a1b766161d46ff1c2e8a55f3d9b6992fec5cd1ee073925d1bd2d5f6dc",
             "pmtilesSha256": "51ccdfc236f9c53dc072971611f28c90a9f3e0c8b05c9ce94e305ad914af0b2a",
             "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
           }
@@ -62,7 +62,7 @@
           "version": "v15",
           "approved": true,
           "packUrl": "/packs/CA_Golden_Kicking_Horse.latest.validated.json",
-          "createdAt": "2026-02-26T04:35:40.592Z",
+          "createdAt": "2026-02-26T07:03:15.431Z",
           "compatibility": {
             "minAppVersion": "0.0.1",
             "supportedPackSchemaVersions": [
@@ -70,9 +70,9 @@
             ]
           },
           "checksums": {
-            "packSha256": "db7e5064721cc9b33203813eb317938305a10551bbb169b9731d9fb13900bec8",
+            "packSha256": "a9247ed7c2c6727c4c2f086ce67b7c356a3dfcc7f1c837846bcd8cb3ab1fa2be",
             "pmtilesSha256": "4afa4e416a31210256ec443c2e72366227c3be97d139908b1641eb1a0214506b",
-            "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
+            "styleSha256": "ae5c1e46c029df3d3086c726445c61094e4803eb715c77fac344e1d31aaae059"
           }
         }
       ]
