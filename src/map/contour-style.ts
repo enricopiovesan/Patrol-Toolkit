@@ -6,31 +6,51 @@ import {
   TERRAIN_CONTOUR_LABEL_OPACITY_STOPS,
   TERRAIN_CONTOUR_LABEL_SIZE_STOPS,
   TERRAIN_CONTOUR_LABEL_SPACING,
-  TERRAIN_CONTOUR_LINE_OPACITY_STOPS,
-  TERRAIN_CONTOUR_LINE_WIDTH_STOPS,
-  buildMajorContourFilterExpression
+  TERRAIN_CONTOUR_MAJOR_LINE_OPACITY_STOPS,
+  TERRAIN_CONTOUR_MAJOR_LINE_WIDTH_STOPS,
+  TERRAIN_CONTOUR_MINOR_LINE_OPACITY_STOPS,
+  TERRAIN_CONTOUR_MINOR_LINE_WIDTH_STOPS
 } from "./terrain-config";
 
-export function buildContourLinePaint(): {
-  "line-color": unknown[];
+function buildContourLinePaint(color: string, widthStops: readonly number[], opacityStops: readonly number[]): {
+  "line-color": string;
   "line-width": unknown[];
   "line-opacity": unknown[];
 } {
   return {
-    "line-color": [
-      "case",
-      buildMajorContourFilterExpression(),
-      TERRAIN_CONTOUR_COLORS.major,
-      TERRAIN_CONTOUR_COLORS.minor
-    ],
+    "line-color": color,
     "line-width": [
       "interpolate",
       ["linear"],
       ["zoom"],
-      ...TERRAIN_CONTOUR_LINE_WIDTH_STOPS
+      ...widthStops
     ],
-    "line-opacity": ["interpolate", ["linear"], ["zoom"], ...TERRAIN_CONTOUR_LINE_OPACITY_STOPS]
+    "line-opacity": ["interpolate", ["linear"], ["zoom"], ...opacityStops]
   };
+}
+
+export function buildContourMinorLinePaint(): {
+  "line-color": string;
+  "line-width": unknown[];
+  "line-opacity": unknown[];
+} {
+  return buildContourLinePaint(
+    TERRAIN_CONTOUR_COLORS.minor,
+    TERRAIN_CONTOUR_MINOR_LINE_WIDTH_STOPS,
+    TERRAIN_CONTOUR_MINOR_LINE_OPACITY_STOPS
+  );
+}
+
+export function buildContourMajorLinePaint(): {
+  "line-color": string;
+  "line-width": unknown[];
+  "line-opacity": unknown[];
+} {
+  return buildContourLinePaint(
+    TERRAIN_CONTOUR_COLORS.major,
+    TERRAIN_CONTOUR_MAJOR_LINE_WIDTH_STOPS,
+    TERRAIN_CONTOUR_MAJOR_LINE_OPACITY_STOPS
+  );
 }
 
 export function buildContourLabelLayout(): {

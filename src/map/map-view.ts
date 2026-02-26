@@ -385,7 +385,8 @@ export class MapView extends LitElement {
     this.map.addLayer(areaLayers.labelLayer as never);
 
     const contourLayers = buildContourLayers(RESORT_CONTOURS_SOURCE_ID);
-    this.map.addLayer(contourLayers.lineLayer as never);
+    this.map.addLayer(contourLayers.minorLineLayer as never);
+    this.map.addLayer(contourLayers.majorLineLayer as never);
     this.map.addLayer(contourLayers.labelLayer as never);
     const peakLayers = buildPeakLayers(RESORT_PEAKS_SOURCE_ID);
     this.map.addLayer(peakLayers.markerLayer as never);

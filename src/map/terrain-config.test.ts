@@ -22,10 +22,10 @@ describe("terrain-config", () => {
     }).toMatchInlineSnapshot(`
       {
         "colors": {
-          "label": "#1f2937",
-          "labelHalo": "#f8fafc",
-          "major": "#334155",
-          "minor": "#64748b",
+          "label": "#5b4637",
+          "labelHalo": "#f6f1ea",
+          "major": "#6b4f3a",
+          "minor": "#8f735f",
         },
         "labelFont": [
           "Noto Sans Regular",
@@ -51,11 +51,14 @@ describe("terrain-config", () => {
       ["has", "elevationMeters"],
       ["==", ["%", ["to-number", ["get", "elevationMeters"]], 100], 0]
     ]);
-    expect(buildContourLabelFilterExpression()).toEqual(["all", ["has", "elevationMeters"]]);
+    expect(buildContourLabelFilterExpression()).toEqual([
+      "all",
+      ["has", "elevationMeters"],
+      ["==", ["%", ["to-number", ["get", "elevationMeters"]], 100], 0]
+    ]);
   });
 
   it("defines terrain overlay ordering contract", () => {
     expect(TERRAIN_OVERLAY_LAYER_ORDER).toEqual(["areas", "contours", "peaks", "runs", "lifts"]);
   });
 });
-
