@@ -10,5 +10,15 @@ describe("buildPeakLayers", () => {
     expect(layers.labelLayer.id).toBe("resort-peaks-label");
     expect(layers.labelLayer.minzoom).toBeGreaterThanOrEqual(10);
     expect(layers.markerLayer.layout?.["text-field"]).toBe("▲");
+    expect(layers.labelLayer.layout?.["text-variable-anchor"]).toEqual([
+      "top",
+      "top-right",
+      "top-left",
+      "right",
+      "left",
+      "bottom"
+    ]);
+    expect(layers.labelLayer.layout?.["text-radial-offset"]).toBe(0.9);
+    expect(layers.labelLayer.paint?.["text-halo-width"]).toBe(1.4);
   });
 });

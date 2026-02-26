@@ -27,10 +27,12 @@ describe("contour-style", () => {
     expect(buildContourLabelLayout()).toEqual({
       "text-field": ["case", ["has", "elevationMeters"], ["concat", ["to-string", ["get", "elevationMeters"]], "m"], ""],
       "symbol-placement": "line",
-      "symbol-spacing": 320,
+      "symbol-spacing": 340,
       "text-size": ["interpolate", ["linear"], ["zoom"], 13, 10, 16, 11],
       "text-font": ["Noto Sans Regular"],
-      "text-max-angle": 40
+      "text-max-angle": 40,
+      "text-keep-upright": true,
+      "text-padding": 2
     });
   });
 
@@ -38,8 +40,27 @@ describe("contour-style", () => {
     expect(buildContourLabelPaint()).toEqual({
       "text-color": "#5b4637",
       "text-halo-color": "#f6f1ea",
-      "text-halo-width": 1.2,
-      "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0, 13.5, 0.28, 16, 0.34]
+      "text-halo-width": 1.35,
+      "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0, 13.5, 0.34, 16, 0.4]
+    });
+  });
+
+  it("builds minor contour label layout and paint with lower density/contrast", () => {
+    expect(buildContourLabelLayout("minor")).toEqual({
+      "text-field": ["case", ["has", "elevationMeters"], ["concat", ["to-string", ["get", "elevationMeters"]], "m"], ""],
+      "symbol-placement": "line",
+      "symbol-spacing": 420,
+      "text-size": ["interpolate", ["linear"], ["zoom"], 15, 9.5, 17, 10],
+      "text-font": ["Noto Sans Regular"],
+      "text-max-angle": 40,
+      "text-keep-upright": true,
+      "text-padding": 2
+    });
+    expect(buildContourLabelPaint("minor")).toEqual({
+      "text-color": "#5b4637",
+      "text-halo-color": "#f6f1ea",
+      "text-halo-width": 1.1,
+      "text-opacity": ["interpolate", ["linear"], ["zoom"], 14.8, 0, 15.4, 0.18, 17, 0.24]
     });
   });
 });
