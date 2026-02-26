@@ -4,8 +4,8 @@
     "channel": "stable",
     "appVersion": "0.0.1",
     "manifestUrl": "/releases/stable-manifest.json",
-    "manifestSha256": "1b8a6c24c9abf84751a70169ba84b8cd09103ed76c860d06ed45a785ad46eb12",
-    "createdAt": "2026-02-26T04:51:40.264Z"
+    "manifestSha256": "166be1d99b0e4fb171021ac5c9e6a1565899707f503e4804de5dd782aa99a87b",
+    "createdAt": "2026-02-26T04:35:40.592Z"
   },
   "resorts": [
     {

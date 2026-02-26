@@ -163,11 +163,11 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - labels remain readable on `small`
   - no major collision clutter in dense map areas
 - PR outcome: water context is visible and informative.
-  - Outcome (completed):
-    - extended generated default offline basemap style to include:
-      - `waterway` line layer (muted blue, low-contrast width ramp)
-      - `water-name` symbol layer from `water_name` source-layer (`symbol-placement: line`)
-      - `waterway-name` symbol layer from `waterway` source-layer (fallback naming path where `water_name` is absent)
+- Outcome (completed):
+  - extended generated default offline basemap style to include:
+    - `waterway` line layer (muted blue, low-contrast width ramp)
+    - `water-name` symbol layer from `water_name` source-layer (`symbol-placement: line`)
+    - `waterway-name` symbol layer from `waterway` source-layer (fallback naming path where `water_name` is absent)
   - tuned water fill and labels to stay subordinate to patrol overlays
   - implemented `water_name` as optional basemap label path (graceful fallback when source-layer has no features in visible tiles)
   - added extractor test coverage asserting generated fallback style includes waterway + water labels configuration

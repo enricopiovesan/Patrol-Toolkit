@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Patrol Toolkit maskable icon">
-  <rect width="512" height="512" fill="#0f4c5c" />
-  <circle cx="256" cy="256" r="180" fill="#2f855a" />
-  <circle cx="256" cy="256" r="128" fill="none" stroke="#e6fffa" stroke-width="24" />
-  <path d="M256 176v160M176 256h160" stroke="#e6fffa" stroke-width="26" stroke-linecap="round" />
-</svg>
