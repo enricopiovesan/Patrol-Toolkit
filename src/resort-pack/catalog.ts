@@ -450,6 +450,7 @@ type ExportBundle = {
   layers?: {
     boundary?: unknown;
     areas?: unknown;
+    terrainBands?: unknown;
     contours?: unknown;
     peaks?: unknown;
     runs?: unknown;
@@ -464,6 +465,7 @@ function convertExportBundleToResortPack(input: unknown, fallbackResortId: strin
 
   const boundary = extractBoundaryPolygon(bundle.layers?.boundary);
   const areas = extractAreas(bundle.layers?.areas);
+  const terrainBands = extractTerrainBands(bundle.layers?.terrainBands);
   const contours = extractContours(bundle.layers?.contours);
   const peaks = extractPeaks(bundle.layers?.peaks);
   const runs = extractRuns(bundle.layers?.runs);
@@ -485,6 +487,7 @@ function convertExportBundleToResortPack(input: unknown, fallbackResortId: strin
       liftProximityMeters: 90
     },
     areas: areas.length > 0 ? areas : undefined,
+    terrainBands: terrainBands.length > 0 ? terrainBands : undefined,
     contours: contours.length > 0 ? contours : undefined,
     peaks: peaks.length > 0 ? peaks : undefined,
     lifts,
@@ -565,6 +568,58 @@ function extractRuns(input: unknown): ResortPack["runs"] {
   }
 
   return runs;
+}
+
+function extractTerrainBands(input: unknown): NonNullable<ResortPack["terrainBands"]> {
+  if (!isObjectRecord(input) || input.type !== "FeatureCollection" || !Array.isArray(input.features)) {
+    return [];
+  }
+
+  const bands: NonNullable<ResortPack["terrainBands"]> = [];
+  for (let index = 0; index < input.features.length; index += 1) {
+    const feature = input.features[index];
+    if (!isObjectRecord(feature) || !isObjectRecord(feature.geometry)) {
+      continue;
+    }
+
+    const geometry = feature.geometry;
+    let polygon: NonNullable<ResortPack["terrainBands"]>[number]["polygon"] | null = null;
+    if (geometry.type === "Polygon" && Array.isArray(geometry.coordinates)) {
+      polygon = { type: "Polygon", coordinates: geometry.coordinates as [number, number][][] };
+    } else if (geometry.type === "MultiPolygon" && Array.isArray(geometry.coordinates)) {
+      const first = geometry.coordinates[0];
+      if (Array.isArray(first)) {
+        polygon = { type: "Polygon", coordinates: first as [number, number][][] };
+      }
+    }
+    if (!polygon) {
+      continue;
+    }
+
+    const properties = isObjectRecord(feature.properties) ? feature.properties : {};
+    const elevationMinMeters = typeof properties.elevationMinMeters === "number"
+      ? properties.elevationMinMeters
+      : typeof properties.eleMin === "number"
+        ? properties.eleMin
+        : typeof properties.min_elev === "number"
+          ? properties.min_elev
+          : undefined;
+    const elevationMaxMeters = typeof properties.elevationMaxMeters === "number"
+      ? properties.elevationMaxMeters
+      : typeof properties.eleMax === "number"
+        ? properties.eleMax
+        : typeof properties.max_elev === "number"
+          ? properties.max_elev
+          : undefined;
+
+    bands.push({
+      id: stringOrFallback(properties.id, `terrain-band-${index + 1}`),
+      elevationMinMeters,
+      elevationMaxMeters,
+      polygon
+    });
+  }
+  return bands;
 }
 
 function extractAreas(input: unknown): NonNullable<ResortPack["areas"]> {

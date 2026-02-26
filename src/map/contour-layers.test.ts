@@ -41,7 +41,7 @@ describe("contour-layers", () => {
     expect(result.minorLabelLayer.filter).toEqual(RESORT_CONTOURS_MINOR_LABEL_FILTER);
   });
 
-  it("exports terrain render order contract with contours between areas and peaks", () => {
-    expect(TERRAIN_RENDER_LAYER_ORDER_CONTRACT).toEqual(["areas", "contours", "peaks", "runs", "lifts"]);
+  it("exports terrain render order contract with terrain bands before areas and contours before peaks", () => {
+    expect(TERRAIN_RENDER_LAYER_ORDER_CONTRACT).toEqual(["terrainBands", "areas", "contours", "peaks", "runs", "lifts"]);
   });
 });

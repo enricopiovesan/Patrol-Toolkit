@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { execFile as execFileCb } from "node:child_process";
 import { readdir, stat } from "node:fs/promises";
 import { importResortContours } from "./resort-import-contours.js";
+import { importResortTerrainBands } from "./resort-import-terrain-bands.js";
 import { readResortWorkspace, writeResortWorkspace, type ResortWorkspace } from "./resort-workspace.js";
 
 type BoundaryFeature = {
@@ -20,6 +21,7 @@ export type ResortSyncContoursResult = {
   workspacePath: string;
   outputPath: string;
   importedFeatureCount: number;
+  importedTerrainBandCount: number;
   checksumSha256: string;
   queryHash: string;
   provider: "opentopography";
@@ -129,6 +131,7 @@ export async function syncResortContours(
     fetchFn?: typeof fetch;
     execFileFn?: (file: string, args: string[]) => Promise<void>;
     importContoursFn?: typeof importResortContours;
+    importTerrainBandsFn?: typeof importResortTerrainBands;
     env?: NodeJS.ProcessEnv;
     tmpRoot?: string;
     resolveQgisGdalContourBinFn?: () => Promise<string | null>;
@@ -139,6 +142,7 @@ export async function syncResortContours(
     await execFileAsync(file, fileArgs);
   });
   const importContoursFn = deps?.importContoursFn ?? importResortContours;
+  const importTerrainBandsFn = deps?.importTerrainBandsFn ?? importResortTerrainBands;
   const env = deps?.env ?? process.env;
   const resolveQgisGdalContourBinFn = deps?.resolveQgisGdalContourBinFn ?? tryResolveQgisGdalContourBin;
   const provider = resolveContourProviderConfig(env);
@@ -179,6 +183,7 @@ export async function syncResortContours(
   const workDir = await mkdtemp(join(tmpBase, "ptk-contours-"));
   const demPath = join(workDir, "dem.tif");
   const generatedContoursPath = join(workDir, "contours.generated.geojson");
+  const generatedTerrainBandsPath = join(workDir, "terrain-bands.generated.geojson");
 
   try {
     const response = await fetchFn(demUrl, {
@@ -225,10 +230,46 @@ export async function syncResortContours(
       }
     }
 
+    const terrainBandArgs = [
+      "-p",
+      "-amin",
+      "eleMin",
+      "-amax",
+      "eleMax",
+      "-i",
+      String(contourIntervalMeters),
+      "-f",
+      "GeoJSON",
+      demPath,
+      generatedTerrainBandsPath
+    ];
+
+    try {
+      await execFileFn(provider.gdalContourBin, terrainBandArgs);
+    } catch (error: unknown) {
+      if (!env.PTK_GDAL_CONTOUR_BIN && looksLikeSpawnENOENT(error)) {
+        const qgisBin = await resolveQgisGdalContourBinFn();
+        if (qgisBin) {
+          await execFileFn(qgisBin, terrainBandArgs);
+        } else {
+          throw new Error(
+            "Terrain bands update failed: gdal_contour not found. Install GDAL (ensure `gdal_contour` is on PATH) or install QGIS and set PTK_GDAL_CONTOUR_BIN to the bundled binary."
+          );
+        }
+      } else {
+        throw error;
+      }
+    }
+
     const imported = await importContoursFn({
       workspacePath: args.workspacePath,
       inputPath: generatedContoursPath,
       outputPath: args.outputPath,
+      updatedAt
+    });
+    const importedTerrainBands = await importTerrainBandsFn({
+      workspacePath: args.workspacePath,
+      inputPath: generatedTerrainBandsPath,
       updatedAt
     });
 
@@ -236,6 +277,7 @@ export async function syncResortContours(
       workspacePath: imported.workspacePath,
       outputPath: imported.outputPath,
       importedFeatureCount: imported.importedFeatureCount,
+      importedTerrainBandCount: importedTerrainBands.importedFeatureCount,
       checksumSha256: imported.checksumSha256,
       queryHash,
       provider: provider.provider,
@@ -258,7 +300,7 @@ export async function syncResortContours(
 
 function withLayerState(
   workspace: ResortWorkspace,
-  layer: "boundary" | "lifts" | "runs" | "peaks" | "contours",
+  layer: "boundary" | "lifts" | "runs" | "peaks" | "contours" | "terrainBands",
   state: ResortWorkspace["layers"]["boundary"]
 ): ResortWorkspace {
   const current = workspace.layers[layer] ?? { status: "pending" as const };

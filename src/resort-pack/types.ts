@@ -46,6 +46,13 @@ export type ContourLine = {
   line: GeoLineString;
 };
 
+export type TerrainBand = {
+  id: string;
+  polygon: GeoPolygon;
+  elevationMinMeters?: number;
+  elevationMaxMeters?: number;
+};
+
 export type Peak = {
   id: string;
   name: string;
@@ -69,6 +76,7 @@ export type ResortPack = {
     liftProximityMeters: number;
   };
   areas?: ResortArea[];
+  terrainBands?: TerrainBand[];
   contours?: ContourLine[];
   peaks?: Peak[];
   lifts: Lift[];

@@ -2,6 +2,7 @@ import type { ResortPack } from "../resort-pack/types";
 
 export type ResortOverlayData = {
   boundary: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+  terrainBands: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
   areas: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
   contours: GeoJSON.FeatureCollection<GeoJSON.LineString>;
   peaks: GeoJSON.FeatureCollection<GeoJSON.Point>;
@@ -68,6 +69,30 @@ export function buildResortOverlayData(pack: ResortPack | null): ResortOverlayDa
       }
     })) ?? [];
 
+  const terrainBandFeatures: GeoJSON.Feature<GeoJSON.Polygon>[] =
+    pack?.terrainBands?.map((band) => {
+      const min = band.elevationMinMeters ?? null;
+      const max = band.elevationMaxMeters ?? null;
+      const mid =
+        typeof min === "number" && typeof max === "number" && Number.isFinite(min) && Number.isFinite(max)
+          ? (min + max) / 2
+          : typeof min === "number" && Number.isFinite(min)
+            ? min
+            : typeof max === "number" && Number.isFinite(max)
+              ? max
+              : null;
+      return {
+        type: "Feature",
+        geometry: band.polygon,
+        properties: {
+          id: band.id,
+          elevationMinMeters: min,
+          elevationMaxMeters: max,
+          elevationMidMeters: mid
+        }
+      };
+    }) ?? [];
+
   const liftLineFeatures: GeoJSON.Feature<GeoJSON.LineString>[] = [];
   const towerFeatures: GeoJSON.Feature<GeoJSON.Point>[] = [];
 
@@ -105,6 +130,7 @@ export function buildResortOverlayData(pack: ResortPack | null): ResortOverlayDa
 
   return {
     boundary: featureCollection(boundaryFeatures),
+    terrainBands: featureCollection(terrainBandFeatures),
     areas: featureCollection(areaFeatures),
     contours: featureCollection(contourFeatures),
     peaks: featureCollection(peakFeatures),

@@ -234,7 +234,7 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - added/updated unit tests in `/Users/piovese/Documents/Patrol Toolkit/src/map/terrain-config.test.ts`, `/Users/piovese/Documents/Patrol Toolkit/src/map/contour-style.test.ts`, and `/Users/piovese/Documents/Patrol Toolkit/src/map/contour-layers.test.ts`
 
 ## Slice 9: Hypsometric Tint Prototype (Vector-Only Terrain Fill)
-- Status: planned
+- Status: completed
 - Goal: add a muted elevation-based background tint that reads as terrain even without other overlays.
 - Deliverables:
   - define hypsometric ramp (low green -> mid tan/beige -> high light beige)
@@ -246,6 +246,14 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - labels remain readable with standard halos/styling
   - offline rendering works when vector terrain band data is bundled
 - PR outcome: vector-only terrain tint foundation is shipped or a concrete blocker is documented.
+- Outcome (completed):
+  - added first-class `terrainBands` support to resort pack schema/types/validator/catalog conversion (`/Users/piovese/Documents/Patrol Toolkit/src/resort-pack/*`)
+  - added map overlay conversion for terrain band polygons with derived `elevationMidMeters` property (`/Users/piovese/Documents/Patrol Toolkit/src/map/overlays.ts`)
+  - added config-driven hypsometric vector fill style + layer builder (`/Users/piovese/Documents/Patrol Toolkit/src/map/terrain-band-style.ts`, `/Users/piovese/Documents/Patrol Toolkit/src/map/terrain-band-layers.ts`)
+  - wired terrain band source/layer into `/Users/piovese/Documents/Patrol Toolkit/src/map/map-view.ts` below areas/contours and updated terrain layer ordering contract
+  - extended contour CLI generation flow to also generate/import terrain band polygons from the same DEM (`gdal_contour -p`) and publish them in resort bundles
+  - surfaced terrain band counts in CLI metrics/output (`Fetch/update other things -> Contours`)
+  - added unit tests for schema/parser/validator/overlay conversion, terrain band style/layer builders, and contour-sync terrain-band generation/import path
 
 ## Slice 10: Faux Shading Prototype (Vector-Only Depth)
 - Status: planned

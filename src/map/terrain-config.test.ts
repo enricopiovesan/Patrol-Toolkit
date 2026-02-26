@@ -6,6 +6,8 @@ import {
   TERRAIN_CONTOUR_MINOR_LABEL_MIN_ZOOM,
   TERRAIN_CONTOUR_MAJOR_INTERVAL_METERS,
   TERRAIN_CONTOUR_MINOR_INTERVAL_METERS,
+  TERRAIN_HYPSOMETRIC_COLOR_STOPS,
+  TERRAIN_HYPSOMETRIC_FILL_OPACITY,
   TERRAIN_OVERLAY_LAYER_ORDER,
   buildContourLabelFilterExpression,
   buildMajorContourFilterExpression,
@@ -20,7 +22,9 @@ describe("terrain-config", () => {
       labelMinZoom: TERRAIN_CONTOUR_LABEL_MIN_ZOOM,
       minorLabelMinZoom: TERRAIN_CONTOUR_MINOR_LABEL_MIN_ZOOM,
       colors: TERRAIN_CONTOUR_COLORS,
-      labelFont: TERRAIN_CONTOUR_LABEL_FONT
+      labelFont: TERRAIN_CONTOUR_LABEL_FONT,
+      hypsometricStops: TERRAIN_HYPSOMETRIC_COLOR_STOPS,
+      hypsometricOpacity: TERRAIN_HYPSOMETRIC_FILL_OPACITY
     }).toMatchInlineSnapshot(`
       {
         "colors": {
@@ -29,6 +33,19 @@ describe("terrain-config", () => {
           "major": "#6b4f3a",
           "minor": "#8f735f",
         },
+        "hypsometricOpacity": 0.22,
+        "hypsometricStops": [
+          0,
+          "#dfead8",
+          1400,
+          "#d7e3cf",
+          1800,
+          "#d8d2bc",
+          2200,
+          "#e6dec8",
+          2800,
+          "#f2eadb",
+        ],
         "labelFont": [
           "Noto Sans Regular",
         ],
@@ -62,6 +79,6 @@ describe("terrain-config", () => {
   });
 
   it("defines terrain overlay ordering contract", () => {
-    expect(TERRAIN_OVERLAY_LAYER_ORDER).toEqual(["areas", "contours", "peaks", "runs", "lifts"]);
+    expect(TERRAIN_OVERLAY_LAYER_ORDER).toEqual(["terrainBands", "areas", "contours", "peaks", "runs", "lifts"]);
   });
 });
