@@ -6,6 +6,7 @@ import {
   TERRAIN_CONTOUR_MINOR_LABEL_MIN_ZOOM,
   TERRAIN_CONTOUR_MAJOR_INTERVAL_METERS,
   TERRAIN_CONTOUR_MINOR_INTERVAL_METERS,
+  TERRAIN_FAUX_SHADING_INTENSITY,
   TERRAIN_HYPSOMETRIC_COLOR_STOPS,
   TERRAIN_HYPSOMETRIC_FILL_OPACITY,
   TERRAIN_OVERLAY_LAYER_ORDER,
@@ -24,7 +25,8 @@ describe("terrain-config", () => {
       colors: TERRAIN_CONTOUR_COLORS,
       labelFont: TERRAIN_CONTOUR_LABEL_FONT,
       hypsometricStops: TERRAIN_HYPSOMETRIC_COLOR_STOPS,
-      hypsometricOpacity: TERRAIN_HYPSOMETRIC_FILL_OPACITY
+      hypsometricOpacity: TERRAIN_HYPSOMETRIC_FILL_OPACITY,
+      fauxShadingIntensity: TERRAIN_FAUX_SHADING_INTENSITY
     }).toMatchInlineSnapshot(`
       {
         "colors": {
@@ -33,6 +35,7 @@ describe("terrain-config", () => {
           "major": "#6b4f3a",
           "minor": "#8f735f",
         },
+        "fauxShadingIntensity": 1.1,
         "hypsometricOpacity": 0.22,
         "hypsometricStops": [
           0,

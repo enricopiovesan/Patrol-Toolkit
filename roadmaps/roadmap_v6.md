@@ -256,7 +256,7 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - added unit tests for schema/parser/validator/overlay conversion, terrain band style/layer builders, and contour-sync terrain-band generation/import path
 
 ## Slice 10: Faux Shading Prototype (Vector-Only Depth)
-- Status: planned
+- Status: completed
 - Goal: simulate terrain depth using a subtle vector-only technique that preserves readability and performance.
 - Deliverables:
   - choose one vector-only shading approach for first implementation (recommended simplest viable path):
@@ -270,6 +270,16 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - runs/labels/user marker remain high-contrast and readable
   - pan/zoom performance remains acceptable on target phones
 - PR outcome: terrain depth prototype shipped (or no-ship with concrete technical blocker and evidence).
+- Outcome (completed):
+  - shipped a vector-only faux shading prototype using **terrain-band lightness shifts** (no raster hillshade, no new runtime network dependency)
+  - implemented two subtle terrain band overlay fills above hypsometric tint and below overlays:
+    - dark shade bands (repeating elevation-band phases)
+    - light highlight bands (repeating elevation-band phase)
+  - shading is derived from existing generated `terrainBands` polygons and `elevationMinMeters`/`elevationMidMeters` properties (no extra CLI generation step required beyond Slice 9)
+  - added centralized faux shading config/tuning constants in `/Users/piovese/Documents/Patrol Toolkit/src/map/terrain-config.ts` (intensity, band interval/cycle, colors, opacity stops)
+  - kept readability-first defaults (subtle opacity, low contrast) to preserve run/lift/GPS/label clarity on `small`
+  - added deterministic unit tests for faux shading style/filter expressions and terrain band layer outputs
+  - limitation (documented): this is a band-lightness depth cue, not true aspect/slope hillshade; visual impact is intentionally modest pending Slice 12 QA tuning
 
 ## Slice 11: Peaks Label System + Elevation Label Readability Polish
 - Status: planned
