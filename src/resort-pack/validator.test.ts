@@ -175,6 +175,77 @@ describe("validateResortPack", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("accepts optional terrain bands", () => {
+    const pack = clonePack();
+    pack.terrainBands = [
+      {
+        id: "tb-2200",
+        elevationMinMeters: 2200,
+        elevationMaxMeters: 2240,
+        polygon: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [-106.952, 39.194],
+              [-106.948, 39.194],
+              [-106.948, 39.191],
+              [-106.952, 39.194]
+            ]
+          ]
+        }
+      }
+    ];
+
+    const result = validateResortPack(pack);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects duplicate terrain band ids", () => {
+    const pack = clonePack();
+    pack.terrainBands = [
+      {
+        id: "tb-1",
+        polygon: {
+          type: "Polygon",
+          coordinates: [[[-106.952, 39.194], [-106.948, 39.194], [-106.948, 39.191], [-106.952, 39.194]]]
+        }
+      },
+      {
+        id: "tb-1",
+        polygon: {
+          type: "Polygon",
+          coordinates: [[[-106.952, 39.194], [-106.948, 39.194], [-106.948, 39.191], [-106.952, 39.194]]]
+        }
+      }
+    ];
+    const result = validateResortPack(pack);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("Expected semantic validation failure");
+    expect(result.errors.some((error) => error.code === "duplicate_id" && error.path === "#/terrainBands/1/id")).toBe(true);
+  });
+
+  it("rejects unclosed terrain band polygon ring", () => {
+    const pack = clonePack();
+    pack.terrainBands = [
+      {
+        id: "tb-1",
+        polygon: {
+          type: "Polygon",
+          coordinates: [[
+            [-106.952, 39.194],
+            [-106.948, 39.194],
+            [-106.948, 39.191],
+            [-106.952, 39.191]
+          ]]
+        }
+      }
+    ];
+    const result = validateResortPack(pack);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("Expected semantic validation failure");
+    expect(result.errors.some((error) => error.code === "invalid_geometry" && error.path === "#/terrainBands/0/polygon/coordinates/0")).toBe(true);
+  });
+
   it("rejects duplicate area ids", () => {
     const pack = clonePack();
     pack.areas = [

@@ -294,6 +294,30 @@ describe("resort catalog selection", () => {
             }
           ]
         },
+        terrainBands: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Polygon",
+                coordinates: [
+                  [
+                    [-116.967, 51.2945],
+                    [-116.961, 51.2945],
+                    [-116.961, 51.2915],
+                    [-116.967, 51.2945]
+                  ]
+                ]
+              },
+              properties: {
+                id: "tb-1",
+                eleMin: 2200,
+                eleMax: 2240
+              }
+            }
+          ]
+        },
         contours: {
           type: "FeatureCollection",
           features: [
@@ -385,6 +409,9 @@ describe("resort catalog selection", () => {
     expect(pack.boundary?.type).toBe("Polygon");
     expect(pack.areas).toHaveLength(1);
     expect(pack.areas?.[0]?.kind).toBe("ridge");
+    expect(pack.terrainBands).toHaveLength(1);
+    expect(pack.terrainBands?.[0]?.elevationMinMeters).toBe(2200);
+    expect(pack.terrainBands?.[0]?.elevationMaxMeters).toBe(2240);
     expect(pack.contours).toHaveLength(1);
     expect(pack.contours?.[0]?.elevationMeters).toBe(2300);
     expect(pack.peaks).toHaveLength(1);

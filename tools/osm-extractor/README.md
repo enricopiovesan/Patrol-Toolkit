@@ -222,6 +222,7 @@ Commit these (deliverables used by the app):
 ## Contours (Menu -> Fetch/update other things -> Contours)
 
 Contours are generated automatically from a DEM (OpenTopography) and bundled into the resort pack as vector lines.
+The same sync step also generates vector terrain band polygons (hypsometric tint input for the app terrain style).
 
 ### Prerequisites
 
@@ -551,8 +552,9 @@ The CLI will:
 
 - clone the next immutable resort version
 - download DEM for the buffered resort boundary bbox
-- run `gdal_contour`
-- import/normalize contours
+- run `gdal_contour` for contour lines
+- run `gdal_contour -p` for terrain band polygons
+- import/normalize contours and terrain bands
 - update status and metrics
 
 Command mode (scriptable):
@@ -577,6 +579,7 @@ node tools/osm-extractor/dist/src/cli.js resort-sync-contours \
 Notes:
 
 - Generated contours are bundled vector data (`ResortPack.contours`) and render offline after publish.
+- Generated terrain bands are bundled vector data (`ResortPack.terrainBands`) and power vector-only hypsometric tint rendering offline after publish.
 - No runtime contour API configuration is required in the app.
 
 ### resort-export-latest

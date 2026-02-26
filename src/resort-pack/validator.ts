@@ -39,6 +39,7 @@ function mapSchemaErrors(errors: ErrorObject[] | null | undefined): ResortPackVa
 function validateSemanticRules(pack: ResortPack): ResortPackValidationIssue[] {
   const errors: ResortPackValidationIssue[] = [];
   const areaIds = new Set<string>();
+  const terrainBandIds = new Set<string>();
   const contourIds = new Set<string>();
   const peakIds = new Set<string>();
   const runIds = new Set<string>();
@@ -128,6 +129,33 @@ function validateSemanticRules(pack: ResortPack): ResortPackValidationIssue[] {
         code: "invalid_geometry",
         path: `${contourPath}/line/coordinates`,
         message: "Contour line has duplicate consecutive points."
+      });
+    }
+  }
+
+  for (let index = 0; index < (pack.terrainBands ?? []).length; index += 1) {
+    const band = pack.terrainBands?.[index];
+    if (!band) {
+      continue;
+    }
+    const bandPath = `#/terrainBands/${index}`;
+
+    if (terrainBandIds.has(band.id)) {
+      errors.push({
+        code: "duplicate_id",
+        path: `${bandPath}/id`,
+        message: `Duplicate terrain band id '${band.id}'.`
+      });
+    } else {
+      terrainBandIds.add(band.id);
+    }
+
+    const outerRing = band.polygon.coordinates[0] ?? [];
+    if (!isClosedRing(outerRing)) {
+      errors.push({
+        code: "invalid_geometry",
+        path: `${bandPath}/polygon/coordinates/0`,
+        message: "Terrain band polygon outer ring must be closed."
       });
     }
   }

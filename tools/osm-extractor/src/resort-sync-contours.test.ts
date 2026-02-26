@@ -64,6 +64,7 @@ describe('resort-sync-contours', () => {
       const execFileFn = vi.fn().mockImplementation(async (_bin: string, args: string[]) => {
         const outputPath = args[args.length - 1];
         if (!outputPath) throw new Error('missing output');
+        const isPolygon = args.includes('-p');
         await writeFile(
           outputPath,
           JSON.stringify({
@@ -71,8 +72,10 @@ describe('resort-sync-contours', () => {
             features: [
               {
                 type: 'Feature',
-                properties: { ele: 2400 },
-                geometry: { type: 'LineString', coordinates: [[-117.05, 51.24], [-117.04, 51.25]] }
+                properties: isPolygon ? { eleMin: 2400, eleMax: 2420 } : { ele: 2400 },
+                geometry: isPolygon
+                  ? { type: 'Polygon', coordinates: [[[-117.05, 51.24], [-117.04, 51.24], [-117.04, 51.25], [-117.05, 51.24]]] }
+                  : { type: 'LineString', coordinates: [[-117.05, 51.24], [-117.04, 51.25]] }
               }
             ]
           }),
@@ -88,12 +91,15 @@ describe('resort-sync-contours', () => {
         }
       );
       expect(result.importedFeatureCount).toBe(1);
+      expect(result.importedTerrainBandCount).toBe(1);
       expect(result.provider).toBe('opentopography');
       expect(result.contourIntervalMeters).toBe(20);
       expect(execFileFn).toHaveBeenCalled();
       const workspace = await readResortWorkspace(workspacePath);
       expect(workspace.layers.contours?.status).toBe('complete');
       expect(workspace.layers.contours?.featureCount).toBe(1);
+      expect(workspace.layers.terrainBands?.status).toBe('complete');
+      expect(workspace.layers.terrainBands?.featureCount).toBe(1);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -104,26 +110,34 @@ describe('resort-sync-contours', () => {
     try {
       const workspacePath = await writeWorkspace(root);
       const fetchFn = vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3, 4]), { status: 200 }));
-      const execFileFn = vi.fn()
-        .mockRejectedValueOnce(Object.assign(new Error('spawn gdal_contour ENOENT'), { code: 'ENOENT' }))
-        .mockImplementationOnce(async (_bin: string, args: string[]) => {
-          const outputPath = args[args.length - 1];
-          if (!outputPath) throw new Error('missing output');
-          await writeFile(
-            outputPath,
-            JSON.stringify({
-              type: 'FeatureCollection',
-              features: [
-                {
-                  type: 'Feature',
-                  properties: { ele: 2400 },
-                  geometry: { type: 'LineString', coordinates: [[-117.05, 51.24], [-117.04, 51.25]] }
-                }
-              ]
-            }),
-            'utf8'
-          );
-        });
+      let callIndex = 0;
+      const execFileFn = vi.fn().mockImplementation(async (_bin: string, args: string[]) => {
+        callIndex += 1;
+        const isFirstAttemptForContour = callIndex === 1;
+        const isFirstAttemptForTerrain = callIndex === 3;
+        if (isFirstAttemptForContour || isFirstAttemptForTerrain) {
+          throw Object.assign(new Error('spawn gdal_contour ENOENT'), { code: 'ENOENT' });
+        }
+        const outputPath = args[args.length - 1];
+        if (!outputPath) throw new Error('missing output');
+        const isPolygon = args.includes('-p');
+        await writeFile(
+          outputPath,
+          JSON.stringify({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                properties: isPolygon ? { eleMin: 2400, eleMax: 2420 } : { ele: 2400 },
+                geometry: isPolygon
+                  ? { type: 'Polygon', coordinates: [[[-117.05, 51.24], [-117.04, 51.24], [-117.04, 51.25], [-117.05, 51.24]]] }
+                  : { type: 'LineString', coordinates: [[-117.05, 51.24], [-117.04, 51.25]] }
+              }
+            ]
+          }),
+          'utf8'
+        );
+      });
 
       const result = await syncResortContours(
         { workspacePath, contourIntervalMeters: 20, bufferMeters: 1000, updatedAt: '2026-03-01T00:00:00.000Z' },
@@ -136,9 +150,11 @@ describe('resort-sync-contours', () => {
       );
 
       expect(result.importedFeatureCount).toBe(1);
-      expect(execFileFn).toHaveBeenCalledTimes(2);
+      expect(execFileFn).toHaveBeenCalledTimes(4);
       expect(execFileFn.mock.calls[0]?.[0]).toBe('gdal_contour');
       expect(execFileFn.mock.calls[1]?.[0]).toBe('/Applications/QGIS.app/Contents/MacOS/gdal_contour');
+      expect(execFileFn.mock.calls[2]?.[0]).toBe('gdal_contour');
+      expect(execFileFn.mock.calls[3]?.[0]).toBe('/Applications/QGIS.app/Contents/MacOS/gdal_contour');
     } finally {
       await rm(root, { recursive: true, force: true });
     }

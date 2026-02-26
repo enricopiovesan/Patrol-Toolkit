@@ -12,6 +12,7 @@ import { buildContourLayers } from "./contour-layers";
 import { buildResortOverlayData } from "./overlays";
 import { buildLiftLayers } from "./lift-layers";
 import { buildPeakLayers } from "./peak-layers";
+import { buildTerrainBandLayers } from "./terrain-band-layers";
 import { ensurePackPmtilesArchiveLoaded, ensurePmtilesProtocolRegistered } from "./pmtiles-protocol";
 import { buildRunLayers } from "./run-layers";
 import { OFFLINE_FALLBACK_STYLE, resolveStyleForPack } from "./style-loader";
@@ -21,6 +22,7 @@ const LOCATION_SOURCE_ID = "current-location";
 const LOCATION_ACCURACY_LAYER = "current-location-accuracy";
 const LOCATION_DOT_LAYER = "current-location-dot";
 const RESORT_BOUNDARY_SOURCE_ID = "resort-boundary";
+const RESORT_TERRAIN_BANDS_SOURCE_ID = "resort-terrain-bands";
 const RESORT_AREAS_SOURCE_ID = "resort-areas";
 const RESORT_CONTOURS_SOURCE_ID = "resort-contours";
 const RESORT_PEAKS_SOURCE_ID = "resort-peaks";
@@ -351,6 +353,7 @@ export class MapView extends LitElement {
 
     const empty = buildResortOverlayData(null);
     this.map.addSource(RESORT_BOUNDARY_SOURCE_ID, { type: "geojson", data: empty.boundary });
+    this.map.addSource(RESORT_TERRAIN_BANDS_SOURCE_ID, { type: "geojson", data: empty.terrainBands });
     this.map.addSource(RESORT_AREAS_SOURCE_ID, { type: "geojson", data: empty.areas });
     this.map.addSource(RESORT_CONTOURS_SOURCE_ID, { type: "geojson", data: empty.contours });
     this.map.addSource(RESORT_PEAKS_SOURCE_ID, { type: "geojson", data: empty.peaks });
@@ -378,6 +381,9 @@ export class MapView extends LitElement {
         "line-dasharray": [2, 2]
       }
     });
+
+    const terrainBandLayers = buildTerrainBandLayers(RESORT_TERRAIN_BANDS_SOURCE_ID);
+    this.map.addLayer(terrainBandLayers.fillLayer as never);
 
     const areaLayers = buildAreaLayers(RESORT_AREAS_SOURCE_ID);
     this.map.addLayer(areaLayers.fillLayer as never);
@@ -412,18 +418,23 @@ export class MapView extends LitElement {
     }
 
     const boundarySource = this.map.getSource(RESORT_BOUNDARY_SOURCE_ID) as GeoJSONSource | undefined;
+    const terrainBandsSource = this.map.getSource(RESORT_TERRAIN_BANDS_SOURCE_ID) as GeoJSONSource | undefined;
     const areasSource = this.map.getSource(RESORT_AREAS_SOURCE_ID) as GeoJSONSource | undefined;
     const contoursSource = this.map.getSource(RESORT_CONTOURS_SOURCE_ID) as GeoJSONSource | undefined;
     const peaksSource = this.map.getSource(RESORT_PEAKS_SOURCE_ID) as GeoJSONSource | undefined;
     const runsSource = this.map.getSource(RESORT_RUNS_SOURCE_ID) as GeoJSONSource | undefined;
     const liftsSource = this.map.getSource(RESORT_LIFTS_SOURCE_ID) as GeoJSONSource | undefined;
     const towersSource = this.map.getSource(RESORT_LIFT_TOWERS_SOURCE_ID) as GeoJSONSource | undefined;
-    if (!boundarySource || !areasSource || !contoursSource || !peaksSource || !runsSource || !liftsSource || !towersSource) {
+    if (
+      !boundarySource || !terrainBandsSource || !areasSource || !contoursSource || !peaksSource || !runsSource ||
+      !liftsSource || !towersSource
+    ) {
       return;
     }
 
     const overlays = buildResortOverlayData(this.pack);
     boundarySource.setData(overlays.boundary);
+    terrainBandsSource.setData(overlays.terrainBands);
     areasSource.setData(overlays.areas);
     contoursSource.setData(overlays.contours);
     peaksSource.setData(overlays.peaks);

@@ -198,6 +198,13 @@ type StatusShape = {
       checksumSha256?: string | null;
       updatedAt?: string | null;
     };
+    terrainBands?: {
+      status?: "pending" | "running" | "complete" | "failed";
+      featureCount?: number | null;
+      artifactPath?: string | null;
+      checksumSha256?: string | null;
+      updatedAt?: string | null;
+    };
   };
   readiness?: {
     overall?: "ready" | "incomplete";
@@ -952,6 +959,11 @@ async function runKnownResortMenu(args: {
           `  - Contours: status=${workspaceForExtras.layers.contours.status}  features=${workspaceForExtras.layers.contours.featureCount ?? "?"}`
         );
       }
+      if (workspaceForExtras.layers.terrainBands) {
+        console.log(
+          `  - Terrain : status=${workspaceForExtras.layers.terrainBands.status}  features=${workspaceForExtras.layers.terrainBands.featureCount ?? "?"}`
+        );
+      }
       console.log("- Validation");
       console.log(`  - Boundary: ${formatLayerValidationSummary(manualValidation.layers.boundary)}`);
       console.log(`  - Runs    : ${formatLayerValidationSummary(manualValidation.layers.runs)}`);
@@ -1588,6 +1600,7 @@ async function runKnownResortMenu(args: {
         console.log(
           `Contours updated: count=${result.importedFeatureCount} interval=${contourIntervalMeters}m buffer=${contourBufferMeters}m checksum=${result.checksumSha256}`
         );
+        console.log(`Terrain bands updated: count=${result.importedTerrainBandCount}`);
       } catch (error: unknown) {
         if (cloned) {
           await rm(cloned.versionPath, { recursive: true, force: true });
@@ -1949,7 +1962,8 @@ async function syncStatusFileFromWorkspace(args: { workspacePath: string; status
       runs: toStatusLayer(workspace.layers.runs),
       lifts: toStatusLayer(workspace.layers.lifts),
       ...(workspace.layers.peaks ? { peaks: toStatusLayer(workspace.layers.peaks) } : {}),
-      ...(workspace.layers.contours ? { contours: toStatusLayer(workspace.layers.contours) } : {})
+      ...(workspace.layers.contours ? { contours: toStatusLayer(workspace.layers.contours) } : {}),
+      ...(workspace.layers.terrainBands ? { terrainBands: toStatusLayer(workspace.layers.terrainBands) } : {})
     },
     readiness: {
       overall: sync.overall,
@@ -2200,6 +2214,7 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
 
   const boundary = await readLayerArtifactJson(versionPath, workspace.layers.boundary.artifactPath);
   const areas = await readLayerArtifactJson(versionPath, workspace.layers.areas?.artifactPath);
+  const terrainBands = await readLayerArtifactJson(versionPath, workspace.layers.terrainBands?.artifactPath);
   const contours = await readLayerArtifactJson(versionPath, workspace.layers.contours?.artifactPath);
   const peaks = await readLayerArtifactJson(versionPath, workspace.layers.peaks?.artifactPath);
   const runs = await readLayerArtifactJson(versionPath, workspace.layers.runs.artifactPath);
@@ -2217,6 +2232,7 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
     layers: {
       boundary,
       areas,
+      terrainBands,
       contours,
       peaks,
       runs,

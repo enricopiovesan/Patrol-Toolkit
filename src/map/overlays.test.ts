@@ -37,6 +37,22 @@ describe("buildResortOverlayData", () => {
         }
       }
     ];
+    pack.terrainBands = [
+      {
+        id: "tb-1",
+        elevationMinMeters: 2200,
+        elevationMaxMeters: 2240,
+        polygon: {
+          type: "Polygon",
+          coordinates: [[
+            [-106.9512, 39.1932],
+            [-106.9498, 39.1932],
+            [-106.9498, 39.1922],
+            [-106.9512, 39.1932]
+          ]]
+        }
+      }
+    ];
     pack.peaks = [
       {
         id: "peak-1",
@@ -48,6 +64,8 @@ describe("buildResortOverlayData", () => {
     const overlays = buildResortOverlayData(pack);
 
     expect(overlays.boundary.features).toHaveLength(0);
+    expect(overlays.terrainBands.features).toHaveLength(1);
+    expect(overlays.terrainBands.features[0]?.properties?.elevationMidMeters).toBe(2220);
     expect(overlays.areas.features).toHaveLength(1);
     expect(overlays.areas.features[0]?.properties?.kind).toBe("ridge");
     expect(overlays.contours.features).toHaveLength(1);
@@ -75,12 +93,14 @@ describe("buildResortOverlayData", () => {
 
     const overlays = buildResortOverlayData(pack);
     expect(overlays.boundary.features).toHaveLength(1);
+    expect(overlays.terrainBands.features).toHaveLength(0);
     expect(overlays.boundary.features[0]?.geometry.type).toBe("Polygon");
   });
 
   it("returns empty collections when pack is missing", () => {
     const overlays = buildResortOverlayData(null);
     expect(overlays.boundary.features).toHaveLength(0);
+    expect(overlays.terrainBands.features).toHaveLength(0);
     expect(overlays.areas.features).toHaveLength(0);
     expect(overlays.contours.features).toHaveLength(0);
     expect(overlays.peaks.features).toHaveLength(0);

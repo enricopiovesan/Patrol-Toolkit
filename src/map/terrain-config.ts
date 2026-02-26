@@ -1,6 +1,15 @@
 export const TERRAIN_CONTOUR_MINOR_INTERVAL_METERS = 20;
 export const TERRAIN_CONTOUR_MAJOR_INTERVAL_METERS = 100;
 
+export const TERRAIN_HYPSOMETRIC_COLOR_STOPS = [
+  0, "#dfead8",
+  1400, "#d7e3cf",
+  1800, "#d8d2bc",
+  2200, "#e6dec8",
+  2800, "#f2eadb"
+] as const;
+export const TERRAIN_HYPSOMETRIC_FILL_OPACITY = 0.22;
+
 export const TERRAIN_CONTOUR_COLORS = {
   major: "#6b4f3a",
   minor: "#8f735f",
@@ -42,6 +51,7 @@ export const TERRAIN_CONTOUR_LABEL_OPACITY_STOPS = [12.5, 0, 13.5, 0.28, 16, 0.3
 export const TERRAIN_CONTOUR_LABEL_HALO_WIDTH = 1.2;
 
 export const TERRAIN_OVERLAY_LAYER_ORDER = [
+  "terrainBands",
   "areas",
   "contours",
   "peaks",

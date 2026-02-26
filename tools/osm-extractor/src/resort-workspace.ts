@@ -25,6 +25,7 @@ export type ResortWorkspace = {
     contours?: ResortWorkspaceLayerState;
     lifts: ResortWorkspaceLayerState;
     peaks?: ResortWorkspaceLayerState;
+    terrainBands?: ResortWorkspaceLayerState;
     runs: ResortWorkspaceLayerState;
   };
 };
@@ -104,6 +105,7 @@ const resortWorkspaceSchema = {
         contours: layerStateSchema,
         lifts: layerStateSchema,
         peaks: layerStateSchema,
+        terrainBands: layerStateSchema,
         runs: layerStateSchema
       }
     }
