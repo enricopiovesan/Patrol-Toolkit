@@ -152,7 +152,7 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
 - PR outcome: map gains useful terrain context without losing patrol clarity.
 
 ## Slice 5: Water Features + River/Lake Labels (Basemap Style)
-- Status: planned
+- Status: completed
 - Goal: show rivers, waterways, lakes, and their names using existing basemap vector tile layers.
 - Deliverables:
   - style waterways and water bodies for readability on current terrain/basemap background
@@ -163,6 +163,13 @@ Expose tunable constants/config (not hardcoded throughout render code) for:
   - labels remain readable on `small`
   - no major collision clutter in dense map areas
 - PR outcome: water context is visible and informative.
+- Outcome (completed):
+  - extended generated default offline basemap style to include:
+    - `waterway` line layer (muted blue, low-contrast width ramp)
+    - `water-name` symbol layer from `water_name` source-layer (`symbol-placement: line`)
+  - tuned water fill and labels to stay subordinate to patrol overlays
+  - implemented `water_name` as optional basemap label path (graceful fallback when source-layer has no features in visible tiles)
+  - added extractor test coverage asserting generated fallback style includes waterway + water labels configuration
 
 ## Slice 6: Restaurants + Key Amenity POIs (Basemap Style)
 - Status: planned
