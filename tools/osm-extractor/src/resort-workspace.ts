@@ -20,6 +20,7 @@ export type ResortWorkspace = {
     };
   };
   layers: {
+    areas?: ResortWorkspaceLayerState;
     boundary: ResortWorkspaceLayerState;
     contours?: ResortWorkspaceLayerState;
     lifts: ResortWorkspaceLayerState;
@@ -98,6 +99,7 @@ const resortWorkspaceSchema = {
       additionalProperties: false,
       required: ["boundary", "lifts", "runs"],
       properties: {
+        areas: layerStateSchema,
         boundary: layerStateSchema,
         contours: layerStateSchema,
         lifts: layerStateSchema,

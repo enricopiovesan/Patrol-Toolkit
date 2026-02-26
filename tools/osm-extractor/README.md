@@ -218,6 +218,34 @@ export PTK_PLANETILER_JAR=tools/bin/planetiler.jar
 
 Commit these (deliverables used by the app):
 - `resorts/<resortKey>/<version>/**` (including `<version>/basemap/base.pmtiles` + `style.json`)
+
+## Contours (Menu -> Fetch/update other things -> Contours)
+
+Contours are generated automatically from a DEM (OpenTopography) and bundled into the resort pack as vector lines.
+
+### Prerequisites
+
+1. OpenTopography API key (required):
+
+```bash
+export PTK_OPENTOPO_API_KEY="..."
+```
+
+2. `gdal_contour` available (required).
+
+Standard setup (recommended when Homebrew works):
+
+```bash
+brew install gdal
+```
+
+If Homebrew is unavailable (managed/corporate environment), install QGIS (bundles GDAL tools) and point the CLI at it:
+
+```bash
+export PTK_GDAL_CONTOUR_BIN="/Applications/QGIS*.app/Contents/MacOS/gdal_contour"
+```
+
+The CLI also auto-detects QGIS on macOS when `PTK_GDAL_CONTOUR_BIN` is not set.
 - `public/packs/<resortKey>/**`
 - `public/packs/<resortKey>.latest.validated.json`
 - `public/resort-packs/index.json`

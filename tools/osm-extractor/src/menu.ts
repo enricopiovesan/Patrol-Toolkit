@@ -2197,6 +2197,9 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
   });
 
   const boundary = await readLayerArtifactJson(versionPath, workspace.layers.boundary.artifactPath);
+  const areas = await readLayerArtifactJson(versionPath, workspace.layers.areas?.artifactPath);
+  const contours = await readLayerArtifactJson(versionPath, workspace.layers.contours?.artifactPath);
+  const peaks = await readLayerArtifactJson(versionPath, workspace.layers.peaks?.artifactPath);
   const runs = await readLayerArtifactJson(versionPath, workspace.layers.runs.artifactPath);
   const lifts = await readLayerArtifactJson(versionPath, workspace.layers.lifts.artifactPath);
 
@@ -2211,6 +2214,9 @@ async function publishCurrentValidatedVersionToAppCatalog(args: {
     workspace,
     layers: {
       boundary,
+      areas,
+      contours,
+      peaks,
       runs,
       lifts
     }

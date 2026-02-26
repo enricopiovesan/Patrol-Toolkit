@@ -1,12 +1,27 @@
 export function buildContourLinePaint(): {
-  "line-color": string;
+  "line-color": unknown[];
   "line-width": unknown[];
   "line-opacity": unknown[];
 } {
   return {
-    "line-color": "#475569",
-    "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.6, 13, 0.9, 16, 1.4],
-    "line-opacity": ["interpolate", ["linear"], ["zoom"], 10.5, 0, 12, 0.35, 15, 0.55]
+    "line-color": [
+      "case",
+      ["all", ["has", "elevationMeters"], ["==", ["%", ["to-number", ["get", "elevationMeters"]], 100], 0]],
+      "#334155",
+      "#64748b"
+    ],
+    "line-width": [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      11,
+      0.8,
+      13,
+      1.05,
+      16,
+      1.6
+    ],
+    "line-opacity": ["interpolate", ["linear"], ["zoom"], 10.5, 0, 12, 0.275, 15, 0.41]
   };
 }
 
@@ -40,10 +55,9 @@ export function buildContourLabelPaint(): {
   "text-opacity": unknown[];
 } {
   return {
-    "text-color": "#334155",
+    "text-color": "#1f2937",
     "text-halo-color": "#f8fafc",
-    "text-halo-width": 1,
-    "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0, 13.5, 0.65, 16, 0.8]
+    "text-halo-width": 1.2,
+    "text-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0, 13.5, 0.375, 16, 0.45]
   };
 }
-

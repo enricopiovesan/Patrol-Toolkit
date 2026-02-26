@@ -98,4 +98,49 @@ describe('resort-sync-contours', () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it('falls back to QGIS-bundled gdal_contour on macOS when gdal_contour is missing', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'sync-contours-qgis-'));
+    try {
+      const workspacePath = await writeWorkspace(root);
+      const fetchFn = vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3, 4]), { status: 200 }));
+      const execFileFn = vi.fn()
+        .mockRejectedValueOnce(Object.assign(new Error('spawn gdal_contour ENOENT'), { code: 'ENOENT' }))
+        .mockImplementationOnce(async (_bin: string, args: string[]) => {
+          const outputPath = args[args.length - 1];
+          if (!outputPath) throw new Error('missing output');
+          await writeFile(
+            outputPath,
+            JSON.stringify({
+              type: 'FeatureCollection',
+              features: [
+                {
+                  type: 'Feature',
+                  properties: { ele: 2400 },
+                  geometry: { type: 'LineString', coordinates: [[-117.05, 51.24], [-117.04, 51.25]] }
+                }
+              ]
+            }),
+            'utf8'
+          );
+        });
+
+      const result = await syncResortContours(
+        { workspacePath, contourIntervalMeters: 20, bufferMeters: 1000, updatedAt: '2026-03-01T00:00:00.000Z' },
+        {
+          fetchFn: fetchFn as unknown as typeof fetch,
+          execFileFn,
+          env: { PTK_OPENTOPO_API_KEY: 'abc123' },
+          resolveQgisGdalContourBinFn: async () => '/Applications/QGIS.app/Contents/MacOS/gdal_contour'
+        }
+      );
+
+      expect(result.importedFeatureCount).toBe(1);
+      expect(execFileFn).toHaveBeenCalledTimes(2);
+      expect(execFileFn.mock.calls[0]?.[0]).toBe('gdal_contour');
+      expect(execFileFn.mock.calls[1]?.[0]).toBe('/Applications/QGIS.app/Contents/MacOS/gdal_contour');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

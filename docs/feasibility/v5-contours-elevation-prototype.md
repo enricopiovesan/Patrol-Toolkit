@@ -99,6 +99,8 @@ It removes the need for a raster contour overlay path for the contour prototype 
 
 1. Set OpenTopography API key (`PTK_OPENTOPO_API_KEY`).
 2. Install GDAL and ensure `gdal_contour` is available.
+   - Standard (Homebrew): `brew install gdal`
+   - If Homebrew is unavailable: install QGIS and set `PTK_GDAL_CONTOUR_BIN` to the bundled tool, e.g. `/Applications/QGIS*.app/Contents/MacOS/gdal_contour`
 3. Run contour sync from CLI (`resort-sync-contours`) or menu (`Fetch/update other things -> Contours`).
 4. Publish latest version and verify contours in the app.
 

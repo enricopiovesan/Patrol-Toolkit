@@ -1,0 +1,59 @@
+{
+  "version": 8,
+  "sources": {
+    "basemap": {
+      "type": "vector",
+      "url": "pmtiles://./base.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#dce8ef"
+      }
+    },
+    {
+      "id": "landcover",
+      "type": "fill",
+      "source": "basemap",
+      "source-layer": "landcover",
+      "paint": {
+        "fill-color": "#d6ead0"
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "basemap",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#9ec7ea"
+      }
+    },
+    {
+      "id": "transportation",
+      "type": "line",
+      "source": "basemap",
+      "source-layer": "transportation",
+      "paint": {
+        "line-color": "#ffffff",
+        "line-width": 1.2
+      }
+    },
+    {
+      "id": "boundary",
+      "type": "line",
+      "source": "basemap",
+      "source-layer": "boundary",
+      "paint": {
+        "line-color": "#9aa5ad",
+        "line-width": 1
+      }
+    }
+  ],
+  "metadata": {
+    "patrol-toolkit:maxZoom": 15
+  }
+}

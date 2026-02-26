@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { execFile as execFileCb } from "node:child_process";
+import { readdir, stat } from "node:fs/promises";
 import { importResortContours } from "./resort-import-contours.js";
 import { readResortWorkspace, writeResortWorkspace, type ResortWorkspace } from "./resort-workspace.js";
 
@@ -60,6 +61,42 @@ export function resolveContourProviderConfig(env: NodeJS.ProcessEnv = process.en
   };
 }
 
+function looksLikeSpawnENOENT(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybeErr = error as { code?: unknown; message?: unknown };
+  if (maybeErr.code === "ENOENT") return true;
+  const message = typeof maybeErr.message === "string" ? maybeErr.message : "";
+  return message.includes("ENOENT") && message.includes("gdal_contour");
+}
+
+async function tryResolveQgisGdalContourBin(): Promise<string | null> {
+  if (process.platform !== "darwin") return null;
+
+  // QGIS bundles GDAL tools at: /Applications/QGIS*.app/Contents/MacOS/gdal_contour
+  // Some users have nightly builds like: /Applications/QGIS-master-<hash>.app/Contents/MacOS/gdal_contour
+  const applicationsDir = "/Applications";
+  let entries: string[] = [];
+  try {
+    entries = await readdir(applicationsDir);
+  } catch {
+    return null;
+  }
+
+  const candidates = entries
+    .filter((name) => name.startsWith("QGIS") && name.endsWith(".app"))
+    .map((name) => join(applicationsDir, name, "Contents", "MacOS", "gdal_contour"));
+
+  for (const candidate of candidates) {
+    try {
+      const s = await stat(candidate);
+      if (s.isFile()) return candidate;
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
 export function buildOpenTopographyGlobalDemUrl(args: {
   baseUrl: string;
   apiKey: string;
@@ -94,6 +131,7 @@ export async function syncResortContours(
     importContoursFn?: typeof importResortContours;
     env?: NodeJS.ProcessEnv;
     tmpRoot?: string;
+    resolveQgisGdalContourBinFn?: () => Promise<string | null>;
   }
 ): Promise<ResortSyncContoursResult> {
   const fetchFn = deps?.fetchFn ?? fetch;
@@ -102,6 +140,7 @@ export async function syncResortContours(
   });
   const importContoursFn = deps?.importContoursFn ?? importResortContours;
   const env = deps?.env ?? process.env;
+  const resolveQgisGdalContourBinFn = deps?.resolveQgisGdalContourBinFn ?? tryResolveQgisGdalContourBin;
   const provider = resolveContourProviderConfig(env);
   const updatedAt = args.updatedAt ?? new Date().toISOString();
   const bufferMeters = args.bufferMeters ?? 2000;
@@ -157,7 +196,7 @@ export async function syncResortContours(
     }
     await writeFile(demPath, bytes);
 
-    await execFileFn(provider.gdalContourBin, [
+    const contourArgs = [
       "-a",
       "ele",
       "-i",
@@ -166,7 +205,25 @@ export async function syncResortContours(
       "GeoJSON",
       demPath,
       generatedContoursPath
-    ]);
+    ];
+
+    try {
+      await execFileFn(provider.gdalContourBin, contourArgs);
+    } catch (error: unknown) {
+      // If the user doesn't have Homebrew/conda and `gdal_contour` isn't on PATH, try QGIS-bundled binary on macOS.
+      if (!env.PTK_GDAL_CONTOUR_BIN && looksLikeSpawnENOENT(error)) {
+        const qgisBin = await resolveQgisGdalContourBinFn();
+        if (qgisBin) {
+          await execFileFn(qgisBin, contourArgs);
+        } else {
+          throw new Error(
+            "Contours update failed: gdal_contour not found. Install GDAL (ensure `gdal_contour` is on PATH) or install QGIS and set PTK_GDAL_CONTOUR_BIN to the bundled binary, e.g. /Applications/QGIS*.app/Contents/MacOS/gdal_contour."
+          );
+        }
+      } else {
+        throw error;
+      }
+    }
 
     const imported = await importContoursFn({
       workspacePath: args.workspacePath,
