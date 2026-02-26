@@ -215,4 +215,28 @@ describe("resolveStyleForPack", () => {
     expect(result.key).toBe("fallback:demo-resort");
     expect(result.style).toEqual(OFFLINE_FALLBACK_STYLE);
   });
+
+  it("returns aerial raster style when aerial mode is enabled and config is valid", async () => {
+    vi.stubEnv("VITE_AERIAL_PROVIDER", "maptiler");
+    vi.stubEnv("VITE_MAPTILER_KEY", "test-key");
+    try {
+      const result = await resolveStyleForPack(null, vi.fn(), () => true, { aerialMode: true });
+      expect(result.key).toBe("aerial:maptiler");
+      expect(result.style.sources).toMatchObject({
+        "aerial-raster": {
+          type: "raster",
+          tiles: ["https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=test-key"]
+        }
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("falls back when aerial mode is enabled but config is missing", async () => {
+    vi.unstubAllEnvs();
+    const result = await resolveStyleForPack(null, vi.fn(), () => true, { aerialMode: true });
+    expect(result.key).toBe("fallback");
+    expect(result.style).not.toEqual(OFFLINE_FALLBACK_STYLE);
+  });
 });

@@ -17,6 +17,7 @@ import {
 } from "./phrase-ux-state";
 import { classifyViewportWidth, type ViewportMode } from "./viewport";
 import { APP_VERSION } from "../app-version";
+import { readAerialConfigFromEnv } from "../map/aerial-config";
 import { requestPackAssetPrecache } from "../pwa/precache-pack-assets";
 import { composeRadioPhrase } from "../radio/phrase";
 import {
@@ -295,6 +296,12 @@ export class PtkAppShell extends LitElement {
   private accessor mapStateMessage = "Loading map…";
 
   @state()
+  private accessor aerialModeActive = false;
+
+  @state()
+  private accessor onlineStatus = typeof navigator !== "undefined" ? navigator.onLine === true : true;
+
+  @state()
   private accessor toastQueueState: V4ToastQueueState = createInitialToastQueueState(2);
 
   private latestResortPosition: { coordinates: LngLat; accuracy: number } | null = null;
@@ -316,6 +323,16 @@ export class PtkAppShell extends LitElement {
     this.deferredInstallPrompt = null;
     this.pushToast("App installed. Open from your home screen.", "success");
   };
+  private readonly onOnline = () => {
+    this.onlineStatus = true;
+  };
+  private readonly onOffline = () => {
+    this.onlineStatus = false;
+    if (this.aerialModeActive) {
+      this.aerialModeActive = false;
+      this.pushToast("Aerial view is online only. Switched back to standard map.", "info");
+    }
+  };
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -324,6 +341,8 @@ export class PtkAppShell extends LitElement {
     window.addEventListener("resize", this.handleWindowResize);
     window.addEventListener("beforeinstallprompt", this.onBeforeInstallPrompt);
     window.addEventListener("appinstalled", this.onAppInstalled);
+    window.addEventListener("online", this.onOnline);
+    window.addEventListener("offline", this.onOffline);
     void this.initializeData();
   }
 
@@ -331,6 +350,8 @@ export class PtkAppShell extends LitElement {
     window.removeEventListener("resize", this.handleWindowResize);
     window.removeEventListener("beforeinstallprompt", this.onBeforeInstallPrompt);
     window.removeEventListener("appinstalled", this.onAppInstalled);
+    window.removeEventListener("online", this.onOnline);
+    window.removeEventListener("offline", this.onOffline);
     this.repository?.close();
     this.repository = null;
     for (const timerId of this.toastTimers.values()) {
@@ -470,6 +491,10 @@ export class PtkAppShell extends LitElement {
       `;
     }
 
+    const aerialConfig = readAerialConfigFromEnv();
+    const aerialToggleVisible = aerialConfig.enabled;
+    const aerialToggleDisabled = !this.onlineStatus;
+
     const vm = buildResortPageViewModel({
       viewport: this.viewport,
       resortName: this.selectedResortName,
@@ -498,6 +523,9 @@ export class PtkAppShell extends LitElement {
         .showPhraseRegenerateButton=${this.computeShowPhraseRegenerateButton()}
         .mapState=${this.mapUiState}
         .mapStateMessage=${this.mapStateMessage}
+        .aerialToggleVisible=${aerialToggleVisible}
+        .aerialModeActive=${aerialToggleVisible && this.aerialModeActive}
+        .aerialToggleDisabled=${aerialToggleVisible && aerialToggleDisabled}
         .selectedTab=${vm.selectedTab}
         .panelOpen=${vm.panelOpen}
         .fullscreenSupported=${vm.fullscreenSupported}
@@ -507,6 +535,7 @@ export class PtkAppShell extends LitElement {
         @ptk-resort-tab-select=${this.handleResortTabSelect}
         @ptk-resort-toggle-panel=${this.handleResortTogglePanel}
         @ptk-resort-toggle-fullscreen=${this.handleResortToggleFullscreen}
+        @ptk-resort-toggle-aerial=${this.handleResortToggleAerial}
         @ptk-resort-open-settings=${this.handleOpenSettingsPanel}
         @ptk-resort-position-update=${this.handleResortPositionUpdate}
         @ptk-resort-gps-error=${this.handleResortGpsError}
@@ -651,6 +680,7 @@ export class PtkAppShell extends LitElement {
     this.selectedResortName = entry?.resortName ?? resortId;
     this.selectedResortSourceVersion = entry?.version ?? "";
     this.selectedResortPack = null;
+    this.aerialModeActive = false;
     this.installBlockingError = "";
     this.installBlockingBusy = false;
     this.installBlockingAttempted = false;
@@ -675,6 +705,7 @@ export class PtkAppShell extends LitElement {
     this.installBlockingBusy = false;
     this.installBlockingAttempted = false;
     this.selectedResortPack = null;
+    this.aerialModeActive = false;
     this.resortPageUiState = createInitialResortPageUiState(this.viewport);
     this.gpsUiState = createInitialGpsUiState();
     this.resetResortPageDerivedState();
@@ -695,6 +726,23 @@ export class PtkAppShell extends LitElement {
   private readonly handleResortToggleFullscreen = (): void => {
     const fullscreenSupported = createInitialToolPanelState(this.viewport).fullscreenSupported;
     this.resortPageUiState = toggleResortPageFullscreen(this.resortPageUiState, this.viewport, fullscreenSupported);
+  };
+
+  private readonly handleResortToggleAerial = (): void => {
+    const aerialConfig = readAerialConfigFromEnv();
+    if (!aerialConfig.enabled) {
+      return;
+    }
+    if (!this.onlineStatus) {
+      this.aerialModeActive = false;
+      this.pushToast("Aerial view is online only.", "info");
+      return;
+    }
+    this.aerialModeActive = !this.aerialModeActive;
+    this.pushToast(
+      this.aerialModeActive ? "Aerial view enabled (online only)." : "Standard map enabled.",
+      "info"
+    );
   };
 
   private readonly handleResortPositionUpdate = (event: CustomEvent<{ coordinates: LngLat; accuracy: number }>): void => {

@@ -1,6 +1,7 @@
 import type maplibregl from "maplibre-gl";
 import type { ResortPack } from "../resort-pack/types";
 import { resolveAppUrl } from "../runtime/base-url";
+import { readAerialConfigFromEnv } from "./aerial-config";
 
 export const OFFLINE_FALLBACK_STYLE: maplibregl.StyleSpecification = {
   version: 8,
@@ -40,9 +41,39 @@ const NETWORK_FALLBACK_STYLE: maplibregl.StyleSpecification = {
 export async function resolveStyleForPack(
   pack: ResortPack | null,
   fetchFn: typeof fetch = fetch,
-  isOnlineFn: () => boolean = defaultIsOnline
+  isOnlineFn: () => boolean = defaultIsOnline,
+  options?: { aerialMode?: boolean }
 ): Promise<{ key: string; style: maplibregl.StyleSpecification }> {
+  const aerialMode = options?.aerialMode === true;
   const fallbackStyle = isOnlineFn() ? NETWORK_FALLBACK_STYLE : OFFLINE_FALLBACK_STYLE;
+
+  if (aerialMode && isOnlineFn()) {
+    const aerialConfig = readAerialConfigFromEnv();
+    if (aerialConfig.enabled) {
+      return {
+        key: `aerial:${aerialConfig.provider}`,
+        style: {
+          version: 8,
+          name: "Patrol Toolkit Aerial",
+          sources: {
+            "aerial-raster": {
+              type: "raster",
+              tiles: [aerialConfig.tileUrlTemplate],
+              tileSize: 256,
+              attribution: aerialConfig.attribution
+            }
+          },
+          layers: [
+            {
+              id: "aerial-raster-layer",
+              type: "raster",
+              source: "aerial-raster"
+            }
+          ]
+        }
+      };
+    }
+  }
 
   if (!pack) {
     return {

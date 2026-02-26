@@ -135,6 +135,9 @@ export class MapView extends LitElement {
   @property({ type: Boolean })
   accessor showBuiltInControls = true;
 
+  @property({ type: Boolean })
+  accessor aerialMode = false;
+
   @state()
   private accessor status = "Waiting for GPS lock...";
 
@@ -218,7 +221,7 @@ export class MapView extends LitElement {
   }
 
   protected override updated(changedProperties: Map<string, unknown>): void {
-    if (changedProperties.has("pack")) {
+    if (changedProperties.has("pack") || changedProperties.has("aerialMode")) {
       ensurePackPmtilesArchiveLoaded(this.pack);
       void this.applyStyleForActivePack();
       this.syncResortLayers();
@@ -440,7 +443,9 @@ export class MapView extends LitElement {
     }
 
     const token = ++this.styleApplyToken;
-    const { key, style } = await resolveStyleForPack(this.pack);
+    const { key, style } = await resolveStyleForPack(this.pack, undefined, undefined, {
+      aerialMode: this.aerialMode
+    });
     if (!this.map || token !== this.styleApplyToken || this.currentStyleKey === key) {
       return;
     }
@@ -470,7 +475,7 @@ export class MapView extends LitElement {
       return false;
     }
 
-    if (!this.currentStyleKey.startsWith("pack:")) {
+    if (!this.currentStyleKey.startsWith("pack:") && !this.currentStyleKey.startsWith("aerial:")) {
       return false;
     }
 
