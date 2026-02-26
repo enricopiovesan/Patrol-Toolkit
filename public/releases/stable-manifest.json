@@ -3,7 +3,7 @@
   "release": {
     "channel": "stable",
     "appVersion": "0.0.1",
-    "createdAt": "2026-02-26T03:15:45.546Z"
+    "createdAt": "2026-02-26T04:35:40.592Z"
   },
   "artifacts": [
     {
@@ -59,7 +59,7 @@
       "resortId": "CA_Golden_Kicking_Horse",
       "version": "v15",
       "url": "/packs/CA_Golden_Kicking_Horse.latest.validated.json",
-      "sha256": "d8d397d59f2c101416960f47be01439305b203e913754d0409089c76aac849ea",
+      "sha256": "db7e5064721cc9b33203813eb317938305a10551bbb169b9731d9fb13900bec8",
       "bytes": 2096114
     },
     {
