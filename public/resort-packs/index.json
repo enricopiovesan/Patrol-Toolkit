@@ -4,8 +4,8 @@
     "channel": "stable",
     "appVersion": "0.0.1",
     "manifestUrl": "/releases/stable-manifest.json",
-    "manifestSha256": "cec54a1919b779341333d30e536c56e9c0064ecbbc283ce4da7b9b471507acfe",
-    "createdAt": "2026-02-26T03:08:37.648Z"
+    "manifestSha256": "16ac5fc2c13d6b2cb062df4f6cc7f35c5219967fc25a46fd7803d99a5eed57fd",
+    "createdAt": "2026-02-26T03:15:45.546Z"
   },
   "resorts": [
     {
@@ -59,10 +59,10 @@
       "resortName": "kicking horse",
       "versions": [
         {
-          "version": "v14",
+          "version": "v15",
           "approved": true,
           "packUrl": "/packs/CA_Golden_Kicking_Horse.latest.validated.json",
-          "createdAt": "2026-02-26T00:13:15.820Z",
+          "createdAt": "2026-02-26T03:15:45.546Z",
           "compatibility": {
             "minAppVersion": "0.0.1",
             "supportedPackSchemaVersions": [
@@ -70,7 +70,7 @@
             ]
           },
           "checksums": {
-            "packSha256": "8e845adf38feda9c1942a58f0f37cc171be602eabe90ba94f74586edb3ab4d88",
+            "packSha256": "d8d397d59f2c101416960f47be01439305b203e913754d0409089c76aac849ea",
             "pmtilesSha256": "4afa4e416a31210256ec443c2e72366227c3be97d139908b1641eb1a0214506b",
             "styleSha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527"
           }
