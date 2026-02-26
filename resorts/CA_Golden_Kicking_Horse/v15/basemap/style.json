@@ -33,6 +33,419 @@
       }
     },
     {
+      "id": "waterway",
+      "type": "line",
+      "source": "basemap",
+      "source-layer": "waterway",
+      "paint": {
+        "line-color": "#7fb4d7",
+        "line-opacity": 0.75,
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          10,
+          0.5,
+          13,
+          0.9,
+          15,
+          1.4
+        ]
+      }
+    },
+    {
+      "id": "water-name",
+      "type": "symbol",
+      "source": "basemap",
+      "source-layer": "water_name",
+      "minzoom": 11,
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_en"
+          ],
+          [
+            "get",
+            "name"
+          ],
+          ""
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          11,
+          10,
+          14,
+          12,
+          15,
+          13
+        ],
+        "symbol-placement": "line",
+        "text-letter-spacing": 0.02
+      },
+      "paint": {
+        "text-color": "#4f83a8",
+        "text-opacity": 0.85,
+        "text-halo-color": "#eef5fa",
+        "text-halo-width": 0.8,
+        "text-halo-blur": 0.2
+      }
+    },
+    {
+      "id": "waterway-name",
+      "type": "symbol",
+      "source": "basemap",
+      "source-layer": "waterway",
+      "minzoom": 12,
+      "filter": [
+        "has",
+        "name"
+      ],
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_en"
+          ],
+          [
+            "get",
+            "name"
+          ],
+          ""
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          10,
+          14,
+          11,
+          15,
+          12
+        ],
+        "symbol-placement": "line",
+        "text-letter-spacing": 0.02
+      },
+      "paint": {
+        "text-color": "#5f8fb0",
+        "text-opacity": 0.82,
+        "text-halo-color": "#edf5fa",
+        "text-halo-width": 0.7,
+        "text-halo-blur": 0.2
+      }
+    },
+    {
+      "id": "poi-food-dot",
+      "type": "circle",
+      "source": "basemap",
+      "source-layer": "poi",
+      "minzoom": 13,
+      "filter": [
+        "any",
+        [
+          "==",
+          [
+            "get",
+            "class"
+          ],
+          "restaurant"
+        ],
+        [
+          "==",
+          [
+            "get",
+            "subclass"
+          ],
+          "restaurant"
+        ],
+        [
+          "==",
+          [
+            "get",
+            "subclass"
+          ],
+          "cafe"
+        ],
+        [
+          "==",
+          [
+            "get",
+            "subclass"
+          ],
+          "fast_food"
+        ],
+        [
+          "==",
+          [
+            "get",
+            "subclass"
+          ],
+          "food_court"
+        ],
+        [
+          "==",
+          [
+            "get",
+            "subclass"
+          ],
+          "pub"
+        ],
+        [
+          "==",
+          [
+            "get",
+            "subclass"
+          ],
+          "bar"
+        ]
+      ],
+      "paint": {
+        "circle-radius": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          2.4,
+          14,
+          3,
+          16,
+          3.6
+        ],
+        "circle-color": "#8a5a3a",
+        "circle-opacity": 0.9,
+        "circle-stroke-color": "#f4efe8",
+        "circle-stroke-width": 1,
+        "circle-stroke-opacity": 0.9
+      }
+    },
+    {
+      "id": "poi-food-label",
+      "type": "symbol",
+      "source": "basemap",
+      "source-layer": "poi",
+      "minzoom": 14,
+      "filter": [
+        "all",
+        [
+          "any",
+          [
+            "==",
+            [
+              "get",
+              "class"
+            ],
+            "restaurant"
+          ],
+          [
+            "==",
+            [
+              "get",
+              "subclass"
+            ],
+            "restaurant"
+          ],
+          [
+            "==",
+            [
+              "get",
+              "subclass"
+            ],
+            "cafe"
+          ],
+          [
+            "==",
+            [
+              "get",
+              "subclass"
+            ],
+            "fast_food"
+          ],
+          [
+            "==",
+            [
+              "get",
+              "subclass"
+            ],
+            "food_court"
+          ],
+          [
+            "==",
+            [
+              "get",
+              "subclass"
+            ],
+            "pub"
+          ],
+          [
+            "==",
+            [
+              "get",
+              "subclass"
+            ],
+            "bar"
+          ]
+        ],
+        [
+          "has",
+          "name"
+        ]
+      ],
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name_en"
+          ],
+          [
+            "get",
+            "name"
+          ],
+          ""
+        ],
+        "symbol-sort-key": [
+          "coalesce",
+          [
+            "get",
+            "rank"
+          ],
+          999
+        ],
+        "text-size": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          14,
+          10.5,
+          16,
+          11.5
+        ],
+        "text-offset": [
+          0,
+          1.1
+        ],
+        "text-anchor": "top",
+        "text-letter-spacing": 0.01,
+        "text-allow-overlap": true
+      },
+      "paint": {
+        "text-color": "#5b4637",
+        "text-opacity": 0.9,
+        "text-halo-color": "#f6f1ea",
+        "text-halo-width": 0.9,
+        "text-halo-blur": 0.2
+      }
+    },
+    {
+      "id": "landcover-wood",
+      "type": "fill",
+      "source": "basemap",
+      "source-layer": "landcover",
+      "filter": [
+        "==",
+        [
+          "get",
+          "class"
+        ],
+        "wood"
+      ],
+      "minzoom": 9,
+      "paint": {
+        "fill-color": "#b8d7b5",
+        "fill-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          9,
+          0.24,
+          12,
+          0.28,
+          15,
+          0.32
+        ]
+      }
+    },
+    {
+      "id": "building-fill",
+      "type": "fill",
+      "source": "basemap",
+      "source-layer": "building",
+      "minzoom": 13,
+      "paint": {
+        "fill-color": "#c8d2d8",
+        "fill-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          0.28,
+          15,
+          0.38,
+          17,
+          0.48
+        ]
+      }
+    },
+    {
+      "id": "building-line",
+      "type": "line",
+      "source": "basemap",
+      "source-layer": "building",
+      "minzoom": 13,
+      "paint": {
+        "line-color": "#9daab2",
+        "line-opacity": 0.55,
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          0.5,
+          15,
+          0.8,
+          17,
+          1.1
+        ]
+      }
+    },
+    {
       "id": "transportation",
       "type": "line",
       "source": "basemap",

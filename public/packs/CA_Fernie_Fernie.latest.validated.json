@@ -3,7 +3,7 @@
   "export": {
     "resortKey": "CA_Fernie_Fernie",
     "version": "v10",
-    "exportedAt": "2026-02-26T04:51:40.264Z"
+    "exportedAt": "2026-02-26T06:26:01.696Z"
   },
   "status": {
     "schemaVersion": "1.0.0",
@@ -67,25 +67,25 @@
     },
     "manualValidation": {
       "validated": true,
-      "validatedAt": "2026-02-26T04:51:40.260Z",
+      "validatedAt": "2026-02-26T06:08:10.949Z",
       "validatedBy": null,
       "notes": null,
       "layers": {
         "boundary": {
           "validated": true,
-          "validatedAt": "2026-02-26T04:51:22.225Z",
+          "validatedAt": "2026-02-26T06:08:00.917Z",
           "validatedBy": null,
           "notes": null
         },
         "runs": {
           "validated": true,
-          "validatedAt": "2026-02-26T04:51:33.702Z",
+          "validatedAt": "2026-02-26T06:08:06.031Z",
           "validatedBy": null,
-          "notes": "8"
+          "notes": null
         },
         "lifts": {
           "validated": true,
-          "validatedAt": "2026-02-26T04:51:40.260Z",
+          "validatedAt": "2026-02-26T06:08:10.949Z",
           "validatedBy": null,
           "notes": null
         }

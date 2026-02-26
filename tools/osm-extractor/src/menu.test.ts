@@ -743,11 +743,16 @@ describe("attach basemap assets", () => {
       const copiedPmtiles = await readFile(join(versionPath, "basemap", "base.pmtiles"));
       const copiedStyle = await readFile(join(versionPath, "basemap", "style.json"), "utf8");
       expect([...copiedPmtiles]).toEqual([11, 22]);
-      expect(JSON.parse(copiedStyle)).toEqual({
-        version: 8,
-        sources: { basemap: { type: "vector" } },
-        layers: [{ id: "bg", type: "background" }]
-      });
+      const parsedCopiedStyle = JSON.parse(copiedStyle) as {
+        version?: number;
+        sources?: Record<string, { type?: string }>;
+        layers?: Array<{ id?: string }>;
+      };
+      expect(parsedCopiedStyle.version).toBe(8);
+      expect(parsedCopiedStyle.sources?.basemap?.type).toBe("vector");
+      expect((parsedCopiedStyle.layers ?? []).map((layer) => layer.id)).toEqual(
+        expect.arrayContaining(["bg", "landcover-wood", "building-fill", "building-line", "water-name", "waterway-name", "poi-food-dot", "poi-food-label"])
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -779,11 +784,16 @@ describe("attach basemap assets", () => {
       const copiedPmtiles = await readFile(join(versionPath, "basemap", "base.pmtiles"));
       const copiedStyle = await readFile(join(versionPath, "basemap", "style.json"), "utf8");
       expect([...copiedPmtiles]).toEqual([9, 8, 7, 6]);
-      expect(JSON.parse(copiedStyle)).toEqual({
-        version: 8,
-        sources: { basemap: { type: "vector" } },
-        layers: [{ id: "bg", type: "background" }]
-      });
+      const parsedCopiedStyle = JSON.parse(copiedStyle) as {
+        version?: number;
+        sources?: Record<string, { type?: string }>;
+        layers?: Array<{ id?: string }>;
+      };
+      expect(parsedCopiedStyle.version).toBe(8);
+      expect(parsedCopiedStyle.sources?.basemap?.type).toBe("vector");
+      expect((parsedCopiedStyle.layers ?? []).map((layer) => layer.id)).toEqual(
+        expect.arrayContaining(["bg", "landcover-wood", "building-fill", "building-line", "water-name", "waterway-name", "poi-food-dot", "poi-food-label"])
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -817,11 +827,16 @@ describe("attach basemap assets", () => {
       const copiedPmtiles = await readFile(join(currentVersionPath, "basemap", "base.pmtiles"));
       const copiedStyle = await readFile(join(currentVersionPath, "basemap", "style.json"), "utf8");
       expect([...copiedPmtiles]).toEqual([4, 5, 6, 7]);
-      expect(JSON.parse(copiedStyle)).toEqual({
-        version: 8,
-        sources: { basemap: { type: "vector" } },
-        layers: [{ id: "bg", type: "background" }]
-      });
+      const parsedCopiedStyle = JSON.parse(copiedStyle) as {
+        version?: number;
+        sources?: Record<string, { type?: string }>;
+        layers?: Array<{ id?: string }>;
+      };
+      expect(parsedCopiedStyle.version).toBe(8);
+      expect(parsedCopiedStyle.sources?.basemap?.type).toBe("vector");
+      expect((parsedCopiedStyle.layers ?? []).map((layer) => layer.id)).toEqual(
+        expect.arrayContaining(["bg", "landcover-wood", "building-fill", "building-line", "water-name", "waterway-name", "poi-food-dot", "poi-food-label"])
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -2054,11 +2069,16 @@ describe("menu interactive flows", () => {
       const publishedPmtiles = await readFile(join(publicRoot, "packs", resortKey, "base.pmtiles"));
       const publishedStyle = await readFile(join(publicRoot, "packs", resortKey, "style.json"), "utf8");
       expect([...publishedPmtiles]).toEqual([7, 8, 9, 10]);
-      expect(JSON.parse(publishedStyle)).toEqual({
-        version: 8,
-        sources: { basemap: { type: "vector" } },
-        layers: [{ id: "bg", type: "background" }]
-      });
+      const parsedPublishedStyle = JSON.parse(publishedStyle) as {
+        version?: number;
+        sources?: Record<string, { type?: string }>;
+        layers?: Array<{ id?: string }>;
+      };
+      expect(parsedPublishedStyle.version).toBe(8);
+      expect(parsedPublishedStyle.sources?.basemap?.type).toBe("vector");
+      expect((parsedPublishedStyle.layers ?? []).map((layer) => layer.id)).toEqual(
+        expect.arrayContaining(["bg", "landcover-wood", "building-fill", "building-line", "water-name", "waterway-name", "poi-food-dot", "poi-food-label"])
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -2288,11 +2308,16 @@ describe("menu interactive flows", () => {
       const publishedPmtiles = await readFile(join(publicRoot, "packs", resortKey, "base.pmtiles"));
       const publishedStyle = await readFile(join(publicRoot, "packs", resortKey, "style.json"), "utf8");
       expect([...publishedPmtiles]).toEqual([5, 6, 7, 8]);
-      expect(JSON.parse(publishedStyle)).toEqual({
-        version: 8,
-        sources: { basemap: { type: "vector" } },
-        layers: [{ id: "bg", type: "background" }]
-      });
+      const parsedPublishedStyle = JSON.parse(publishedStyle) as {
+        version?: number;
+        sources?: Record<string, { type?: string }>;
+        layers?: Array<{ id?: string }>;
+      };
+      expect(parsedPublishedStyle.version).toBe(8);
+      expect(parsedPublishedStyle.sources?.basemap?.type).toBe("vector");
+      expect((parsedPublishedStyle.layers ?? []).map((layer) => layer.id)).toEqual(
+        expect.arrayContaining(["bg", "landcover-wood", "building-fill", "building-line", "water-name", "waterway-name", "poi-food-dot", "poi-food-label"])
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -2414,16 +2439,24 @@ describe("menu interactive flows", () => {
       const sharedPmtiles = await readFile(join(root, resortKey, "basemap", "base.pmtiles"));
       const sharedStyle = JSON.parse(await readFile(join(root, resortKey, "basemap", "style.json"), "utf8")) as {
         sources?: Record<string, { type?: string }>;
+        layers?: Array<{ id?: string }>;
       };
       expect([...sharedPmtiles]).toEqual([11, 22, 33, 44]);
       expect(sharedStyle.sources?.basemap?.type).toBe("vector");
+      expect((sharedStyle.layers ?? []).map((layer) => layer.id)).toEqual(
+        expect.arrayContaining(["landcover-wood", "building-fill", "building-line", "waterway", "water-name", "waterway-name", "poi-food-dot", "poi-food-label"])
+      );
 
       const publishedPmtiles = await readFile(join(publicRoot, "packs", resortKey, "base.pmtiles"));
       const publishedStyle = JSON.parse(await readFile(join(publicRoot, "packs", resortKey, "style.json"), "utf8")) as {
         sources?: Record<string, { type?: string }>;
+        layers?: Array<{ id?: string }>;
       };
       expect([...publishedPmtiles]).toEqual([11, 22, 33, 44]);
       expect(publishedStyle.sources?.basemap?.type).toBe("vector");
+      expect((publishedStyle.layers ?? []).map((layer) => layer.id)).toEqual(
+        expect.arrayContaining(["landcover-wood", "building-fill", "building-line", "waterway", "water-name", "waterway-name", "poi-food-dot", "poi-food-label"])
+      );
     } finally {
       restoreProcessEnv(originalEnv);
       await rm(root, { recursive: true, force: true });
@@ -2545,6 +2578,7 @@ describe("menu interactive flows", () => {
           ["source-layer"]?: string;
           type?: string;
           minzoom?: number;
+          filter?: unknown;
           layout?: Record<string, unknown>;
         }>;
       };
@@ -2552,7 +2586,16 @@ describe("menu interactive flows", () => {
       expect(sharedStyle.sources?.basemap?.url).toBe("pmtiles://./base.pmtiles");
       const layerIds = (sharedStyle.layers ?? []).map((layer) => layer.id);
       expect(layerIds).toEqual(
-        expect.arrayContaining(["water", "waterway", "water-name", "waterway-name", "transportation", "boundary"])
+        expect.arrayContaining([
+          "water",
+          "waterway",
+          "water-name",
+          "waterway-name",
+          "poi-food-dot",
+          "poi-food-label",
+          "transportation",
+          "boundary"
+        ])
       );
       const waterwayLayer = (sharedStyle.layers ?? []).find((layer) => layer.id === "waterway");
       expect(waterwayLayer?.["source-layer"]).toBe("waterway");
@@ -2566,6 +2609,17 @@ describe("menu interactive flows", () => {
       expect(waterwayNameLayer?.type).toBe("symbol");
       expect(waterwayNameLayer?.minzoom).toBe(12);
       expect(waterwayNameLayer?.layout?.["symbol-placement"]).toBe("line");
+      const poiFoodDotLayer = (sharedStyle.layers ?? []).find((layer) => layer.id === "poi-food-dot");
+      expect(poiFoodDotLayer?.["source-layer"]).toBe("poi");
+      expect(poiFoodDotLayer?.type).toBe("circle");
+      expect(poiFoodDotLayer?.minzoom).toBe(13);
+      expect(Array.isArray(poiFoodDotLayer?.filter)).toBe(true);
+      const poiFoodLabelLayer = (sharedStyle.layers ?? []).find((layer) => layer.id === "poi-food-label");
+      expect(poiFoodLabelLayer?.["source-layer"]).toBe("poi");
+      expect(poiFoodLabelLayer?.type).toBe("symbol");
+      expect(poiFoodLabelLayer?.minzoom).toBe(14);
+      expect(poiFoodLabelLayer?.layout?.["text-anchor"]).toBe("top");
+      expect(poiFoodLabelLayer?.layout?.["text-allow-overlap"]).toBe(true);
     } finally {
       restoreProcessEnv(originalEnv);
       await rm(root, { recursive: true, force: true });

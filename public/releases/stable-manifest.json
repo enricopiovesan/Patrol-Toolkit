@@ -3,7 +3,7 @@
   "release": {
     "channel": "stable",
     "appVersion": "0.0.1",
-    "createdAt": "2026-02-26T04:35:40.592Z"
+    "createdAt": "2026-02-26T07:03:15.431Z"
   },
   "artifacts": [
     {
@@ -35,8 +35,8 @@
       "resortId": "CA_Fernie_Fernie",
       "version": "v10",
       "url": "/packs/CA_Fernie_Fernie.latest.validated.json",
-      "sha256": "84fd0704b8bfd0851b9a719fa2d61202577d667bec767993d30c23d88c0583c1",
-      "bytes": 1971794
+      "sha256": "f3b76b8a1b766161d46ff1c2e8a55f3d9b6992fec5cd1ee073925d1bd2d5f6dc",
+      "bytes": 1971795
     },
     {
       "kind": "pmtiles",
@@ -59,7 +59,7 @@
       "resortId": "CA_Golden_Kicking_Horse",
       "version": "v15",
       "url": "/packs/CA_Golden_Kicking_Horse.latest.validated.json",
-      "sha256": "db7e5064721cc9b33203813eb317938305a10551bbb169b9731d9fb13900bec8",
+      "sha256": "a9247ed7c2c6727c4c2f086ce67b7c356a3dfcc7f1c837846bcd8cb3ab1fa2be",
       "bytes": 2096114
     },
     {
@@ -75,8 +75,8 @@
       "resortId": "CA_Golden_Kicking_Horse",
       "version": "v15",
       "url": "/packs/CA_Golden_Kicking_Horse/style.json",
-      "sha256": "47830ed11eb159ef9bdff45a140413135497b4666b69bf0d0577265b24f0a527",
-      "bytes": 1096
+      "sha256": "ae5c1e46c029df3d3086c726445c61094e4803eb715c77fac344e1d31aaae059",
+      "bytes": 8464
     },
     {
       "kind": "pack",
