@@ -294,6 +294,42 @@ describe("resort catalog selection", () => {
             }
           ]
         },
+        contours: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "LineString",
+                coordinates: [
+                  [-116.969, 51.294],
+                  [-116.963, 51.292]
+                ]
+              },
+              properties: {
+                id: "contour-1",
+                ele: 2300
+              }
+            }
+          ]
+        },
+        peaks: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Point",
+                coordinates: [-116.964, 51.294]
+              },
+              properties: {
+                id: "peak-1",
+                name: "Terminator Peak",
+                ele: 3500
+              }
+            }
+          ]
+        },
         runs: {
           type: "FeatureCollection",
           features: [
@@ -349,6 +385,10 @@ describe("resort catalog selection", () => {
     expect(pack.boundary?.type).toBe("Polygon");
     expect(pack.areas).toHaveLength(1);
     expect(pack.areas?.[0]?.kind).toBe("ridge");
+    expect(pack.contours).toHaveLength(1);
+    expect(pack.contours?.[0]?.elevationMeters).toBe(2300);
+    expect(pack.peaks).toHaveLength(1);
+    expect(pack.peaks?.[0]?.name).toBe("Terminator Peak");
     expect(pack.runs).toHaveLength(1);
     expect(pack.lifts).toHaveLength(1);
   });

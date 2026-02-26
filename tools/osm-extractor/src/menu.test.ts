@@ -1723,7 +1723,7 @@ describe("menu interactive flows", () => {
           candidates: [candidate]
         })
       });
-      expect(rl.prompts.some((prompt) => prompt.includes("Select option (1-13):"))).toBe(true);
+      expect(rl.prompts.some((prompt) => prompt.includes("Select option (1-14):"))).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

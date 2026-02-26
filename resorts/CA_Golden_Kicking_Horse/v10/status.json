@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "1.0.0",
+  "resortKey": "CA_golden_kicking_horse",
+  "version": "v10",
+  "createdAt": "2026-02-25T16:50:02.606Z",
+  "query": {
+    "name": "kicking horse",
+    "countryCode": "CA",
+    "town": "golden"
+  },
+  "selection": {
+    "osmType": "node",
+    "osmId": 7248641928,
+    "displayName": "Kicking Horse, 12th Street South, Golden, Columbia-Shuswap Regional District, British Columbia, V0A 0A0, Canada",
+    "center": [
+      -116.962465,
+      51.2937094
+    ]
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "featureCount": 1,
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v7/boundary.geojson",
+      "checksumSha256": "be24306ed2aa70232653481bdb4e627e7a32fc5076f6bc98155afaa4ad0f13eb",
+      "updatedAt": "2026-02-25T16:48:55.001Z"
+    },
+    "runs": {
+      "status": "complete",
+      "featureCount": 71,
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v8/runs.geojson",
+      "checksumSha256": "46c700535afccfcefa69d51abdc554018d833b6b588291e01141795098a93a67",
+      "updatedAt": "2026-02-25T16:49:02.028Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "featureCount": 7,
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v9/lifts.geojson",
+      "checksumSha256": "fbd3c7c8198c1b744147ba16985da516615933d0937e209fafc5c275fcfb03d3",
+      "updatedAt": "2026-02-25T16:49:38.314Z"
+    },
+    "peaks": {
+      "status": "complete",
+      "featureCount": 0,
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v10/peaks.geojson",
+      "checksumSha256": "b3049ad7a1062091e169bd352424d59721a26b8b6229942aef26d11b0c6a96e1",
+      "updatedAt": "2026-02-25T16:50:02.607Z"
+    }
+  },
+  "readiness": {
+    "overall": "ready",
+    "issues": []
+  },
+  "manualValidation": {
+    "validated": true,
+    "validatedAt": "2026-02-25T16:50:41.967Z",
+    "validatedBy": null,
+    "notes": null,
+    "layers": {
+      "boundary": {
+        "validated": true,
+        "validatedAt": "2026-02-25T16:50:32.541Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "runs": {
+        "validated": true,
+        "validatedAt": "2026-02-25T16:50:38.256Z",
+        "validatedBy": null,
+        "notes": null
+      },
+      "lifts": {
+        "validated": true,
+        "validatedAt": "2026-02-25T16:50:41.967Z",
+        "validatedBy": null,
+        "notes": null
+      }
+    }
+  }
+}

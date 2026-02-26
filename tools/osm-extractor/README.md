@@ -218,6 +218,34 @@ export PTK_PLANETILER_JAR=tools/bin/planetiler.jar
 
 Commit these (deliverables used by the app):
 - `resorts/<resortKey>/<version>/**` (including `<version>/basemap/base.pmtiles` + `style.json`)
+
+## Contours (Menu -> Fetch/update other things -> Contours)
+
+Contours are generated automatically from a DEM (OpenTopography) and bundled into the resort pack as vector lines.
+
+### Prerequisites
+
+1. OpenTopography API key (required):
+
+```bash
+export PTK_OPENTOPO_API_KEY="..."
+```
+
+2. `gdal_contour` available (required).
+
+Standard setup (recommended when Homebrew works):
+
+```bash
+brew install gdal
+```
+
+If Homebrew is unavailable (managed/corporate environment), install QGIS (bundles GDAL tools) and point the CLI at it:
+
+```bash
+export PTK_GDAL_CONTOUR_BIN="/Applications/QGIS*.app/Contents/MacOS/gdal_contour"
+```
+
+The CLI also auto-detects QGIS on macOS when `PTK_GDAL_CONTOUR_BIN` is not set.
 - `public/packs/<resortKey>/**`
 - `public/packs/<resortKey>.latest.validated.json`
 - `public/resort-packs/index.json`
@@ -479,6 +507,77 @@ JSON success fields:
 ### Resort Acquisition (Name -> Boundary -> Lifts/Runs)
 
 Use the step-by-step workflow above for this flow. The command reference here documents all supported commands and flags.
+
+### Peaks and Contours (Other Things)
+
+The interactive menu now includes:
+
+- `Fetch/update other things`
+  - `Peaks`
+  - `Contours`
+
+`Peaks` sync is OSM/Overpass-based (`natural=peak`), and `Contours` sync is DEM-backed (OpenTopography + local `gdal_contour`).
+
+#### Automated Contours (DEM -> Vector -> Pack)
+
+Contour generation is **fully automated day-to-day** in the CLI, but requires one-time local setup:
+
+Prerequisites:
+
+1. OpenTopography API key (free key) exported as:
+   - `PTK_OPENTOPO_API_KEY`
+2. GDAL installed locally with `gdal_contour` available on PATH
+   - macOS (Homebrew): `brew install gdal`
+
+Optional contour env vars:
+
+- `PTK_CONTOUR_DEM_PROVIDER` (default `opentopography`)
+- `PTK_OPENTOPO_DATASET` (default `COP30`)
+- `PTK_OPENTOPO_GLOBALDEM_URL` (advanced override)
+- `PTK_GDAL_CONTOUR_BIN` (default `gdal_contour`)
+- `PTK_CONTOUR_USER_AGENT` (advanced override)
+
+Interactive menu flow:
+
+1. Open resort menu
+2. Ensure boundary is complete
+3. `14. Fetch/update other things`
+4. `2. Contours`
+5. Provide:
+   - contour buffer meters (default `2000`)
+   - contour interval meters (default `20`)
+
+The CLI will:
+
+- clone the next immutable resort version
+- download DEM for the buffered resort boundary bbox
+- run `gdal_contour`
+- import/normalize contours
+- update status and metrics
+
+Command mode (scriptable):
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-sync-contours \
+  --workspace ./resorts/CA_Golden_Kicking_Horse/vX/resort.json \
+  --buffer-meters 2000 \
+  --interval-meters 20
+```
+
+JSON mode:
+
+```bash
+node tools/osm-extractor/dist/src/cli.js resort-sync-contours \
+  --workspace ./resorts/CA_Golden_Kicking_Horse/vX/resort.json \
+  --buffer-meters 2000 \
+  --interval-meters 20 \
+  --json
+```
+
+Notes:
+
+- Generated contours are bundled vector data (`ResortPack.contours`) and render offline after publish.
+- No runtime contour API configuration is required in the app.
 
 ### resort-export-latest
 

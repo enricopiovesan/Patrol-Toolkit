@@ -249,5 +249,73 @@
   - full regression suite and production build passed (`npm run check`)
   - v5 roadmap is complete
 
+## Slice 12: Aerial View Prototype Implementation (Conditional / Best-Effort)
+- Status: planned
+- Goal: implement an online-only aerial map prototype if a free-tier provider path is enabled and compliant.
+- Deliverables:
+  - add config-gated aerial basemap integration path (provider/key-based)
+  - add optional aerial toggle UI on Resort Page map controls (only when configured)
+  - preserve current resort overlays (runs/lifts/boundaries/labels) on top of aerial basemap
+  - add attribution behavior for aerial mode
+  - define offline behavior (hide/disable aerial mode and notify user)
+  - document provider config and constraints (free tier, key, attribution)
+- Test / Acceptance:
+  - aerial mode is hidden when provider config is not present
+  - aerial mode toggles correctly when enabled and does not break overlays
+  - offline mode does not break map; aerial mode degrades gracefully
+  - no regressions to default vector/offline basemap path
+- PR outcome:
+  - either a shipped prototype behind config (with docs), or a documented no-ship result with specific blocker(s)
+
+## Slice 13: Contours / Elevation Prototype Implementation (Conditional / Best-Effort)
+- Status: completed
+- Goal: implement a contour/elevation prototype only if data/licensing/packaging feasibility is resolved enough for a safe trial.
+- Deliverables:
+  - select and document contour/elevation data source for prototype use
+  - prototype contour overlay rendering (online or offline path, as selected)
+  - validate readability and performance over current map styles and resort overlays
+  - define viewport behavior and zoom thresholds for contour visibility
+  - document bundle size/performance impact and shipping recommendation
+- Test / Acceptance:
+  - prototype overlay is legible and does not break map usability on `small`
+  - no significant regression in map interaction/performance in target viewports
+  - explicit ship/no-ship decision documented for the prototype path
+- PR outcome:
+  - either a shipped prototype (with constraints documented), or a documented no-ship result with concrete blockers
+- Outcome:
+  - vector contour rendering foundation implemented in `map-view` using optional `ResortPack.contours`
+  - vector peaks rendering foundation implemented in `map-view` using optional `ResortPack.peaks`
+  - CLI management commands implemented for prototype data path:
+    - `resort-import-contours` (import/normalize contour GeoJSON)
+    - `resort-sync-peaks` (OSM `natural=peak` sync)
+  - export/publish/app conversion support added for `layers.contours` and `layers.peaks`
+  - prototype config and constraints documented in `/Users/piovese/Documents/Patrol Toolkit/docs/feasibility/v5-contours-elevation-prototype.md`
+  - no DEM-based contour generation/bundling pipeline or complete offline contour source packaging in `v5`
+  - no elevation labels/data UI beyond optional contour line label support
+
+## Slice 14: Automated DEM-Backed Contour Generation (CLI) (Conditional / Best-Effort)
+- Status: completed
+- Goal: automate vector contour generation in the CLI using a DEM provider and local contour tooling, so contours can be generated, versioned, published, and rendered like other bundled overlays.
+- Deliverables:
+  - CLI command `resort-sync-contours` (DEM fetch -> local contour generation -> contour import)
+  - interactive menu path `Fetch/update other things -> Contours`
+  - boundary-driven buffered area selection
+  - contour interval prompt/configuration
+  - clear provider/tooling preflight failures (API key / GDAL missing)
+  - immutable version + status sync integration
+- Test / Acceptance:
+  - contour sync works from CLI command and interactive menu
+  - generated contours publish and render via bundled vector data path
+  - peaks submenu remains functional
+  - app and extractor checks pass
+- PR outcome:
+  - automated DEM-backed contour generation is available behind local setup prerequisites
+- Outcome:
+  - `resort-sync-contours` implemented using OpenTopography DEM download + local `gdal_contour`
+  - `Fetch/update other things` submenu now supports both `Peaks` and `Contours`
+  - contour generation prompts for buffer and contour interval in the interactive CLI
+  - app vector contour rendering path (from `ResortPack.contours`) is reused with no runtime contour API dependency
+  - prerequisites documented/required for local use: `PTK_OPENTOPO_API_KEY` and `gdal_contour`
+
 ## Open Decisions (Track During v5)
 - None yet. Add only active decisions that block implementation or acceptance.
