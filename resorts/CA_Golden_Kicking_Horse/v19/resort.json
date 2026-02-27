@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "2.0.0",
+  "resort": {
+    "query": {
+      "name": "kicking horse",
+      "country": "CA"
+    },
+    "selection": {
+      "osmType": "node",
+      "osmId": 7248641928,
+      "displayName": "Kicking Horse, 12th Street South, Golden, Columbia-Shuswap Regional District, British Columbia, V0A 0A0, Canada",
+      "center": [
+        -116.962465,
+        51.2937094
+      ],
+      "selectedAt": "2026-02-19T04:39:22.426Z"
+    }
+  },
+  "layers": {
+    "boundary": {
+      "status": "complete",
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v7/boundary.geojson",
+      "checksumSha256": "be24306ed2aa70232653481bdb4e627e7a32fc5076f6bc98155afaa4ad0f13eb",
+      "featureCount": 1,
+      "updatedAt": "2026-02-25T16:48:55.001Z"
+    },
+    "lifts": {
+      "status": "complete",
+      "queryHash": "badf131debbe7ab0ef093a60088ca5a00a17607e2ee4bc3bff0b342485a5f4cd",
+      "updatedAt": "2026-02-25T16:49:38.314Z",
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v9/lifts.geojson",
+      "featureCount": 7,
+      "checksumSha256": "fbd3c7c8198c1b744147ba16985da516615933d0937e209fafc5c275fcfb03d3"
+    },
+    "runs": {
+      "status": "complete",
+      "queryHash": "cc4e80b6c2574994e0b0ad09c66e79e82b3eea357d9762a30172080bc09d9228",
+      "updatedAt": "2026-02-25T16:49:02.028Z",
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v8/runs.geojson",
+      "featureCount": 71,
+      "checksumSha256": "46c700535afccfcefa69d51abdc554018d833b6b588291e01141795098a93a67"
+    },
+    "peaks": {
+      "status": "complete",
+      "queryHash": "6027dbe42ceda4094544bd70a240ef09b2db59f1fadc2276638c0c4730443a63",
+      "updatedAt": "2026-02-25T17:10:18.496Z",
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v13/peaks.geojson",
+      "featureCount": 3,
+      "checksumSha256": "542e621d2054a30c743e4180e3bad950ac9e46e931d84316a3a070b87cbf309f"
+    },
+    "contours": {
+      "status": "complete",
+      "queryHash": "93e5765454d72367b78d6acda110145214250ad3b0c45526ce70426e055829de",
+      "updatedAt": "2026-02-26T22:22:52.104Z",
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v19/contours.geojson",
+      "featureCount": 308,
+      "checksumSha256": "c088cea26e87c0bd9baedc95acb3baff3ea25a891833daaedb6fbf2686870c2e"
+    },
+    "terrainBands": {
+      "status": "complete",
+      "queryHash": "1d2222aa36ef4dcc4f77a9d8b403fe5b72148b5d477c12e3f0478175ea2a2363",
+      "updatedAt": "2026-02-26T22:22:52.104Z",
+      "artifactPath": "../../resorts/CA_Golden_Kicking_Horse/v19/terrain-bands.geojson",
+      "featureCount": 309,
+      "checksumSha256": "5023fa9c95abf95a765a7f5f14d1840bb3e06b4cc598955a9e786635d45f96dd"
+    }
+  }
+}

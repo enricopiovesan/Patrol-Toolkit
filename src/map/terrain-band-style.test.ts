@@ -14,11 +14,11 @@ describe("terrain-band-style", () => {
         "interpolate",
         ["linear"],
         ["coalesce", ["to-number", ["get", "elevationMidMeters"]], 0],
-        0, "#dfead8",
-        1400, "#d7e3cf",
-        1800, "#d8d2bc",
-        2200, "#e6dec8",
-        2800, "#f2eadb"
+        0, "#f6faf9",
+        1400, "#f1f7fa",
+        1800, "#edf4f9",
+        2200, "#f5f8fc",
+        2800, "#ffffff"
       ],
       "fill-opacity": 0.22
     });
@@ -93,12 +93,12 @@ describe("terrain-band-style", () => {
     ]);
 
     expect(buildTerrainBandDarkShadePaint()).toEqual({
-      "fill-color": "#6f5a45",
-      "fill-opacity": ["interpolate", ["linear"], ["zoom"], 11, 0, 12, 0.022, 14, 0.0385, 16, 0.0495]
+      "fill-color": "#5d7185",
+      "fill-opacity": ["interpolate", ["linear"], ["zoom"], 11, 0, 12, 0.0825, 14, 0.132, 16, 0.15675]
     });
     expect(buildTerrainBandLightShadePaint()).toEqual({
-      "fill-color": "#fff8ea",
-      "fill-opacity": ["interpolate", ["linear"], ["zoom"], 11, 0, 12, 0.0165, 14, 0.0286, 16, 0.0374]
+      "fill-color": "#ffffff",
+      "fill-opacity": ["interpolate", ["linear"], ["zoom"], 11, 0, 12, 0.066, 14, 0.1155, 16, 0.14025]
     });
   });
 });

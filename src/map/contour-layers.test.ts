@@ -22,11 +22,19 @@ describe("contour-layers", () => {
     expect(result.minorLineLayer.type).toBe("line");
     expect(result.minorLineLayer.source).toBe("resort-contours");
     expect(result.minorLineLayer.filter).toEqual(RESORT_CONTOURS_MINOR_FILTER);
+    expect(result.minorLineLayer.layout).toEqual({
+      "line-join": "round",
+      "line-cap": "round"
+    });
 
     expect(result.majorLineLayer.id).toBe(RESORT_CONTOURS_MAJOR_LINE_LAYER_ID);
     expect(result.majorLineLayer.type).toBe("line");
     expect(result.majorLineLayer.source).toBe("resort-contours");
     expect(result.majorLineLayer.filter).toEqual(RESORT_CONTOURS_MAJOR_FILTER);
+    expect(result.majorLineLayer.layout).toEqual({
+      "line-join": "round",
+      "line-cap": "round"
+    });
 
     expect(result.labelLayer.id).toBe(RESORT_CONTOURS_LABEL_LAYER_ID);
     expect(result.labelLayer.type).toBe("symbol");

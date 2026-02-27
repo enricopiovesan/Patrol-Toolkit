@@ -12,8 +12,10 @@ import {
   TERRAIN_CONTOUR_MINOR_LABEL_SIZE_STOPS,
   TERRAIN_CONTOUR_MINOR_LABEL_SPACING,
   TERRAIN_CONTOUR_MAJOR_LINE_OPACITY_STOPS,
+  TERRAIN_CONTOUR_MAJOR_LINE_BLUR,
   TERRAIN_CONTOUR_MAJOR_LINE_WIDTH_STOPS,
   TERRAIN_CONTOUR_MINOR_LINE_OPACITY_STOPS,
+  TERRAIN_CONTOUR_MINOR_LINE_BLUR,
   TERRAIN_CONTOUR_MINOR_LINE_WIDTH_STOPS
 } from "./terrain-config";
 
@@ -21,6 +23,7 @@ function buildContourLinePaint(color: string, widthStops: readonly number[], opa
   "line-color": string;
   "line-width": unknown[];
   "line-opacity": unknown[];
+  "line-blur": number;
 } {
   return {
     "line-color": color,
@@ -30,7 +33,18 @@ function buildContourLinePaint(color: string, widthStops: readonly number[], opa
       ["zoom"],
       ...widthStops
     ],
-    "line-opacity": ["interpolate", ["linear"], ["zoom"], ...opacityStops]
+    "line-opacity": ["interpolate", ["linear"], ["zoom"], ...opacityStops],
+    "line-blur": color === TERRAIN_CONTOUR_COLORS.major ? TERRAIN_CONTOUR_MAJOR_LINE_BLUR : TERRAIN_CONTOUR_MINOR_LINE_BLUR
+  };
+}
+
+export function buildContourLineLayout(): {
+  "line-join": "round";
+  "line-cap": "round";
+} {
+  return {
+    "line-join": "round",
+    "line-cap": "round"
   };
 }
 
@@ -38,6 +52,7 @@ export function buildContourMinorLinePaint(): {
   "line-color": string;
   "line-width": unknown[];
   "line-opacity": unknown[];
+  "line-blur": number;
 } {
   return buildContourLinePaint(
     TERRAIN_CONTOUR_COLORS.minor,
@@ -50,6 +65,7 @@ export function buildContourMajorLinePaint(): {
   "line-color": string;
   "line-width": unknown[];
   "line-opacity": unknown[];
+  "line-blur": number;
 } {
   return buildContourLinePaint(
     TERRAIN_CONTOUR_COLORS.major,

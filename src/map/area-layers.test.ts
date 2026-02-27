@@ -20,6 +20,10 @@ describe("area layer specs", () => {
     expect(layers.lineLayer.id).toBe(RESORT_AREAS_LINE_LAYER_ID);
     expect(layers.lineLayer.type).toBe("line");
     expect(layers.lineLayer.source).toBe("resort-areas");
+    expect(layers.lineLayer.layout).toEqual({
+      "line-join": "round",
+      "line-cap": "round"
+    });
     expect(layers.lineLayer.paint["line-dasharray"]).toEqual([3, 2]);
 
     expect(layers.labelLayer.id).toBe(RESORT_AREAS_LABEL_LAYER_ID);

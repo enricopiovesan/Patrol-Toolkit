@@ -7,6 +7,7 @@ import { execFile as execFileCb } from "node:child_process";
 import { readdir, stat } from "node:fs/promises";
 import { importResortContours } from "./resort-import-contours.js";
 import { importResortTerrainBands } from "./resort-import-terrain-bands.js";
+import { resolveContourSmoothingMode, smoothContourGeoJsonText, type ContourSmoothingMode } from "./contour-smoothing.js";
 import { readResortWorkspace, writeResortWorkspace, type ResortWorkspace } from "./resort-workspace.js";
 
 type BoundaryFeature = {
@@ -37,6 +38,7 @@ export type ContourProviderConfig = {
   baseUrl: string;
   userAgent: string;
   gdalContourBin: string;
+  contourSmoothingMode: ContourSmoothingMode;
 };
 
 const execFileAsync = promisify(execFileCb);
@@ -59,7 +61,8 @@ export function resolveContourProviderConfig(env: NodeJS.ProcessEnv = process.en
       "https://portal.opentopography.org/API/globaldem",
     userAgent: (env.PTK_CONTOUR_USER_AGENT ?? "patrol-toolkit-osm-extractor/0.1").trim() ||
       "patrol-toolkit-osm-extractor/0.1",
-    gdalContourBin: (env.PTK_GDAL_CONTOUR_BIN ?? "gdal_contour").trim() || "gdal_contour"
+    gdalContourBin: (env.PTK_GDAL_CONTOUR_BIN ?? "gdal_contour").trim() || "gdal_contour",
+    contourSmoothingMode: resolveContourSmoothingMode(env)
   };
 }
 
@@ -228,6 +231,12 @@ export async function syncResortContours(
       } else {
         throw error;
       }
+    }
+
+    if (provider.contourSmoothingMode !== "off") {
+      const rawContours = await readFile(generatedContoursPath, "utf8");
+      const smoothedContours = smoothContourGeoJsonText(rawContours, provider.contourSmoothingMode);
+      await writeFile(generatedContoursPath, smoothedContours, "utf8");
     }
 
     const terrainBandArgs = [

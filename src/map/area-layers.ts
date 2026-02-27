@@ -22,6 +22,10 @@ export function buildAreaLayers(sourceId: string): {
     id: string;
     type: "line";
     source: string;
+    layout: {
+      "line-join": "round";
+      "line-cap": "round";
+    };
     paint: ReturnType<typeof buildAreaLinePaint>;
   };
   labelLayer: {
@@ -45,6 +49,10 @@ export function buildAreaLayers(sourceId: string): {
       id: RESORT_AREAS_LINE_LAYER_ID,
       type: "line",
       source: sourceId,
+      layout: {
+        "line-join": "round",
+        "line-cap": "round"
+      },
       paint: buildAreaLinePaint()
     },
     labelLayer: {
