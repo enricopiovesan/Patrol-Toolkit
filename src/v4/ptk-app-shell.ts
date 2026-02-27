@@ -20,6 +20,7 @@ import { APP_VERSION } from "../app-version";
 import { readAerialConfigFromEnv } from "../map/aerial-config";
 import { requestPackAssetPrecache } from "../pwa/precache-pack-assets";
 import { composeRadioPhrase } from "../radio/phrase";
+import { resolveAppUrl } from "../runtime/base-url";
 import {
   isCatalogVersionCompatible,
   loadPackFromCatalogEntry,
@@ -236,6 +237,9 @@ export class PtkAppShell extends LitElement {
   private accessor installBlockingAttempted = false;
 
   @state()
+  private accessor installBlockingBundleSizeLabel = "";
+
+  @state()
   private accessor searchQuery = "";
 
   @state()
@@ -276,6 +280,9 @@ export class PtkAppShell extends LitElement {
 
   @state()
   private accessor blockedPackUpdates: string[] = [];
+
+  @state()
+  private accessor installedPackBundleSizeByResortId: Record<string, number | undefined> = {};
 
   @state()
   private accessor gpsUiState: V4GpsUiState = createInitialGpsUiState();
@@ -563,7 +570,8 @@ export class PtkAppShell extends LitElement {
         .packUpdateCandidates=${this.packUpdateCandidates}
         .offlineRows=${buildOfflineResortRows({
           installedPacks: this.installedPacks,
-          updateCandidates: this.packUpdateCandidates
+          updateCandidates: this.packUpdateCandidates,
+          installedSizeBytesByResortId: this.installedPackBundleSizeByResortId
         })}
         .blockedPackUpdates=${this.blockedPackUpdates}
         @ptk-settings-close=${this.handleCloseSettingsPanel}
@@ -571,6 +579,8 @@ export class PtkAppShell extends LitElement {
         @ptk-settings-install-app=${this.handleInstallAppFromSettings}
         @ptk-settings-check-app-updates=${this.handleCheckAppUpdatesFromSettings}
         @ptk-settings-apply-app-update=${this.handleApplyAppUpdateFromSettings}
+        @ptk-settings-check-pack-updates=${this.handleCheckPackUpdatesFromSettings}
+        @ptk-settings-install-pack-update=${this.handleInstallPackUpdateFromSettings}
       ></ptk-settings-help-panel>
     `;
   }
@@ -602,6 +612,9 @@ export class PtkAppShell extends LitElement {
           </p>
           ${this.installBlockingError
             ? html`<div class="message-card message-card--error">${this.installBlockingError}</div>`
+            : html``}
+          ${this.installBlockingBundleSizeLabel
+            ? html`<div class="message-card">${this.installBlockingBundleSizeLabel}</div>`
             : html``}
           <div class="action-row">
             <button
@@ -647,6 +660,7 @@ export class PtkAppShell extends LitElement {
       this.catalogEntries = selectLatestEligibleVersions(catalog);
       this.installedPacks = installedPacks;
       await this.refreshSelectableResortCenters();
+      await this.refreshInstalledPackBundleSizes();
 
       if (activePackId) {
         const activeEntry = this.catalogEntries.find((entry) => entry.resortId === activePackId);
@@ -684,8 +698,13 @@ export class PtkAppShell extends LitElement {
     this.installBlockingError = "";
     this.installBlockingBusy = false;
     this.installBlockingAttempted = false;
+    this.installBlockingBundleSizeLabel = "";
     const isInstalled = this.installedPacks.some((pack) => pack.id === resortId);
     this.page = isInstalled ? "resort" : "install-blocking";
+    if (!isInstalled && entry) {
+      this.installBlockingBundleSizeLabel = "Checking package size...";
+      void this.updateInstallBlockingBundleSize(entry);
+    }
     if (this.repository) {
       const didPersist = await this.repository.setActivePackId(resortId);
       if (!didPersist) {
@@ -704,6 +723,7 @@ export class PtkAppShell extends LitElement {
     this.installBlockingError = "";
     this.installBlockingBusy = false;
     this.installBlockingAttempted = false;
+    this.installBlockingBundleSizeLabel = "";
     this.selectedResortPack = null;
     this.aerialModeActive = false;
     this.resortPageUiState = createInitialResortPageUiState(this.viewport);
@@ -889,6 +909,8 @@ export class PtkAppShell extends LitElement {
 
   private readonly handleOpenSettingsPanel = (): void => {
     this.settingsPanelOpen = true;
+    void this.checkPackUpdates();
+    void this.refreshInstalledPackBundleSizes();
   };
 
   private readonly handleCloseSettingsPanel = (): void => {
@@ -927,6 +949,16 @@ export class PtkAppShell extends LitElement {
 
   private readonly handleApplyPackUpdatesFromSettings = async (): Promise<void> => {
     await this.applySelectedPackUpdates();
+  };
+
+  private readonly handleInstallPackUpdateFromSettings = async (
+    event: CustomEvent<{ resortId?: string }>
+  ): Promise<void> => {
+    const resortId = event.detail?.resortId?.trim();
+    if (!resortId) {
+      return;
+    }
+    await this.installSinglePackUpdate(resortId);
   };
 
   private async openInstalledResort(resortId: string, resortName: string): Promise<void> {
@@ -1014,6 +1046,7 @@ export class PtkAppShell extends LitElement {
       requestPackAssetPrecache(pack);
       this.installedPacks = await this.repository.listPacks();
       await this.refreshSelectableResortCenters();
+      await this.refreshInstalledPackBundleSizes();
       await this.repository.setActivePackId(entry.resortId);
       await this.openInstalledResort(entry.resortId, entry.resortName);
     } catch (error) {
@@ -1021,6 +1054,14 @@ export class PtkAppShell extends LitElement {
     } finally {
       this.installBlockingBusy = false;
     }
+  }
+
+  private async updateInstallBlockingBundleSize(entry: SelectableResortPack): Promise<void> {
+    const bytes = await estimatePackBundleSizeBytes(entry);
+    this.installBlockingBundleSizeLabel =
+      typeof bytes === "number" && bytes > 0
+        ? `Download size: ${formatBytesLabel(bytes)}`
+        : "Download size: unavailable";
   }
 
   private async installApp(): Promise<void> {
@@ -1115,7 +1156,7 @@ export class PtkAppShell extends LitElement {
       const localPacks = await this.repository.listPacks();
       const localById = new Map(localPacks.map((item) => [item.id, item]));
 
-      this.packUpdateCandidates = latestEligible
+      const pendingCandidates = latestEligible
         .filter((entry) => {
           const local = localById.get(entry.resortId);
           if (!local) {
@@ -1128,8 +1169,20 @@ export class PtkAppShell extends LitElement {
           resortName: entry.resortName,
           version: entry.version,
           createdAt: entry.createdAt,
+          bundleSizeBytes: undefined,
           selected: false
         }));
+
+      this.packUpdateCandidates = await Promise.all(
+        pendingCandidates.map(async (candidate) => {
+          const entry = latestEligible.find((candidateEntry) => candidateEntry.resortId === candidate.resortId);
+          if (!entry) {
+            return candidate;
+          }
+          const bundleSizeBytes = await estimatePackBundleSizeBytes(entry);
+          return { ...candidate, bundleSizeBytes };
+        })
+      );
 
       const blocked: string[] = [];
       for (const resort of catalog.resorts) {
@@ -1209,6 +1262,7 @@ export class PtkAppShell extends LitElement {
 
       this.installedPacks = await this.repository.listPacks();
       await this.refreshSelectableResortCenters();
+      await this.refreshInstalledPackBundleSizes();
       this.packUpdateCandidates = clearPackCandidateSelections(this.packUpdateCandidates);
       this.packUpdateResult = `Pack updates complete: ${successes.length} succeeded, ${failures.length} failed.${failures.length > 0 ? ` ${failures.join(" ")}` : ""}`;
       this.pushToast(this.packUpdateResult, failures.length > 0 ? "warning" : "success");
@@ -1220,6 +1274,64 @@ export class PtkAppShell extends LitElement {
       this.packUpdateResult = error instanceof Error ? error.message : "Failed to apply pack updates.";
       this.pushToast(this.packUpdateResult, "error");
     }
+  }
+
+  private async installSinglePackUpdate(resortId: string): Promise<void> {
+    if (!this.repository) {
+      this.packUpdateResult = "Pack update unavailable: storage not ready.";
+      this.pushToast(this.packUpdateResult, "error");
+      return;
+    }
+
+    try {
+      const catalog = await loadResortCatalog();
+      const latestEligible = selectLatestEligibleVersions(catalog);
+      const entry = latestEligible.find((candidate) => candidate.resortId === resortId);
+      if (!entry) {
+        this.packUpdateResult = "No compatible update found for this resort.";
+        this.pushToast(this.packUpdateResult, "warning");
+        return;
+      }
+
+      const pack = await loadPackFromCatalogEntry(entry);
+      await this.repository.savePack(pack, {
+        sourceVersion: entry.version,
+        sourceCreatedAt: entry.createdAt
+      });
+      requestPackAssetPrecache(pack);
+
+      this.installedPacks = await this.repository.listPacks();
+      await this.refreshSelectableResortCenters();
+      await this.refreshInstalledPackBundleSizes();
+      await this.checkPackUpdates();
+
+      if (this.selectedResortId === resortId && this.page === "resort") {
+        await this.openInstalledResort(resortId, this.selectedResortName);
+      }
+
+      this.packUpdateResult = `Updated ${entry.resortName} to ${entry.version}.`;
+      this.pushToast(this.packUpdateResult, "success");
+    } catch (error) {
+      this.packUpdateResult = error instanceof Error ? error.message : "Pack update failed.";
+      this.pushToast(this.packUpdateResult, "error");
+    }
+  }
+
+  private async refreshInstalledPackBundleSizes(): Promise<void> {
+    if (!this.repository) {
+      this.installedPackBundleSizeByResortId = {};
+      return;
+    }
+
+    const next: Record<string, number | undefined> = {};
+    for (const installed of this.installedPacks) {
+      const pack = await this.repository.getPack(installed.id);
+      if (!pack) {
+        continue;
+      }
+      next[installed.id] = await estimateInstalledPackBundleSizeBytes(pack);
+    }
+    this.installedPackBundleSizeByResortId = next;
   }
 }
 
@@ -1292,4 +1404,56 @@ function toMessage(error: unknown): string {
     return error.message;
   }
   return "Unable to load resorts.";
+}
+
+async function estimatePackBundleSizeBytes(entry: SelectableResortPack): Promise<number | undefined> {
+  try {
+    const packUrl = resolveAppUrl(entry.packUrl);
+    const packSize = await getResourceSizeBytes(packUrl);
+    const pack = await loadPackFromCatalogEntry(entry);
+    const pmtilesSize = await getResourceSizeBytes(resolveAppUrl(pack.basemap.pmtilesPath));
+    const styleSize = await getResourceSizeBytes(resolveAppUrl(pack.basemap.stylePath));
+    const total = (packSize ?? 0) + (pmtilesSize ?? 0) + (styleSize ?? 0);
+    return total > 0 ? total : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function estimateInstalledPackBundleSizeBytes(pack: ResortPack): Promise<number | undefined> {
+  try {
+    const pmtilesSize = await getResourceSizeBytes(resolveAppUrl(pack.basemap.pmtilesPath));
+    const styleSize = await getResourceSizeBytes(resolveAppUrl(pack.basemap.stylePath));
+    const packJsonSize = new Blob([JSON.stringify(pack)]).size;
+    const total = (pmtilesSize ?? 0) + (styleSize ?? 0) + packJsonSize;
+    return total > 0 ? total : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function getResourceSizeBytes(url: string): Promise<number | undefined> {
+  try {
+    const response = await fetch(url, { method: "HEAD", cache: "no-store" });
+    if (!response.ok) {
+      return undefined;
+    }
+    const contentLength = response.headers.get("content-length");
+    if (!contentLength) {
+      return undefined;
+    }
+    const parsed = Number.parseInt(contentLength, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function formatBytesLabel(bytes: number): string {
+  const kib = bytes / 1024;
+  if (kib < 1024) {
+    return `${kib.toFixed(1)} KiB`;
+  }
+  const mib = kib / 1024;
+  return `${mib.toFixed(1)} MiB`;
 }

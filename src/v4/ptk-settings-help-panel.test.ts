@@ -39,13 +39,24 @@ describe("ptk-settings-help-panel", () => {
     expect(handler.mock.calls[0]?.[0].detail.theme).toBe("high-contrast");
   });
 
-  it("does not render pack update action buttons in simplified offline resorts menu", async () => {
+  it("renders pack update check action in offline resorts menu", async () => {
     const element = createElement();
     document.body.appendChild(element);
     await element.updateComplete;
 
-    expect(buttonLabels(element)).not.toContain("Check pack updates");
-    expect(buttonLabels(element)).not.toContain("Update all selected resorts data");
+    expect(buttonLabels(element)).toContain("Check pack updates");
+  });
+
+  it("emits install-pack-update when clicking update-available resort row", async () => {
+    const element = createElement();
+    const handler = vi.fn();
+    element.addEventListener("ptk-settings-install-pack-update", handler);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    clickButton(element, "Fernie · v7");
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0]?.[0].detail.resortId).toBe("1");
   });
 });
 
@@ -55,7 +66,16 @@ function createElement(): PtkSettingsHelpPanel {
   element.appVersion = "1.2.3";
   element.theme = "default";
   element.installHint = "Install from browser menu.";
-  element.offlineRows = [{ resortId: "1", label: "Fernie · v7", badge: "Offline ready", badgeTone: "success" }];
+  element.offlineRows = [
+    {
+      resortId: "1",
+      label: "Fernie · v7",
+      badge: "Update available",
+      badgeTone: "warning",
+      action: "install-update",
+      subtitle: "Download: 2.0 MiB"
+    }
+  ];
   element.packUpdateCandidates = [{ resortId: "1", resortName: "Fernie", version: "v8", selected: false }];
   return element;
 }

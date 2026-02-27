@@ -32,11 +32,14 @@ describe("settings-help-model", () => {
         { id: "B", name: "Fernie", sourceVersion: "v7", updatedAt: "2026-03-01T00:00:00Z" },
         { id: "A", name: "Kicking Horse", sourceVersion: "v4", updatedAt: "2026-03-01T00:00:00Z" }
       ],
-      updateCandidates: [{ resortId: "B", resortName: "Fernie", version: "v8", selected: false }]
+      updateCandidates: [{ resortId: "B", resortName: "Fernie", version: "v8", bundleSizeBytes: 2_048, selected: false }],
+      installedSizeBytesByResortId: { A: 4_096, B: 8_192 }
     });
 
     expect(rows.map((row) => row.resortId)).toEqual(["B", "A"]);
-    expect(rows[0]).toMatchObject({ badge: "Update available", badgeTone: "warning" });
-    expect(rows[1]).toMatchObject({ badge: "Offline ready", badgeTone: "success" });
+    expect(rows[0]).toMatchObject({ badge: "Update available", badgeTone: "warning", action: "install-update" });
+    expect(rows[0]?.subtitle).toContain("Download:");
+    expect(rows[1]).toMatchObject({ badge: "Offline ready", badgeTone: "success", action: "none" });
+    expect(rows[1]?.subtitle).toContain("Installed:");
   });
 });
