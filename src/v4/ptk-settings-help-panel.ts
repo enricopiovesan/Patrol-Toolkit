@@ -330,6 +330,18 @@ export class PtkSettingsHelpPanel extends LitElement {
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       gap: 10px;
+      width: 100%;
+      text-align: left;
+      cursor: default;
+    }
+
+    .offline-item:disabled {
+      opacity: 1;
+      cursor: default;
+    }
+
+    .offline-item:not(:disabled) {
+      cursor: pointer;
     }
 
     .surface.small .offline-item {
@@ -373,6 +385,11 @@ export class PtkSettingsHelpPanel extends LitElement {
       gap: 8px;
       justify-content: flex-end;
       min-width: 0;
+    }
+
+    .offline-item .muted {
+      grid-column: 1 / -1;
+      margin: 0;
     }
 
     .status-chip {
@@ -488,6 +505,10 @@ export class PtkSettingsHelpPanel extends LitElement {
 
         <section class="section" aria-label="Offline resorts">
           <h3 class="section-title">Offline resorts</h3>
+          <div class="stack">
+            <button class="button full" type="button" @click=${this.handleCheckPackUpdates}>Check pack updates</button>
+            ${this.packUpdateResult ? html`<div class="result">${this.packUpdateResult}</div>` : nothing}
+          </div>
           <div class="offline-list">
             ${this.offlineRows.length > 0
               ? this.offlineRows.map(
@@ -502,14 +523,21 @@ export class PtkSettingsHelpPanel extends LitElement {
                       "status-ready": !selected && !isUpdate
                     });
                     return html`
-                      <div class=${itemClass} aria-label=${`Offline resort ${row.label}`}>
+                      <button
+                        class=${itemClass}
+                        type="button"
+                        ?disabled=${row.action !== "install-update"}
+                        aria-label=${`Offline resort ${row.label}`}
+                        @click=${() => this.handleInstallPackUpdate(row.resortId)}
+                      >
                         <p class="offline-label">${row.label}</p>
                         <div class="offline-meta">
                           ${selected
                             ? html`<span class="checkmark" aria-hidden="true">✓</span>`
                             : html`<span class=${`status-chip ${row.badgeTone}`}>${row.badge}</span>`}
                         </div>
-                      </div>
+                        ${row.subtitle ? html`<p class="muted">${row.subtitle}</p>` : nothing}
+                      </button>
                     `;
                   }
                 )
@@ -564,6 +592,16 @@ export class PtkSettingsHelpPanel extends LitElement {
   private readonly handleApplyAppUpdate = (): void => {
     this.dispatchEvent(new CustomEvent("ptk-settings-apply-app-update", { bubbles: true, composed: true }));
   };
+
+  private readonly handleCheckPackUpdates = (): void => {
+    this.dispatchEvent(new CustomEvent("ptk-settings-check-pack-updates", { bubbles: true, composed: true }));
+  };
+
+  private handleInstallPackUpdate(resortId: string): void {
+    this.dispatchEvent(
+      new CustomEvent("ptk-settings-install-pack-update", { detail: { resortId }, bubbles: true, composed: true })
+    );
+  }
 
 }
 
