@@ -61,6 +61,31 @@ describe("buildResortOverlayData", () => {
         elevationMeters: 3480
       }
     ];
+    pack.runs = [
+      {
+        id: "run-1",
+        name: "Flying Dutchman",
+        difficulty: "black",
+        polygon: {
+          type: "Polygon",
+          coordinates: [[
+            [-106.952, 39.1934],
+            [-106.9495, 39.1934],
+            [-106.9495, 39.1924],
+            [-106.952, 39.1934]
+          ]]
+        },
+        centerline: {
+          type: "LineString",
+          coordinates: [
+            [-106.9518, 39.1932],
+            [-106.9509, 39.1932],
+            [-106.9502, 39.1927],
+            [-106.9497, 39.1925]
+          ]
+        }
+      }
+    ];
     const overlays = buildResortOverlayData(pack);
 
     expect(overlays.boundary.features).toHaveLength(0);
@@ -73,8 +98,16 @@ describe("buildResortOverlayData", () => {
     expect(overlays.runs.features).toHaveLength(pack.runs.length);
     expect(overlays.runs.features[0]?.geometry.type).toBe("LineString");
     expect(overlays.runs.features[0]?.properties?.difficulty).toBe(pack.runs[0]?.difficulty);
+    expect(
+      (overlays.runs.features[0]?.geometry.coordinates.length ?? 0) >
+        (pack.runs[0]?.centerline.coordinates.length ?? 0)
+    ).toBe(true);
     expect(overlays.lifts.features).toHaveLength(1);
     expect(overlays.liftTowers.features).toHaveLength(2);
+    expect(
+      (overlays.areas.features[0]?.geometry.coordinates[0]?.length ?? 0) >
+        (pack.areas?.[0]?.perimeter.coordinates[0]?.length ?? 0)
+    ).toBe(true);
   });
 
   it("builds boundary overlay when boundary is present", () => {

@@ -1,4 +1,5 @@
 import {
+  buildContourLineLayout,
   buildContourLabelLayout,
   buildContourLabelPaint,
   buildContourMajorLinePaint,
@@ -34,6 +35,7 @@ export function buildContourLayers(sourceId: string): {
     type: "line";
     source: string;
     filter: readonly unknown[];
+    layout: ReturnType<typeof buildContourLineLayout>;
     paint: ReturnType<typeof buildContourMinorLinePaint>;
   };
   majorLineLayer: {
@@ -41,6 +43,7 @@ export function buildContourLayers(sourceId: string): {
     type: "line";
     source: string;
     filter: readonly unknown[];
+    layout: ReturnType<typeof buildContourLineLayout>;
     paint: ReturnType<typeof buildContourMajorLinePaint>;
   };
   labelLayer: {
@@ -68,6 +71,7 @@ export function buildContourLayers(sourceId: string): {
       type: "line",
       source: sourceId,
       filter: RESORT_CONTOURS_MINOR_FILTER,
+      layout: buildContourLineLayout(),
       paint: buildContourMinorLinePaint()
     },
     majorLineLayer: {
@@ -75,6 +79,7 @@ export function buildContourLayers(sourceId: string): {
       type: "line",
       source: sourceId,
       filter: RESORT_CONTOURS_MAJOR_FILTER,
+      layout: buildContourLineLayout(),
       paint: buildContourMajorLinePaint()
     },
     labelLayer: {

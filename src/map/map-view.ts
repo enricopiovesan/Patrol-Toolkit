@@ -29,8 +29,8 @@ const RESORT_PEAKS_SOURCE_ID = "resort-peaks";
 const RESORT_RUNS_SOURCE_ID = "resort-runs";
 const RESORT_LIFTS_SOURCE_ID = "resort-lifts";
 const RESORT_LIFT_TOWERS_SOURCE_ID = "resort-lift-towers";
-const RESORT_BOUNDARY_FILL_LAYER = "resort-boundary-fill";
-const RESORT_BOUNDARY_LINE_LAYER = "resort-boundary-line";
+const RESORT_BOUNDARY_LINE_OUTER_LAYER = "resort-boundary-line-outer";
+const RESORT_BOUNDARY_LINE_INNER_LAYER = "resort-boundary-line-inner";
 const DEFAULT_CENTER: [number, number] = [7.2, 45.1];
 
 export type PositionUpdateDetail = {
@@ -362,23 +362,36 @@ export class MapView extends LitElement {
     this.map.addSource(RESORT_LIFT_TOWERS_SOURCE_ID, { type: "geojson", data: empty.liftTowers });
 
     this.map.addLayer({
-      id: RESORT_BOUNDARY_FILL_LAYER,
-      type: "fill",
+      id: RESORT_BOUNDARY_LINE_OUTER_LAYER,
+      type: "line",
       source: RESORT_BOUNDARY_SOURCE_ID,
+      layout: {
+        "line-join": "round",
+        "line-cap": "round"
+      },
       paint: {
-        "fill-color": "#0ea5a5",
-        "fill-opacity": 0.08
+        "line-color": "#083344",
+        "line-width": 1.45,
+        "line-opacity": 0.95,
+        "line-dasharray": [1.8, 1.3],
+        "line-offset": -2.2
       }
     });
 
     this.map.addLayer({
-      id: RESORT_BOUNDARY_LINE_LAYER,
+      id: RESORT_BOUNDARY_LINE_INNER_LAYER,
       type: "line",
       source: RESORT_BOUNDARY_SOURCE_ID,
+      layout: {
+        "line-join": "round",
+        "line-cap": "round"
+      },
       paint: {
-        "line-color": "#0f4c5c",
-        "line-width": 2,
-        "line-dasharray": [2, 2]
+        "line-color": "#0e4b63",
+        "line-width": 1.45,
+        "line-opacity": 0.95,
+        "line-dasharray": [1.8, 1.3],
+        "line-offset": 2.2
       }
     });
 

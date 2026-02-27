@@ -1,4 +1,8 @@
 import type { ResortPack } from "../resort-pack/types";
+import { smoothLineString, smoothPolygonRing } from "./geometry-smoothing";
+
+const RUN_SMOOTHING_PASSES = 3;
+const AREA_RING_SMOOTHING_PASSES = 4;
 
 export type ResortOverlayData = {
   boundary: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
@@ -26,7 +30,10 @@ export function buildResortOverlayData(pack: ResortPack | null): ResortOverlayDa
   const runFeatures: GeoJSON.Feature<GeoJSON.LineString>[] =
     pack?.runs.map((run) => ({
       type: "Feature",
-      geometry: run.centerline,
+      geometry: {
+        type: "LineString",
+        coordinates: smoothLineString(run.centerline.coordinates, RUN_SMOOTHING_PASSES)
+      },
       properties: {
         id: run.id,
         name: run.name,
@@ -61,7 +68,14 @@ export function buildResortOverlayData(pack: ResortPack | null): ResortOverlayDa
   const areaFeatures: GeoJSON.Feature<GeoJSON.Polygon>[] =
     pack?.areas?.map((area) => ({
       type: "Feature",
-      geometry: area.perimeter,
+      geometry: {
+        type: "Polygon",
+        coordinates: area.perimeter.coordinates.map((ring, index) =>
+          index === 0
+            ? smoothPolygonRing(ring, AREA_RING_SMOOTHING_PASSES)
+            : smoothPolygonRing(ring, Math.max(2, AREA_RING_SMOOTHING_PASSES - 2))
+        )
+      },
       properties: {
         id: area.id,
         name: area.name,

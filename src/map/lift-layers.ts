@@ -27,12 +27,20 @@ export function buildLiftLayers(
     id: string;
     type: "line";
     source: string;
+    layout: {
+      "line-join": "round";
+      "line-cap": "round";
+    };
     paint: ReturnType<typeof buildLiftCasingPaint>;
   };
   lineLayer: {
     id: string;
     type: "line";
     source: string;
+    layout: {
+      "line-join": "round";
+      "line-cap": "round";
+    };
     paint: ReturnType<typeof buildLiftLinePaint>;
   };
   labelLayer: {
@@ -66,12 +74,20 @@ export function buildLiftLayers(
       id: RESORT_LIFTS_CASING_LAYER_ID,
       type: "line",
       source: liftSourceId,
+      layout: {
+        "line-join": "round",
+        "line-cap": "round"
+      },
       paint: buildLiftCasingPaint()
     },
     lineLayer: {
       id: RESORT_LIFTS_LINE_LAYER_ID,
       type: "line",
       source: liftSourceId,
+      layout: {
+        "line-join": "round",
+        "line-cap": "round"
+      },
       paint: buildLiftLinePaint()
     },
     labelLayer: {

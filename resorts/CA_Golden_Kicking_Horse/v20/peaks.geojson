@@ -1,0 +1,50 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.06422,
+          51.2697968
+        ]
+      },
+      "properties": {
+        "id": "node/5563434562",
+        "name": "Terminator 2 Peak",
+        "ele": 2385
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.0696312,
+          51.2732683
+        ]
+      },
+      "properties": {
+        "id": "node/5563434563",
+        "name": "Terminator Peak",
+        "ele": 2408
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -117.0924676,
+          51.2777296
+        ]
+      },
+      "properties": {
+        "id": "node/7483078565",
+        "name": "Whitetooth",
+        "ele": 2443
+      }
+    }
+  ]
+}

@@ -14,6 +14,10 @@ describe("run layer specs", () => {
     expect(layers.lineLayer.id).toBe(RESORT_RUNS_LINE_LAYER_ID);
     expect(layers.lineLayer.type).toBe("line");
     expect(layers.lineLayer.source).toBe("resort-runs");
+    expect(layers.lineLayer.layout).toEqual({
+      "line-join": "round",
+      "line-cap": "round"
+    });
     expect(layers.lineLayer.paint).toEqual({
       "line-color": [
         "match",

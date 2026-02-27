@@ -21,6 +21,10 @@ describe("lift layer specs", () => {
       id: RESORT_LIFTS_CASING_LAYER_ID,
       type: "line",
       source: "resort-lifts",
+      layout: {
+        "line-join": "round",
+        "line-cap": "round"
+      },
       paint: {
         "line-color": "#fff7ed",
         "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4.2, 13, 5.8, 16, 7.4],
@@ -32,6 +36,10 @@ describe("lift layer specs", () => {
       id: RESORT_LIFTS_LINE_LAYER_ID,
       type: "line",
       source: "resort-lifts",
+      layout: {
+        "line-join": "round",
+        "line-cap": "round"
+      },
       paint: {
         "line-color": "#b91c1c",
         "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.2, 13, 3.2, 16, 4.6],
